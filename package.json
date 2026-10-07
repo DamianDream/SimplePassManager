@@ -1,0 +1,25 @@
+{
+  "name": "simple-pass-manager",
+  "version": "1.0.0",
+  "description": "A sleek, open-source password manager Chrome extension with AES-256 browser vault, native side panel, and pass CLI compatibility.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "pack": "npm run build && (cd dist && zip -rq ../simplepass-chrome.zip .)"
+  },
+  "keywords": [
+    "password-manager",
+    "chrome-extension",
+    "pass",
+    "side-panel",
+    "open-source",
+    "aes-256"
+  ],
+  "author": "Dima Batalshikov",
+  "license": "MIT",
+  "devDependencies": {
+    "rollup-plugin-copy": "^3.5.0",
+    "vite": "^5.4.0"
+  }
+}
