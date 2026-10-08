@@ -3,7 +3,19 @@
  * Built for speed, high security, and sleek user experience.
  */
 
-import { state, subscribe, updateState, lockVault, copyToClipboard } from '../core/state.js';
+import {
+  state,
+  subscribe,
+  updateState,
+  getActiveProject,
+  getActiveProjectItems,
+  switchProject,
+  createProject,
+  renameProject,
+  deleteProjectCascade,
+  lockVault,
+  copyToClipboard
+} from '../core/state.js';
 import { encryptVault, decryptVault } from '../core/crypto.js';
 import {
   getStoredVault,
@@ -11,9 +23,11 @@ import {
   getStoredConfig,
   saveStoredConfig,
   clearStoredVault,
+  normalizeVaultData,
   itemToPassFormat,
   passFormatToItem
 } from '../core/storage.js';
+import { createSession, restoreSession, destroySession } from '../core/session.js';
 import { generatePassword, evaluatePasswordStrength } from '../core/generator.js';
 import * as icons from '../icons/icons.js';
 
@@ -52,7 +66,40 @@ async function init() {
   }
 
   const storedVault = await getStoredVault();
-  updateState({ isInitialized: storedVault !== null });
+  const storedConfig = await getStoredConfig();
+
+  updateState({
+    isInitialized: storedVault !== null,
+    lockInterval: storedConfig.lockInterval || '3days'
+  });
+
+  // Attempt to restore active session (e.g. valid within 3 days)
+  if (storedVault) {
+    const session = await restoreSession();
+    if (session && session.masterPassword) {
+      try {
+        const decrypted = await decryptVault(storedVault, session.masterPassword);
+        const normalized = normalizeVaultData(decrypted);
+
+        const initialProjectId =
+          storedConfig.latestProjectId && normalized.projects.some(p => p.id === storedConfig.latestProjectId)
+            ? storedConfig.latestProjectId
+            : normalized.projects[0].id;
+
+        updateState({
+          isUnlocked: true,
+          masterPassword: session.masterPassword,
+          projects: normalized.projects,
+          items: normalized.items,
+          activeProjectId: initialProjectId,
+          sessionExpiresAt: session.expiresAt
+        });
+      } catch (err) {
+        console.warn('Session restoration failed:', err);
+        await destroySession();
+      }
+    }
+  }
 
   subscribe(() => render());
   render();
@@ -64,17 +111,31 @@ async function handleUnlock(password) {
   try {
     const envelope = await getStoredVault();
     const decrypted = await decryptVault(envelope, password);
+    const normalized = normalizeVaultData(decrypted);
+    const storedConfig = await getStoredConfig();
+
+    const initialProjectId =
+      storedConfig.latestProjectId && normalized.projects.some(p => p.id === storedConfig.latestProjectId)
+        ? storedConfig.latestProjectId
+        : normalized.projects[0].id;
+
+    // Create session (default 3 days or configured interval)
+    const session = await createSession(password, state.lockInterval || '3days');
+
     updateState({
       isUnlocked: true,
       masterPassword: password,
-      items: decrypted.items || []
+      projects: normalized.projects,
+      items: normalized.items,
+      activeProjectId: initialProjectId,
+      sessionExpiresAt: session.expiresAt
     });
   } catch (err) {
     alert('Неверный мастер-пароль или хранилище повреждено.');
   }
 }
 
-async function handleCreateVault(password, confirmPassword) {
+async function handleCreateVault(projectName, password, confirmPassword) {
   if (!password || password.length < 8) {
     alert('Мастер-пароль должен быть длиной не менее 8 символов.');
     return;
@@ -84,57 +145,99 @@ async function handleCreateVault(password, confirmPassword) {
     return;
   }
 
+  const projId = 'proj_' + Date.now();
+  const now = new Date().toISOString();
+
+  const initialProject = {
+    id: projId,
+    name: projectName.trim() || 'Основной',
+    type: 'browser',
+    createdAt: now,
+    updatedAt: now
+  };
+
   const initialData = {
-    version: 1,
-    createdAt: new Date().toISOString(),
+    version: 2,
+    createdAt: now,
+    updatedAt: now,
+    projects: [initialProject],
     items: [
       {
         id: 'item_sample_1',
+        projectId: projId,
         title: 'GitHub',
         username: 'developer@example.com',
         password: generatePassword({ length: 24 }),
         url: 'https://github.com',
         category: 'Work',
-        notes: 'Personal developer account',
-        updatedAt: new Date().toISOString()
+        notes: 'Первая тестовая запись',
+        updatedAt: now
       }
     ]
   };
 
   const encrypted = await encryptVault(initialData, password);
   await saveStoredVault(encrypted);
+  await saveStoredConfig({
+    activeProjectId: projId,
+    latestProjectId: projId,
+    lockInterval: '3days'
+  });
+
+  const session = await createSession(password, '3days');
 
   updateState({
     isInitialized: true,
     isUnlocked: true,
     masterPassword: password,
-    items: initialData.items
+    projects: initialData.projects,
+    items: initialData.items,
+    activeProjectId: projId,
+    sessionExpiresAt: session.expiresAt
   });
 }
 
 async function persistVaultChanges() {
   if (!state.masterPassword) return;
   const vaultData = {
-    version: 1,
+    version: 2,
     updatedAt: new Date().toISOString(),
+    projects: state.projects,
     items: state.items
   };
   const encrypted = await encryptVault(vaultData, state.masterPassword);
   await saveStoredVault(encrypted);
+
+  const cfg = await getStoredConfig();
+  await saveStoredConfig({
+    ...cfg,
+    activeProjectId: state.activeProjectId,
+    latestProjectId: state.activeProjectId
+  });
 }
 
 async function saveItem(itemData) {
+  const activeProj = getActiveProject();
+  const projectId = itemData.projectId || (activeProj ? activeProj.id : 'proj_default');
+
   const existingIdx = state.items.findIndex(i => i.id === itemData.id);
   let updatedItems = [...state.items];
+
   if (existingIdx >= 0) {
-    updatedItems[existingIdx] = { ...itemData, updatedAt: new Date().toISOString() };
+    updatedItems[existingIdx] = {
+      ...itemData,
+      projectId,
+      updatedAt: new Date().toISOString()
+    };
   } else {
     updatedItems.unshift({
       ...itemData,
       id: 'item_' + Date.now(),
+      projectId,
       updatedAt: new Date().toISOString()
     });
   }
+
   updateState({ items: updatedItems, activeTab: 'vault', selectedItem: null, isEditing: false });
   await persistVaultChanges();
 }
@@ -176,7 +279,7 @@ function showToast(text) {
     toast = document.createElement('div');
     toast.id = 'sp-toast';
     toast.style.cssText = `
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
       background: #06b6d4; color: #fff; font-size: 12px; font-weight: 600;
       padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
       z-index: 9999; transition: opacity 0.2s ease;
@@ -198,36 +301,60 @@ function render() {
     return;
   }
 
+  const activeProj = getActiveProject();
+  const activeItems = getActiveProjectItems();
+
   rootEl.innerHTML = `
-    <!-- Header -->
-    <header class="sp-header">
-      <div class="sp-brand">
-        <div class="sp-brand-icon"><img src="icons/icon-32.png" style="width:24px;height:24px;border-radius:6px;display:block;" alt="Logo" /></div>
-        <span>SimplePass</span>
-      </div>
-      <div class="sp-header-actions">
-        <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
-        <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
-      </div>
-    </header>
+    <div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden;">
+      <!-- Header -->
+      <header class="sp-header">
+        <div class="sp-brand">
+          <div class="sp-brand-icon"><img src="icons/icon-32.png" style="width:24px;height:24px;border-radius:6px;display:block;" alt="Logo" /></div>
+          <span>SimplePass</span>
+        </div>
+        <div class="sp-header-actions">
+          <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
+          <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
+        </div>
+      </header>
 
-    <!-- Nav Tabs -->
-    <nav class="sp-nav">
-      <button class="sp-nav-tab ${state.activeTab === 'vault' ? 'active' : ''}" data-tab="vault">
-        ${icons.iKey} <span>Пароли (${state.items.length})</span>
-      </button>
-      <button class="sp-nav-tab ${state.activeTab === 'generator' ? 'active' : ''}" data-tab="generator">
-        ${icons.iDice} <span>Генератор</span>
-      </button>
-      <button class="sp-nav-tab ${state.activeTab === 'settings' ? 'active' : ''}" data-tab="settings">
-        ${icons.iSettings} <span>Настройки</span>
-      </button>
-    </nav>
+      <!-- Nav Tabs -->
+      <nav class="sp-nav">
+        <button class="sp-nav-tab ${state.activeTab === 'vault' ? 'active' : ''}" data-tab="vault">
+          ${icons.iKey} <span>Пароли (${activeItems.length})</span>
+        </button>
+        <button class="sp-nav-tab ${state.activeTab === 'generator' ? 'active' : ''}" data-tab="generator">
+          ${icons.iDice} <span>Генератор</span>
+        </button>
+        <button class="sp-nav-tab ${state.activeTab === 'settings' ? 'active' : ''}" data-tab="settings">
+          ${icons.iSettings} <span>Настройки</span>
+        </button>
+      </nav>
 
-    <!-- Tab View Container -->
-    <main id="sp-tab-content" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
-      ${renderActiveTabContent()}
-    </main>
+      <!-- Tab View Container -->
+      <main id="sp-tab-content" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
+        ${renderActiveTabContent()}
+      </main>
+
+      <!-- Footer (mySmart style Project Switcher Trigger) -->
+      <footer class="sp-footer">
+        <div class="sp-footer-left">
+          <span>${activeItems.length} паролей в базе</span>
+        </div>
+        <div class="sp-footer-right">
+          <div class="sp-project-badge ${state.isProjectSwitcherOpen ? 'active' : ''}" id="sp-project-container" title="База данных (Проект)">
+            <span class="sp-project-dot"></span>
+            <span id="sp-project-display">${activeProj ? activeProj.name : '—'}</span>
+          </div>
+        </div>
+      </footer>
+
+      <!-- Sliding Project Switcher Panel -->
+      ${renderProjectSwitcherPanel()}
+
+      <!-- Cascade Delete Confirmation Modal -->
+      ${renderDeleteModal()}
+    </div>
   `;
 
   attachEventHandlers();
@@ -255,8 +382,9 @@ function renderAuthScreen() {
         <div class="sp-auth-box">
           <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
           <h2 class="sp-auth-title">Создание хранилища</h2>
-          <p class="sp-auth-desc">Задайте мастер-пароль. Он используется для надежного шифрования AES-256-GCM.</p>
+          <p class="sp-auth-desc">Задайте имя первой базы данных и мастер-пароль для шифрования AES-256-GCM.</p>
           <form class="sp-auth-form" id="sp-init-form">
+            <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="Название базы (например: Основной)" value="Основной" required />
             <input type="password" id="sp-init-pwd" class="sp-input" placeholder="Мастер-пароль (от 8 симв.)" required />
             <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="Повторите мастер-пароль" required />
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
@@ -268,9 +396,10 @@ function renderAuthScreen() {
     `;
     document.getElementById('sp-init-form').addEventListener('submit', e => {
       e.preventDefault();
+      const proj = document.getElementById('sp-init-proj-name').value;
       const p1 = document.getElementById('sp-init-pwd').value;
       const p2 = document.getElementById('sp-init-pwd2').value;
-      handleCreateVault(p1, p2);
+      handleCreateVault(proj, p1, p2);
     });
     return;
   }
@@ -302,8 +431,9 @@ function renderAuthScreen() {
 function renderVaultView() {
   const query = state.searchQuery.toLowerCase().trim();
   const cat = state.activeCategory;
+  const projectItems = getActiveProjectItems();
 
-  const filteredItems = state.items.filter(item => {
+  const filteredItems = projectItems.filter(item => {
     const matchesCat = cat === 'All' || item.category === cat;
     const matchesQuery =
       !query ||
@@ -313,10 +443,9 @@ function renderVaultView() {
     return matchesCat && matchesQuery;
   });
 
-  // Highlight items matching current active tab domain
   let activeDomainNotice = '';
   if (activeTabDomain) {
-    const domainMatches = state.items.filter(
+    const domainMatches = projectItems.filter(
       i => i.url && i.url.toLowerCase().includes(activeTabDomain.toLowerCase())
     );
     if (domainMatches.length > 0) {
@@ -330,11 +459,7 @@ function renderVaultView() {
   }
 
   const pillsHtml = state.categories
-    .map(
-      c => `
-      <button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${c}</button>
-    `
-    )
+    .map(c => `<button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${c}</button>`)
     .join('');
 
   const cardsHtml =
@@ -342,8 +467,8 @@ function renderVaultView() {
       ? `
       <div class="sp-empty-state">
         <div class="sp-empty-icon">${icons.iKey}</div>
-        <p style="font-size: 13px; font-weight: 600;">Нет паролей</p>
-        <p style="font-size: 11px;">Нажмите «+» вверху, чтобы добавить первую запись</p>
+        <p style="font-size: 13px; font-weight: 600;">Нет паролей в этой базе</p>
+        <p style="font-size: 11px;">Нажмите «+» вверху, чтобы добавить запись</p>
       </div>
     `
       : filteredItems
@@ -386,11 +511,118 @@ function renderVaultView() {
   `;
 }
 
-// ─── ITEM FORM VIEW (ADD / EDIT / VIEW) ──────────────────────────────────────
+// ─── PROJECT SWITCHER PANEL (mySmart Style) ──────────────────────────────────
+
+function renderProjectSwitcherPanel() {
+  const activeProj = getActiveProject();
+
+  const projectItemsHtml = state.projects
+    .map(p => {
+      const isActive = activeProj && activeProj.id === p.id;
+      const count = state.items.filter(item => item.projectId === p.id).length;
+      return `
+      <div class="sp-project-item ${isActive ? 'active' : ''}" data-project-id="${p.id}">
+        <div class="sp-project-item-left" data-action="select-project" data-project-id="${p.id}">
+          <div class="sp-radio-indicator"></div>
+          <div class="sp-project-info">
+            <span class="sp-project-name">${p.name}</span>
+            <span class="sp-project-meta">${count} паролей • ${p.type === 'browser' ? 'Браузер' : 'PASS CLI'}</span>
+          </div>
+        </div>
+        <div class="sp-project-item-actions">
+          <button class="sp-btn-icon" data-action="rename-project" data-project-id="${p.id}" title="Переименовать">${icons.iEdit}</button>
+          ${
+            state.projects.length > 1
+              ? `<button class="sp-btn-icon" data-action="delete-project" data-project-id="${p.id}" title="Удалить проект">${icons.iTrash}</button>`
+              : ''
+          }
+        </div>
+      </div>
+    `;
+    })
+    .join('');
+
+  return `
+    <div class="sp-project-switcher-panel ${state.isProjectSwitcherOpen ? 'open' : ''}" id="sp-project-panel">
+      <div class="sp-panel-header">
+        <span class="sp-panel-title">${icons.iFolder} Базы данных (Проекты)</span>
+        <button class="sp-btn-icon" id="sp-close-project-panel">${icons.iX}</button>
+      </div>
+
+      <div class="sp-project-list">
+        ${projectItemsHtml}
+      </div>
+
+      <div class="sp-new-project-card">
+        <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:8px;">
+          Создать новую базу
+        </span>
+        <form id="sp-create-project-form" style="display:flex; gap:8px;">
+          <input type="text" id="sp-new-project-name" class="sp-input" placeholder="Название базы (напр. Work)" required style="flex:1;" />
+          <button type="submit" class="sp-btn-primary" style="padding:8px 12px; white-space:nowrap;">
+            ${icons.iPlus} Создать
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+// ─── CASCADE DELETE MODAL ────────────────────────────────────────────────────
+
+function renderDeleteModal() {
+  if (!state.projectToDelete) return '';
+
+  const proj = state.projectToDelete;
+  const count = state.items.filter(item => item.projectId === proj.id).length;
+
+  return `
+    <div class="sp-modal-overlay" id="sp-delete-modal-overlay">
+      <div class="sp-modal-content">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title">${icons.iTrash} Удаление базы</span>
+          <button class="sp-btn-icon" id="sp-modal-cancel-btn">${icons.iX}</button>
+        </div>
+
+        <div class="sp-modal-danger-box">
+          <strong>Внимание: Каскадное удаление!</strong><br>
+          База «<strong>${proj.name}</strong>» и все привязанные к ней пароли (<strong>${count} шт.</strong>) будут удалены безвозвратно.
+        </div>
+
+        <form id="sp-delete-project-form" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="sp-form-group">
+            <label class="sp-label">Введите «<strong>${proj.name}</strong>» для подтверждения:</label>
+            <input type="text" id="sp-delete-confirm-name" class="sp-input" placeholder="${proj.name}" required />
+          </div>
+
+          <div class="sp-form-group">
+            <label class="sp-label">Введите мастер-пароль:</label>
+            <input type="password" id="sp-delete-confirm-pwd" class="sp-input" placeholder="Мастер-пароль" required />
+          </div>
+
+          <div id="sp-delete-modal-error" style="display:none; font-size:11px; color:var(--danger);"></div>
+
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button type="button" class="sp-btn-secondary" id="sp-modal-close-btn" style="flex:1; justify-content:center;">
+              Отмена
+            </button>
+            <button type="submit" class="sp-btn-danger" style="flex:1; justify-content:center;">
+              Удалить всё
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+// ─── ITEM FORM VIEW (ADD / EDIT) ─────────────────────────────────────────────
 
 function renderItemFormView() {
+  const activeProj = getActiveProject();
   const item = state.selectedItem || {
     id: '',
+    projectId: activeProj ? activeProj.id : 'proj_default',
     title: '',
     username: '',
     password: '',
@@ -413,6 +645,15 @@ function renderItemFormView() {
 
       <form id="sp-item-form" style="display:flex; flex-direction:column; gap:12px;">
         <input type="hidden" id="sp-item-id" value="${item.id}" />
+
+        <div class="sp-form-group">
+          <label class="sp-label">База данных (Проект)</label>
+          <select id="sp-item-project" class="sp-input">
+            ${state.projects
+              .map(p => `<option value="${p.id}" ${p.id === item.projectId ? 'selected' : ''}>${p.name}</option>`)
+              .join('')}
+          </select>
+        </div>
 
         <div class="sp-form-group">
           <label class="sp-label">Название *</label>
@@ -532,14 +773,17 @@ function renderGeneratorView() {
   `;
 }
 
-// ─── SETTINGS VIEW ───────────────────────────────────────────────────────────
+// ─── SETTINGS VIEW (PLACEHOLDER FOR STEP 3) ──────────────────────────────────
 
 function renderSettingsView() {
   return `
     <div class="sp-view-container">
-      <h3 style="font-size:14px; font-weight:700;">Резервное копирование и экспорт</h3>
+      <h3 style="font-size:14px; font-weight:700;">Настройки SimplePass</h3>
+      <p style="font-size:12px; color:var(--text-muted);">
+        В Шаге 3 здесь будет развернута структурированная панель настроек с поиском и аккордеонами.
+      </p>
 
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
         <button class="sp-btn-secondary" id="sp-btn-export-json">
           ${icons.iDownload} Экспорт зашифрованного бэкапа (JSON)
         </button>
@@ -548,27 +792,11 @@ function renderSettingsView() {
         </button>
       </div>
 
-      <h3 style="font-size:14px; font-weight:700; margin-top:12px;">Импорт данных</h3>
-      <input type="file" id="sp-import-file" style="display:none;" accept=".json,.txt" />
-      <button class="sp-btn-secondary" id="sp-btn-import">
-        ${icons.iUpload} Импортировать JSON или pass формат
-      </button>
-
-      <h3 style="font-size:14px; font-weight:700; margin-top:12px;">Безопасность</h3>
-      <button class="sp-btn-secondary" id="sp-btn-change-pwd">
-        ${icons.iKey} Сменить мастер-пароль
-      </button>
-
       <div style="margin-top:20px; padding:12px; background:var(--bg-card); border-radius:var(--radius-md); font-size:11px; color:var(--text-dim); line-height:1.5;">
         <strong style="color:var(--text-main);">SimplePass Manager v1.0.0</strong><br>
         Шифрование: AES-256-GCM + PBKDF2 (SHA-256, 600k rounds)<br>
-        Open Source & Fully Local.<br>
-        Пароли никогда не передаются на сторонние серверы.
+        Периодичность проверки пароля: раз в 3 дня (по умолчанию).
       </div>
-
-      <button class="sp-btn-danger" id="sp-btn-reset-vault" style="margin-top:10px; justify-content:center;">
-        ${icons.iTrash} Удалить всё хранилище
-      </button>
     </div>
   `;
 }
@@ -580,7 +808,7 @@ function attachEventHandlers() {
   document.querySelectorAll('.sp-nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.tab;
-      updateState({ activeTab: target, selectedItem: null });
+      updateState({ activeTab: target, selectedItem: null, isProjectSwitcherOpen: false });
     });
   });
 
@@ -588,7 +816,7 @@ function attachEventHandlers() {
   const btnAdd = document.getElementById('sp-btn-add');
   if (btnAdd) {
     btnAdd.addEventListener('click', () => {
-      updateState({ activeTab: 'item-details', selectedItem: null });
+      updateState({ activeTab: 'item-details', selectedItem: null, isProjectSwitcherOpen: false });
     });
   }
 
@@ -596,6 +824,102 @@ function attachEventHandlers() {
   if (btnLock) {
     btnLock.addEventListener('click', () => {
       lockVault();
+    });
+  }
+
+  // Footer Project Badge click (Toggle Switcher)
+  const projectContainer = document.getElementById('sp-project-container');
+  if (projectContainer) {
+    projectContainer.addEventListener('click', () => {
+      updateState({ isProjectSwitcherOpen: !state.isProjectSwitcherOpen });
+    });
+  }
+
+  const closeProjectPanelBtn = document.getElementById('sp-close-project-panel');
+  if (closeProjectPanelBtn) {
+    closeProjectPanelBtn.addEventListener('click', () => {
+      updateState({ isProjectSwitcherOpen: false });
+    });
+  }
+
+  // Project item actions
+  document.querySelectorAll('[data-action="select-project"]').forEach(el => {
+    el.addEventListener('click', async () => {
+      const pid = el.dataset.projectId;
+      switchProject(pid);
+      await persistVaultChanges();
+    });
+  });
+
+  document.querySelectorAll('[data-action="rename-project"]').forEach(el => {
+    el.addEventListener('click', async e => {
+      e.stopPropagation();
+      const pid = el.dataset.projectId;
+      const proj = state.projects.find(p => p.id === pid);
+      if (!proj) return;
+      const newName = prompt('Новое имя базы данных:', proj.name);
+      if (newName && newName.trim() && newName.trim() !== proj.name) {
+        renameProject(pid, newName);
+        await persistVaultChanges();
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete-project"]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const pid = el.dataset.projectId;
+      const proj = state.projects.find(p => p.id === pid);
+      if (!proj) return;
+      updateState({ projectToDelete: proj });
+    });
+  });
+
+  // Create new project form
+  const createProjForm = document.getElementById('sp-create-project-form');
+  if (createProjForm) {
+    createProjForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = document.getElementById('sp-new-project-name');
+      const name = input.value.trim();
+      if (!name) return;
+      createProject(name, 'browser');
+      await persistVaultChanges();
+      showToast(`База «${name}» создана`);
+    });
+  }
+
+  // Cascade Delete Modal events
+  const modalCancelBtn = document.getElementById('sp-modal-cancel-btn');
+  const modalCloseBtn = document.getElementById('sp-modal-close-btn');
+  [modalCancelBtn, modalCloseBtn].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        updateState({ projectToDelete: null });
+      });
+    }
+  });
+
+  const deleteForm = document.getElementById('sp-delete-project-form');
+  if (deleteForm) {
+    deleteForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const typedName = document.getElementById('sp-delete-confirm-name').value;
+      const enteredPwd = document.getElementById('sp-delete-confirm-pwd').value;
+      const errBox = document.getElementById('sp-delete-modal-error');
+
+      try {
+        await deleteProjectCascade(state.projectToDelete.id, enteredPwd, typedName);
+        await persistVaultChanges();
+        showToast('База данных и связанные пароли удалены');
+      } catch (err) {
+        if (errBox) {
+          errBox.innerText = err.message;
+          errBox.style.display = 'block';
+        } else {
+          alert(err.message);
+        }
+      }
     });
   }
 
@@ -698,6 +1022,7 @@ function attachEventHandlers() {
       e.preventDefault();
       saveItem({
         id: document.getElementById('sp-item-id').value,
+        projectId: document.getElementById('sp-item-project').value,
         title: document.getElementById('sp-item-title').value.trim(),
         url: document.getElementById('sp-item-url').value.trim(),
         username: document.getElementById('sp-item-username').value.trim(),
@@ -753,7 +1078,7 @@ function attachEventHandlers() {
     }
   });
 
-  // Settings tab actions
+  // Settings tab temporary exports
   const btnExportJson = document.getElementById('sp-btn-export-json');
   if (btnExportJson) {
     btnExportJson.addEventListener('click', async () => {
@@ -772,50 +1097,18 @@ function attachEventHandlers() {
   if (btnExportPass) {
     btnExportPass.addEventListener('click', () => {
       let combined = '';
-      state.items.forEach(item => {
-        combined += `=== ${item.category}/${item.title} ===\n${itemToPassFormat(item)}\n\n`;
+      const activeProj = getActiveProject();
+      const projectItems = getActiveProjectItems();
+      projectItems.forEach(item => {
+        combined += `=== ${activeProj.name}/${item.category}/${item.title} ===\n${itemToPassFormat(item)}\n\n`;
       });
       const blob = new Blob([combined], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `simplepass-pass-format.txt`;
+      a.download = `simplepass-${activeProj.name}.txt`;
       a.click();
       URL.revokeObjectURL(url);
-    });
-  }
-
-  const btnImport = document.getElementById('sp-btn-import');
-  const fileInput = document.getElementById('sp-import-file');
-  if (btnImport && fileInput) {
-    btnImport.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const text = await file.text();
-      try {
-        const json = JSON.parse(text);
-        if (json.salt && json.iv && json.data) {
-          if (confirm('Импортировать этот зашифрованный бэкап? Текущее хранилище будет заменено.')) {
-            await saveStoredVault(json);
-            lockVault();
-            alert('Бэкап загружен. Введите мастер-пароль от загруженного бэкапа для разблокировки.');
-          }
-        }
-      } catch (_) {
-        // Plain text pass format import
-        alert('Формат файла распознан как текстовый список.');
-      }
-    });
-  }
-
-  const btnResetVault = document.getElementById('sp-btn-reset-vault');
-  if (btnResetVault) {
-    btnResetVault.addEventListener('click', async () => {
-      if (confirm('ВНИМАНИЕ: Все сохранённые пароли будут безвозвратно удалены. Продолжить?')) {
-        await clearStoredVault();
-        updateState({ isInitialized: false, isUnlocked: false, masterPassword: null, items: [] });
-      }
     });
   }
 }
