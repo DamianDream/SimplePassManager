@@ -89,8 +89,7 @@ body.sp-body {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-  color: #fff;
+  background: transparent;
 }
 
 .sp-header-actions {
@@ -419,14 +418,13 @@ body.sp-body {
 }
 
 .sp-auth-logo {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   margin-bottom: 14px;
 }
 

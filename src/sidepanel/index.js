@@ -202,7 +202,7 @@ function render() {
     <!-- Header -->
     <header class="sp-header">
       <div class="sp-brand">
-        <div class="sp-brand-icon">${icons.iShield}</div>
+        <div class="sp-brand-icon"><img src="icons/icon-32.png" style="width:24px;height:24px;border-radius:6px;display:block;" alt="Logo" /></div>
         <span>SimplePass</span>
       </div>
       <div class="sp-header-actions">
@@ -253,7 +253,7 @@ function renderAuthScreen() {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
         <div class="sp-auth-box">
-          <div class="sp-auth-logo">${icons.iShield}</div>
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
           <h2 class="sp-auth-title">Создание хранилища</h2>
           <p class="sp-auth-desc">Задайте мастер-пароль. Он используется для надежного шифрования AES-256-GCM.</p>
           <form class="sp-auth-form" id="sp-init-form">
@@ -278,7 +278,7 @@ function renderAuthScreen() {
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
       <div class="sp-auth-box">
-        <div class="sp-auth-logo">${icons.iLock}</div>
+        <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
         <h2 class="sp-auth-title">SimplePass заблокирован</h2>
         <p class="sp-auth-desc">Введите мастер-пароль для разблокировки записей</p>
         <form class="sp-auth-form" id="sp-unlock-form">
