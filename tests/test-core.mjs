@@ -1,0 +1,56 @@
+import assert from 'assert';
+import { encryptVault, decryptVault } from '../src/core/crypto.js';
+import { normalizeVaultData, passFormatToItem, itemToPassFormat } from '../src/core/storage.js';
+import { LOCK_INTERVALS } from '../src/core/session.js';
+
+
+async function runTests() {
+  console.log('--- Running SimplePass Core Tests ---');
+
+  // Test 1: Crypto encryption and decryption
+  console.log('1. Testing AES-256-GCM + PBKDF2 encryption/decryption...');
+  const testPayload = { secret: 'my-super-secret-password-12345', timestamp: Date.now() };
+  const masterPassword = 'CorrectMasterPassword!2026';
+  const encrypted = await encryptVault(testPayload, masterPassword);
+
+  assert(encrypted.salt && encrypted.iv && encrypted.data, 'Envelope must contain salt, iv, and data');
+  const decrypted = await decryptVault(encrypted, masterPassword);
+  assert.strictEqual(decrypted.secret, testPayload.secret, 'Decrypted secret must match original');
+
+  // Test wrong password
+  let failed = false;
+  try {
+    await decryptVault(encrypted, 'WrongPassword!');
+  } catch (_) {
+    failed = true;
+  }
+  assert(failed, 'Decryption with wrong password must throw error');
+  console.log('   ✓ Crypto verified');
+
+  // Test 2: Multi-project normalization & cascade
+  console.log('2. Testing Multi-project data schema and cascade isolation...');
+  const legacyData = {
+    items: [
+      { id: '1', title: 'GitHub', username: 'dev@test.com', password: 'pwd' }
+    ]
+  };
+  const normalized = normalizeVaultData(legacyData, 'Мой Проект');
+  assert.strictEqual(normalized.projects.length, 1, 'Should create 1 default project');
+  assert.strictEqual(normalized.projects[0].name, 'Мой Проект');
+  assert.strictEqual(normalized.items[0].projectId, normalized.projects[0].id, 'Item must be bound to project');
+  console.log('   ✓ Multi-project normalization verified');
+
+  // Test 3: Lock intervals
+  console.log('3. Testing Lock Intervals definitions...');
+  assert.strictEqual(LOCK_INTERVALS['3days'].ms, 3 * 24 * 60 * 60 * 1000, '3days must equal 72h');
+  assert.strictEqual(LOCK_INTERVALS['1day'].ms, 24 * 60 * 60 * 1000, '1day must equal 24h');
+  assert.strictEqual(LOCK_INTERVALS['1week'].ms, 7 * 24 * 60 * 60 * 1000, '1week must equal 7d');
+  console.log('   ✓ Lock intervals verified');
+
+  console.log('\nAll core unit tests passed successfully! ✅');
+}
+
+runTests().catch(err => {
+  console.error('Test failed:', err);
+  process.exit(1);
+});

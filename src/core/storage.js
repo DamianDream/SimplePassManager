@@ -1,13 +1,17 @@
 /**
- * Storage and Synchronization Engine
- * Handles chrome.storage.local persistence, import/export, and pass CLI format compatibility.
+ * Storage and Multi-Project Synchronization Engine
+ * Handles chrome.storage persistence, project isolation, cascade deletion, and data migration.
  */
+
+import { decryptVault, encryptVault } from './crypto.js';
 
 const STORAGE_VAULT_KEY = 'sp_encrypted_vault';
 const STORAGE_CONFIG_KEY = 'sp_user_config';
 
-const DEFAULT_CONFIG = {
-  autoLockMinutes: 15,
+export const DEFAULT_CONFIG = {
+  activeProjectId: 'proj_default',
+  latestProjectId: 'proj_default',
+  lockInterval: '3days',
   clipboardClearSeconds: 30,
   theme: 'dark',
   defaultCategory: 'General'
@@ -82,10 +86,61 @@ export function clearStoredVault() {
 }
 
 /**
+ * Normalizes vault data ensuring multi-project support and backward compatibility.
+ */
+export function normalizeVaultData(data, initialProjectName = 'Основной') {
+  const now = new Date().toISOString();
+  let projects = data.projects || [];
+  let items = data.items || [];
+
+  // Migration from v1 or empty: create default project if none exist
+  if (!projects.length) {
+    const defaultProj = {
+      id: 'proj_default',
+      name: initialProjectName,
+      type: 'browser', // 'browser' | 'local_pass'
+      createdAt: now,
+      updatedAt: now
+    };
+    projects = [defaultProj];
+  }
+
+  const defaultProjId = projects[0].id;
+
+  // Ensure every item is associated with a project
+  items = items.map(item => {
+    if (!item.projectId) {
+      return { ...item, projectId: defaultProjId };
+    }
+    return item;
+  });
+
+  return {
+    version: 2,
+    createdAt: data.createdAt || now,
+    updatedAt: now,
+    projects,
+    items
+  };
+}
+
+/**
+ * Verifies if entered password can decrypt current stored vault.
+ * Returns true if valid, false otherwise.
+ */
+export async function verifyMasterPassword(enteredPassword) {
+  try {
+    const envelope = await getStoredVault();
+    if (!envelope) return false;
+    await decryptVault(envelope, enteredPassword);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
  * Format converter: converts items to/from UNIX pass format
- * Standard pass convention:
- * Line 1: Password
- * Line 2+: Metadata key: value (login:, url:, notes:)
  */
 export function itemToPassFormat(item) {
   let content = `${item.password}\n`;
@@ -96,11 +151,12 @@ export function itemToPassFormat(item) {
   return content;
 }
 
-export function passFormatToItem(title, content) {
+export function passFormatToItem(title, content, projectId = 'proj_default') {
   const lines = content.trim().split('\n');
   const password = lines[0] || '';
   const item = {
     id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+    projectId,
     title: title || 'Untitled',
     password,
     username: '',
