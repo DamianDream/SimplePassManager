@@ -1,0 +1,9 @@
+{
+  "name": "com.simplepass.pass_host",
+  "description": "SimplePass Manager Native Messaging Host for UNIX pass CLI",
+  "path": "/Users/dima/Projects/SimplePassManager/native-host/simplepass_host.py",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://*"
+  ]
+}

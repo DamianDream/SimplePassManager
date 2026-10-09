@@ -31,6 +31,12 @@ import {
 import { createSession, restoreSession, destroySession, LOCK_INTERVALS } from '../core/session.js';
 import { generatePassword, evaluatePasswordStrength } from '../core/generator.js';
 import * as icons from '../icons/icons.js';
+import {
+  checkPassHostStatus,
+  syncAllPassEntries,
+  saveItemToPassCli,
+  deleteItemFromPassCli
+} from '../core/pass-native.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -106,6 +112,11 @@ async function init() {
       }
     }
   }
+
+  // Asynchronously probe native pass host status
+  checkPassHostStatus().then(status => {
+    updateState({ passHostStatus: status });
+  }).catch(() => {});
 
   subscribe(() => render());
   render();
@@ -225,34 +236,55 @@ async function persistVaultChanges() {
 async function saveItem(itemData) {
   const activeProj = getActiveProject();
   const projectId = itemData.projectId || (activeProj ? activeProj.id : 'proj_default');
+  const proj = state.projects.find(p => p.id === projectId);
 
   const existingIdx = state.items.findIndex(i => i.id === itemData.id);
   let updatedItems = [...state.items];
+  let itemToSave = { ...itemData, projectId, updatedAt: new Date().toISOString() };
 
   if (existingIdx >= 0) {
-    updatedItems[existingIdx] = {
-      ...itemData,
-      projectId,
-      updatedAt: new Date().toISOString()
-    };
+    updatedItems[existingIdx] = itemToSave;
   } else {
-    updatedItems.unshift({
-      ...itemData,
-      id: 'item_' + Date.now(),
-      projectId,
-      updatedAt: new Date().toISOString()
-    });
+    itemToSave.id = 'item_' + Date.now();
+    updatedItems.unshift(itemToSave);
   }
 
   updateState({ items: updatedItems, activeTab: 'vault', selectedItem: null, isEditing: false });
   await persistVaultChanges();
+
+  if (proj && proj.type === 'pass_cli') {
+    try {
+      await saveItemToPassCli(itemToSave);
+      showToast('Сохранено и синхронизировано с PASS CLI');
+    } catch (err) {
+      console.warn('PASS CLI sync error:', err);
+      showToast('Сохранено в хранилище (PASS: ' + err.message + ')');
+    }
+  } else {
+    showToast('Пароль сохранён');
+  }
 }
 
 async function deleteItem(id) {
   if (!confirm('Вы уверены, что хотите удалить этот пароль?')) return;
+  const item = state.items.find(i => i.id === id);
+  const proj = item ? state.projects.find(p => p.id === item.projectId) : null;
+
   const updatedItems = state.items.filter(i => i.id !== id);
   updateState({ items: updatedItems, activeTab: 'vault', selectedItem: null, isEditing: false });
   await persistVaultChanges();
+
+  if (proj && proj.type === 'pass_cli' && item) {
+    try {
+      await deleteItemFromPassCli(item);
+      showToast('Удалено из хранилища и PASS CLI');
+    } catch (err) {
+      console.warn('PASS CLI delete error:', err);
+      showToast('Удалено из хранилища');
+    }
+  } else {
+    showToast('Пароль удалён');
+  }
 }
 
 function triggerAutofill(item) {
@@ -364,6 +396,9 @@ function render() {
 
       <!-- Cascade Delete Confirmation Modal -->
       ${renderDeleteModal()}
+
+      <!-- PASS CLI Instructions Modal -->
+      ${renderPassInstructionsModal()}
     </div>
   `;
 
@@ -542,16 +577,28 @@ function renderProjectSwitcherPanel() {
     .map(p => {
       const isActive = activeProj && activeProj.id === p.id;
       const count = state.items.filter(item => item.projectId === p.id).length;
+      const typeBadge = p.type === 'pass_cli'
+        ? `<span class="sp-badge-pass">PASS CLI</span>`
+        : `<span class="sp-badge-browser">Браузер</span>`;
+
       return `
       <div class="sp-project-item ${isActive ? 'active' : ''}" data-project-id="${p.id}">
         <div class="sp-project-item-left" data-action="select-project" data-project-id="${p.id}">
           <div class="sp-radio-indicator"></div>
           <div class="sp-project-info">
-            <span class="sp-project-name">${p.name}</span>
-            <span class="sp-project-meta">${count} паролей • ${p.type === 'browser' ? 'Браузер' : 'PASS CLI'}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="sp-project-name">${p.name}</span>
+              ${typeBadge}
+            </div>
+            <span class="sp-project-meta">${count} паролей</span>
           </div>
         </div>
         <div class="sp-project-item-actions">
+          ${
+            p.type === 'pass_cli'
+              ? `<button class="sp-btn-icon" data-action="sync-pass-project" data-project-id="${p.id}" title="Синхронизировать с ~/.password-store">${icons.iRefresh}</button>`
+              : ''
+          }
           <button class="sp-btn-icon" data-action="rename-project" data-project-id="${p.id}" title="Переименовать">${icons.iEdit}</button>
           ${
             state.projects.length > 1
@@ -579,11 +626,23 @@ function renderProjectSwitcherPanel() {
         <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:8px;">
           Создать новую базу
         </span>
-        <form id="sp-create-project-form" style="display:flex; gap:8px;">
-          <input type="text" id="sp-new-project-name" class="sp-input" placeholder="Название базы (напр. Work)" required style="flex:1;" />
-          <button type="submit" class="sp-btn-primary" style="padding:8px 12px; white-space:nowrap;">
-            ${icons.iPlus} Создать
-          </button>
+        <form id="sp-create-project-form" style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="sp-new-project-name" class="sp-input" placeholder="Название базы (напр. Work)" required style="flex:1;" />
+            <button type="submit" class="sp-btn-primary" style="padding:8px 12px; white-space:nowrap;">
+              ${icons.iPlus} Создать
+            </button>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; margin-top:2px;">
+            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;">
+              <input type="radio" name="sp-new-project-type" value="browser" checked style="accent-color:var(--accent);" />
+              <span>Браузер (AES-256)</span>
+            </label>
+            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;" title="Синхронизация с локальным ~/.password-store через Native Messaging">
+              <input type="radio" name="sp-new-project-type" value="pass_cli" style="accent-color:var(--accent);" />
+              <span>Локальный PASS CLI</span>
+            </label>
+          </div>
         </form>
       </div>
     </div>
@@ -633,6 +692,44 @@ function renderDeleteModal() {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  `;
+}
+
+// ─── PASS CLI INSTRUCTIONS MODAL ─────────────────────────────────────────────
+
+function renderPassInstructionsModal() {
+  if (!state.isShowPassInstructions) return '';
+
+  return `
+    <div class="sp-modal-overlay" id="sp-pass-instructions-overlay">
+      <div class="sp-modal-content" style="max-width: 360px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--accent);">${icons.iFolder} Подключение UNIX PASS CLI</span>
+          <button class="sp-btn-icon" id="sp-btn-close-pass-instructions">${icons.iX}</button>
+        </div>
+
+        <p class="sp-modal-desc">
+          SimplePass может работать напрямую с вашим локальным хранилищем <code>~/.password-store</code> через Native Messaging.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:11px;">
+          <div><strong>1. Установите pass и GPG (если не установлены):</strong></div>
+          <div class="sp-code-block">brew install pass gnupg</div>
+
+          <div><strong>2. Запустите скрипт регистрации Native Host:</strong></div>
+          <div class="sp-code-block">cd /Users/dima/Projects/SimplePassManager/native-host &amp;&amp; ./install.sh</div>
+
+          <div><strong>3. Проверьте подключение:</strong></div>
+          <div style="color:var(--text-dim); line-height:1.4;">
+            После запуска скрипта перезапустите расширение или нажмите «Проверить подключение» в настройках.
+          </div>
+        </div>
+
+        <button type="button" class="sp-btn-primary" id="sp-btn-ack-pass-instructions" style="justify-content:center; margin-top:6px;">
+          Понятно
+        </button>
       </div>
     </div>
   `;
@@ -885,11 +982,16 @@ function renderSettingsView() {
 
   // 2. Accordion: Databases & Storage
   const activeProj = getActiveProject();
+  const hostConnected = !!(state.passHostStatus && state.passHostStatus.ok);
+
   const dbHtml = `
     <div class="sp-setting-row" data-search="база данных проект хранилище active project pass">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${icons.iFolder} Текущая база (Проект)</span>
-        <span class="sp-badge-info">${activeProj ? activeProj.name : '—'}</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="sp-badge-info">${activeProj ? activeProj.name : '—'}</span>
+          ${activeProj && activeProj.type === 'pass_cli' ? '<span class="sp-badge-pass">PASS CLI</span>' : '<span class="sp-badge-browser">Браузер</span>'}
+        </div>
       </div>
       <p class="sp-setting-desc">Всего создано баз: ${state.projects.length} шт. Паролей в текущей: ${getActiveProjectItems().length} шт.</p>
       <div class="sp-setting-control">
@@ -899,14 +1001,58 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="хранилище тип локальное браузер pass cli синхронизация">
+    <div class="sp-setting-row" data-search="хранилище тип локальное браузер pass cli синхронизация gpg native">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iGlobe} Тип хранилища</span>
-        <span style="font-size:11px; color:var(--text-dim);">Локально в браузере</span>
+        <span class="sp-setting-label">${icons.iShield} Интеграция с UNIX PASS CLI</span>
+        <span style="font-size:11px; font-weight:600; color:${hostConnected ? 'var(--success)' : '#f59e0b'};">
+          ${hostConnected ? `✓ Подключен (v${state.passHostStatus.version})` : '⚠ Native Host не обнаружен'}
+        </span>
       </div>
       <p class="sp-setting-desc">
-        Данные шифруются на лету и сохраняются в изолированном профиле браузера (chrome.storage.local).
+        Хранение паролей в локальной файловой системе (<code>~/.password-store</code>) с общим доступом из разных браузеров и консоли.
       </p>
+
+      <div class="sp-host-status-box">
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-dim);">Каталог хранилища:</span>
+          <span><code>${state.passHostStatus?.storePath || '~/.password-store'}</code></span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-dim);">Утилита pass:</span>
+          <span style="color:${state.passHostStatus?.passInstalled ? 'var(--success)' : 'var(--danger)'};">
+            ${state.passHostStatus?.passInstalled ? '✓ Установлена' : '✗ Не найдена'}
+          </span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-dim);">Утилита GPG:</span>
+          <span style="color:${state.passHostStatus?.gpgInstalled ? 'var(--success)' : 'var(--danger)'};">
+            ${state.passHostStatus?.gpgInstalled ? '✓ Установлена' : '✗ Не найдена'}
+          </span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--text-dim);">Записей в PASS:</span>
+          <span style="font-weight:600;">${state.passHostStatus?.entriesCount ?? 0} шт.</span>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button class="sp-btn-secondary" id="sp-btn-check-pass-host" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
+          ${icons.iRefresh} Проверить статус
+        </button>
+        <button class="sp-btn-secondary" id="sp-btn-show-pass-instructions" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
+          Инструкция
+        </button>
+      </div>
+
+      ${
+        activeProj && activeProj.type === 'pass_cli'
+          ? `
+        <button class="sp-btn-primary" id="sp-btn-sync-active-pass" style="width:100%; justify-content:center; font-size:11px; padding:7px 10px; margin-top:4px;">
+          ${icons.iRefresh} Синхронизировать активную базу с ~/.password-store
+        </button>
+      `
+          : ''
+      }
     </div>
   `;
 
@@ -1073,6 +1219,28 @@ function renderSettingsView() {
   `;
 }
 
+// ─── PASS CLI SYNC HELPER ────────────────────────────────────────────────────
+
+async function handleSyncPassProject(projectId) {
+  const proj = state.projects.find(p => p.id === projectId);
+  if (!proj) return;
+  showToast('Синхронизация с ~/.password-store...');
+  try {
+    const passItems = await syncAllPassEntries(projectId);
+    const otherItems = state.items.filter(i => i.projectId !== projectId);
+    const updatedItems = [...otherItems, ...passItems];
+    updateState({ items: updatedItems });
+    await persistVaultChanges();
+    showToast(`Загружено ${passItems.length} записей из pass`);
+  } catch (err) {
+    alert(
+      'Ошибка подключения к PASS CLI:\n' +
+      err.message +
+      '\n\nДля подключения выполните в терминале:\ncd /Users/dima/Projects/SimplePassManager/native-host && ./install.sh'
+    );
+  }
+}
+
 // ─── EVENT ATTACHMENT ─────────────────────────────────────────────────────────
 
 function attachEventHandlers() {
@@ -1155,11 +1323,29 @@ function attachEventHandlers() {
       const input = document.getElementById('sp-new-project-name');
       const name = input.value.trim();
       if (!name) return;
-      createProject(name, 'browser');
+      const typeRadio = document.querySelector('input[name="sp-new-project-type"]:checked');
+      const type = typeRadio ? typeRadio.value : 'browser';
+
+      const newProj = createProject(name, type);
       await persistVaultChanges();
-      showToast(`База «${name}» создана`);
+
+      if (type === 'pass_cli') {
+        showToast(`База «${name}» создана (PASS CLI)`);
+        handleSyncPassProject(newProj.id);
+      } else {
+        showToast(`База «${name}» создана`);
+      }
     });
   }
+
+  // PASS CLI sync button in switcher
+  document.querySelectorAll('[data-action="sync-pass-project"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const pid = btn.dataset.projectId;
+      handleSyncPassProject(pid);
+    });
+  });
 
   // Cascade Delete Modal events
   const modalCancelBtn = document.getElementById('sp-modal-cancel-btn');
@@ -1556,6 +1742,48 @@ function attachEventHandlers() {
         await clearStoredVault();
         await destroySession();
         window.location.reload();
+      }
+    });
+  }
+
+  // ─── PASS CLI Settings Actions ───
+  const btnCheckPassHost = document.getElementById('sp-btn-check-pass-host');
+  if (btnCheckPassHost) {
+    btnCheckPassHost.addEventListener('click', async () => {
+      showToast('Проверка Native Host...');
+      const status = await checkPassHostStatus();
+      updateState({ passHostStatus: status });
+      if (status && status.ok) {
+        showToast(`PASS подключен: найдено ${status.entriesCount} записей`);
+      } else {
+        showToast('Native Host не отвечает: требуется ./install.sh');
+      }
+    });
+  }
+
+  const btnShowPassInstructions = document.getElementById('sp-btn-show-pass-instructions');
+  if (btnShowPassInstructions) {
+    btnShowPassInstructions.addEventListener('click', () => {
+      updateState({ isShowPassInstructions: true });
+    });
+  }
+
+  const btnClosePassInstructions = document.getElementById('sp-btn-close-pass-instructions');
+  const btnAckPassInstructions = document.getElementById('sp-btn-ack-pass-instructions');
+  [btnClosePassInstructions, btnAckPassInstructions].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        updateState({ isShowPassInstructions: false });
+      });
+    }
+  });
+
+  const btnSyncActivePass = document.getElementById('sp-btn-sync-active-pass');
+  if (btnSyncActivePass) {
+    btnSyncActivePass.addEventListener('click', () => {
+      const activeProj = getActiveProject();
+      if (activeProj) {
+        handleSyncPassProject(activeProj.id);
       }
     });
   }

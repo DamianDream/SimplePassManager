@@ -23,6 +23,8 @@ export const state = {
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,
+  passHostStatus: null,
+  isShowPassInstructions: false,
   lastActivity: Date.now()
 };
 

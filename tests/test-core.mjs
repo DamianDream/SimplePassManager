@@ -47,6 +47,29 @@ async function runTests() {
   assert.strictEqual(LOCK_INTERVALS['1week'].ms, 7 * 24 * 60 * 60 * 1000, '1week must equal 7d');
   console.log('   ✓ Lock intervals verified');
 
+  // Test 4: UNIX pass format serialization & deserialization
+  console.log('4. Testing UNIX pass format serialization & parsing...');
+  const sampleItem = {
+    title: 'test-service',
+    password: 'super_secret_pass',
+    username: 'myuser',
+    url: 'https://example.com',
+    category: 'Work',
+    notes: 'Sample note 123'
+  };
+  const passText = itemToPassFormat(sampleItem);
+  assert(passText.startsWith('super_secret_pass\n'), 'First line of pass file must be password');
+  assert(passText.includes('login: myuser'), 'Must contain login');
+  assert(passText.includes('url: https://example.com'), 'Must contain url');
+
+  const parsed = passFormatToItem('test-service', passText, 'proj_test');
+  assert.strictEqual(parsed.title, 'test-service');
+  assert.strictEqual(parsed.password, 'super_secret_pass');
+  assert.strictEqual(parsed.username, 'myuser');
+  assert.strictEqual(parsed.url, 'https://example.com');
+  assert.strictEqual(parsed.notes, 'Sample note 123');
+  console.log('   ✓ UNIX pass format verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
