@@ -24,10 +24,11 @@ import {
   saveStoredConfig,
   clearStoredVault,
   normalizeVaultData,
+  verifyMasterPassword,
   itemToPassFormat,
   passFormatToItem
 } from '../core/storage.js';
-import { createSession, restoreSession, destroySession } from '../core/session.js';
+import { createSession, restoreSession, destroySession, LOCK_INTERVALS } from '../core/session.js';
 import { generatePassword, evaluatePasswordStrength } from '../core/generator.js';
 import * as icons from '../icons/icons.js';
 
@@ -50,6 +51,11 @@ let currentGeneratedPassword = '';
 
 // Password visibility state in forms
 let isPasswordVisible = false;
+
+// Settings view state
+let settingsSearchQuery = '';
+let openAccordions = new Set(['security']);
+let isChangePwdOpen = false;
 
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
 
@@ -301,6 +307,10 @@ function render() {
     return;
   }
 
+  const activeElId = document.activeElement ? document.activeElement.id : null;
+  const selStart = document.activeElement && 'selectionStart' in document.activeElement ? document.activeElement.selectionStart : null;
+  const selEnd = document.activeElement && 'selectionEnd' in document.activeElement ? document.activeElement.selectionEnd : null;
+
   const activeProj = getActiveProject();
   const activeItems = getActiveProjectItems();
 
@@ -358,6 +368,18 @@ function render() {
   `;
 
   attachEventHandlers();
+
+  if (activeElId) {
+    const el = document.getElementById(activeElId);
+    if (el) {
+      el.focus();
+      if (selStart !== null && selEnd !== null) {
+        try {
+          el.setSelectionRange(selStart, selEnd);
+        } catch (_) {}
+      }
+    }
+  }
 }
 
 function renderActiveTabContent() {
@@ -773,29 +795,279 @@ function renderGeneratorView() {
   `;
 }
 
-// ─── SETTINGS VIEW (PLACEHOLDER FOR STEP 3) ──────────────────────────────────
+// ─── SETTINGS VIEW (mySmart Style Accordions & Search) ──────────────────────
 
 function renderSettingsView() {
-  return `
-    <div class="sp-view-container">
-      <h3 style="font-size:14px; font-weight:700;">Настройки SimplePass</h3>
-      <p style="font-size:12px; color:var(--text-muted);">
-        В Шаге 3 здесь будет развернута структурированная панель настроек с поиском и аккордеонами.
-      </p>
+  const query = settingsSearchQuery.toLowerCase().trim();
 
-      <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-        <button class="sp-btn-secondary" id="sp-btn-export-json">
-          ${icons.iDownload} Экспорт зашифрованного бэкапа (JSON)
-        </button>
-        <button class="sp-btn-secondary" id="sp-btn-export-pass">
-          ${icons.iDownload} Экспорт в формат UNIX pass
+  // Calculate session status text
+  let sessionStatusText = 'Активна';
+  if (state.lockInterval === 'session') {
+    sessionStatusText = 'Активна (до закрытия браузера)';
+  } else if (state.sessionExpiresAt) {
+    const diffMs = state.sessionExpiresAt - Date.now();
+    if (diffMs > 0) {
+      const hours = Math.round(diffMs / (3600 * 1000));
+      if (hours >= 24) {
+        const days = Math.round(hours / 24);
+        sessionStatusText = `Активна (~${days} дн.)`;
+      } else {
+        sessionStatusText = `Активна (~${hours} ч.)`;
+      }
+    } else {
+      sessionStatusText = 'Истекла';
+    }
+  }
+
+  // 1. Accordion: Security & Session
+  const secHtml = `
+    <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iKey} Проверка мастер-пароля</span>
+        <span class="sp-badge-info">${LOCK_INTERVALS[state.lockInterval]?.id === '3days' ? 'Раз в 3 дня' : (state.lockInterval || '3days')}</span>
+      </div>
+      <p class="sp-setting-desc">Периодичность, с которой расширение запрашивает мастер-пароль.</p>
+      <div class="sp-setting-control">
+        <select class="sp-select" id="sp-setting-lock-interval">
+          <option value="session" ${state.lockInterval === 'session' ? 'selected' : ''}>Каждый раз при новой сессии браузера</option>
+          <option value="1day" ${state.lockInterval === '1day' ? 'selected' : ''}>Раз в день (24 часа)</option>
+          <option value="3days" ${state.lockInterval === '3days' ? 'selected' : ''}>Раз в три дня (по умолчанию, 72 часа)</option>
+          <option value="1week" ${state.lockInterval === '1week' ? 'selected' : ''}>Раз в неделю (7 дней)</option>
+          <option value="1month" ${state.lockInterval === '1month' ? 'selected' : ''}>Раз в месяц (30 дней)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="статус сессия время активности">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iShield} Статус текущей сессии</span>
+        <span style="font-size:11px; font-weight:600; color:var(--success);">${sessionStatusText}</span>
+      </div>
+      <p class="sp-setting-desc">Пока сессия активна, секреты доступны без повторного ввода пароля.</p>
+    </div>
+
+    <div class="sp-setting-row" data-search="сменить мастер пароль ключ безопасность">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iEdit} Мастер-пароль</span>
+        <button class="sp-btn-secondary" id="sp-btn-toggle-change-pwd" style="padding:4px 8px; font-size:11px;">
+          ${isChangePwdOpen ? 'Отмена' : 'Сменить'}
         </button>
       </div>
+      <p class="sp-setting-desc">Смена главного пароля с перешифрованием всех баз данных.</p>
 
-      <div style="margin-top:20px; padding:12px; background:var(--bg-card); border-radius:var(--radius-md); font-size:11px; color:var(--text-dim); line-height:1.5;">
-        <strong style="color:var(--text-main);">SimplePass Manager v1.0.0</strong><br>
-        Шифрование: AES-256-GCM + PBKDF2 (SHA-256, 600k rounds)<br>
-        Периодичность проверки пароля: раз в 3 дня (по умолчанию).
+      ${
+        isChangePwdOpen
+          ? `
+        <form id="sp-change-pwd-form" style="display:flex; flex-direction:column; gap:8px; margin-top:8px; padding:10px; background:var(--bg-surface); border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+          <input type="password" id="sp-pwd-old" class="sp-input" placeholder="Текущий мастер-пароль" required />
+          <input type="password" id="sp-pwd-new" class="sp-input" placeholder="Новый пароль (от 8 симв.)" required />
+          <input type="password" id="sp-pwd-new2" class="sp-input" placeholder="Повторите новый пароль" required />
+          <div id="sp-change-pwd-err" style="display:none; font-size:11px; color:var(--danger);"></div>
+          <button type="submit" class="sp-btn-primary" style="justify-content:center; padding:6px 12px; margin-top:4px;">
+            Сохранить новый пароль
+          </button>
+        </form>
+      `
+          : ''
+      }
+    </div>
+
+    <div class="sp-setting-row" data-search="заблокировать блокировка выйти заморозить">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iLock} Блокировка хранилища</span>
+        <button class="sp-btn-danger" id="sp-btn-lock-now" style="padding:4px 10px; font-size:11px;">
+          Заблокировать сейчас
+        </button>
+      </div>
+      <p class="sp-setting-desc">Мгновенный сброс активной сессии и возврат к экрану ввода пароля.</p>
+    </div>
+  `;
+
+  // 2. Accordion: Databases & Storage
+  const activeProj = getActiveProject();
+  const dbHtml = `
+    <div class="sp-setting-row" data-search="база данных проект хранилище active project pass">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iFolder} Текущая база (Проект)</span>
+        <span class="sp-badge-info">${activeProj ? activeProj.name : '—'}</span>
+      </div>
+      <p class="sp-setting-desc">Всего создано баз: ${state.projects.length} шт. Паролей в текущей: ${getActiveProjectItems().length} шт.</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-secondary" id="sp-btn-open-switcher" style="width:100%; justify-content:center;">
+          ${icons.iFolder} Управление базами в футере
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="хранилище тип локальное браузер pass cli синхронизация">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iGlobe} Тип хранилища</span>
+        <span style="font-size:11px; color:var(--text-dim);">Локально в браузере</span>
+      </div>
+      <p class="sp-setting-desc">
+        Данные шифруются на лету и сохраняются в изолированном профиле браузера (chrome.storage.local).
+      </p>
+    </div>
+  `;
+
+  // 3. Accordion: Backup & Data Transfer
+  const backupHtml = `
+    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iDownload} Зашифрованный JSON бэкап</span>
+      </div>
+      <p class="sp-setting-desc">Полный снимок всех ваших баз и паролей в зашифрованном виде (AES-256-GCM).</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-secondary" id="sp-btn-export-json" style="width:100%; justify-content:center;">
+          ${icons.iDownload} Экспортировать JSON
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="экспорт pass unix password store txt текст">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iDownload} Экспорт в формат UNIX pass</span>
+      </div>
+      <p class="sp-setting-desc">Выгрузка активной базы в стандартный текстовый формат менеджера PASS.</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-secondary" id="sp-btn-export-pass" style="width:100%; justify-content:center;">
+          ${icons.iDownload} Экспортировать формат PASS (.txt)
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="импорт восстановить загрузить файл backup">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iUpload} Импорт данных</span>
+      </div>
+      <p class="sp-setting-desc">Восстановление из ранее сохраненного зашифрованного файла JSON.</p>
+      <div class="sp-setting-control">
+        <input type="file" id="sp-import-file-input" style="display:none;" accept=".json,.txt" />
+        <button class="sp-btn-secondary" id="sp-btn-trigger-import" style="width:100%; justify-content:center;">
+          ${icons.iUpload} Выбрать файл для импорта
+        </button>
+      </div>
+    </div>
+  `;
+
+  // 4. Accordion: About & Reset
+  const aboutHtml = `
+    <div class="sp-setting-row" data-search="версия simplepass лицензия open source mit инфо">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">SimplePass Manager</span>
+        <span class="sp-badge-info">v1.0.0</span>
+      </div>
+      <p class="sp-setting-desc">
+        Открытый менеджер паролей с нулевым разглашением (Zero-Knowledge). Пароли не отправляются на сторонние серверы.
+      </p>
+    </div>
+
+    <div class="sp-setting-row" data-search="шифрование криптография алгоритм aes pbkdf2">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iShield} Спецификация шифрования</span>
+      </div>
+      <p class="sp-setting-desc" style="font-family:monospace; font-size:10px; line-height:1.5;">
+        Алгоритм: AES-256-GCM (12-byte random IV)<br>
+        Деривация: PBKDF2 (SHA-256, 600 000 раундов)<br>
+        Стандарт: W3C Web Cryptography API
+      </p>
+    </div>
+
+    <div class="sp-setting-row" data-search="сброс удалить все данные стереть очистить">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label" style="color:var(--danger);">${icons.iTrash} Полный сброс хранилища</span>
+      </div>
+      <p class="sp-setting-desc">Удалит все созданные базы, настройки и пароли из браузера.</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-danger" id="sp-btn-reset-all" style="width:100%; justify-content:center;">
+          Удалить все данные
+        </button>
+      </div>
+    </div>
+  `;
+
+  const sections = [
+    {
+      id: 'security',
+      title: 'Безопасность и Сессия',
+      icon: icons.iShield,
+      content: secHtml,
+      keywords: 'пароль сессия 3 дня тайм-аут блокировка безопасность смена'
+    },
+    {
+      id: 'databases',
+      title: 'Базы данных и Проекты',
+      icon: icons.iFolder,
+      content: dbHtml,
+      keywords: 'база проект хранилище список pass'
+    },
+    {
+      id: 'backup',
+      title: 'Резервное копирование и Экспорт',
+      icon: icons.iDownload,
+      content: backupHtml,
+      keywords: 'бэкап экспорт импорт json pass txt'
+    },
+    {
+      id: 'about',
+      title: 'О программе и Лицензия',
+      icon: icons.iGlobe,
+      content: aboutHtml,
+      keywords: 'версия лицензия шифрование сброс о программе mit'
+    }
+  ];
+
+  // Filter sections by search query
+  const filteredSections = sections.filter(s => {
+    if (!query) return true;
+    return (
+      s.title.toLowerCase().includes(query) ||
+      s.keywords.toLowerCase().includes(query) ||
+      s.content.toLowerCase().includes(query)
+    );
+  });
+
+  const accordionsHtml = filteredSections.length
+    ? filteredSections
+        .map(s => {
+          const isOpen = query ? true : openAccordions.has(s.id);
+          return `
+        <div class="sp-accordion ${isOpen ? 'open' : ''}" data-accordion-id="${s.id}">
+          <button type="button" class="sp-accordion-header" data-action="toggle-accordion" data-accordion-id="${s.id}">
+            <div class="sp-accordion-title-wrap">
+              ${s.icon}
+              <span>${s.title}</span>
+            </div>
+            <span class="sp-accordion-icon">▾</span>
+          </button>
+          <div class="sp-accordion-body">
+            ${s.content}
+          </div>
+        </div>
+      `;
+        })
+        .join('')
+    : `
+      <div class="sp-empty-state" style="height: 180px;">
+        <div class="sp-empty-icon">${icons.iSearch}</div>
+        <p style="font-size: 13px; font-weight: 600;">Настройки не найдены</p>
+        <p style="font-size: 11px;">По запросу «${settingsSearchQuery}» ничего не найдено</p>
+      </div>
+    `;
+
+  return `
+    <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+      <!-- Settings Header Search Bar (mySmart Style) -->
+      <div class="sp-search-bar" style="padding: 10px 14px 6px;">
+        <div class="sp-search-input-wrap">
+          <span class="sp-search-icon">${icons.iSearch}</span>
+          <input type="text" id="sp-settings-search" class="sp-search-input" placeholder="Поиск настроек (безопасность, сессия, экспорт)..." value="${settingsSearchQuery}" />
+          ${settingsSearchQuery ? `<button class="sp-search-clear" id="sp-settings-search-clear">${icons.iX}</button>` : ''}
+        </div>
+      </div>
+
+      <div class="sp-settings-container">
+        ${accordionsHtml}
       </div>
     </div>
   `;
@@ -1078,7 +1350,123 @@ function attachEventHandlers() {
     }
   });
 
-  // Settings tab temporary exports
+  // ─── Settings tab handlers ───
+  const settingsSearchInput = document.getElementById('sp-settings-search');
+  if (settingsSearchInput) {
+    settingsSearchInput.addEventListener('input', e => {
+      settingsSearchQuery = e.target.value;
+      render();
+    });
+  }
+
+  const settingsSearchClear = document.getElementById('sp-settings-search-clear');
+  if (settingsSearchClear) {
+    settingsSearchClear.addEventListener('click', () => {
+      settingsSearchQuery = '';
+      render();
+    });
+  }
+
+  document.querySelectorAll('[data-action="toggle-accordion"]').forEach(header => {
+    header.addEventListener('click', () => {
+      const id = header.dataset.accordionId;
+      if (openAccordions.has(id)) {
+        openAccordions.delete(id);
+      } else {
+        openAccordions.add(id);
+      }
+      render();
+    });
+  });
+
+  const lockIntervalSelect = document.getElementById('sp-setting-lock-interval');
+  if (lockIntervalSelect) {
+    lockIntervalSelect.addEventListener('change', async e => {
+      const val = e.target.value;
+      state.lockInterval = val;
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({ ...cfg, lockInterval: val });
+      if (state.masterPassword) {
+        const session = await createSession(state.masterPassword, val);
+        updateState({ sessionExpiresAt: session.expiresAt });
+      }
+      showToast('Периодичность проверки обновлена');
+      render();
+    });
+  }
+
+  const btnToggleChangePwd = document.getElementById('sp-btn-toggle-change-pwd');
+  if (btnToggleChangePwd) {
+    btnToggleChangePwd.addEventListener('click', () => {
+      isChangePwdOpen = !isChangePwdOpen;
+      render();
+    });
+  }
+
+  const changePwdForm = document.getElementById('sp-change-pwd-form');
+  if (changePwdForm) {
+    changePwdForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const oldPwd = document.getElementById('sp-pwd-old').value;
+      const newPwd = document.getElementById('sp-pwd-new').value;
+      const newPwd2 = document.getElementById('sp-pwd-new2').value;
+      const errBox = document.getElementById('sp-change-pwd-err');
+
+      if (oldPwd !== state.masterPassword) {
+        if (errBox) {
+          errBox.innerText = 'Неверный текущий мастер-пароль';
+          errBox.style.display = 'block';
+        }
+        return;
+      }
+      if (newPwd.length < 8) {
+        if (errBox) {
+          errBox.innerText = 'Новый пароль должен быть от 8 символов';
+          errBox.style.display = 'block';
+        }
+        return;
+      }
+      if (newPwd !== newPwd2) {
+        if (errBox) {
+          errBox.innerText = 'Новые пароли не совпадают';
+          errBox.style.display = 'block';
+        }
+        return;
+      }
+
+      try {
+        state.masterPassword = newPwd;
+        await persistVaultChanges();
+        const session = await createSession(newPwd, state.lockInterval || '3days');
+        isChangePwdOpen = false;
+        updateState({
+          masterPassword: newPwd,
+          sessionExpiresAt: session.expiresAt
+        });
+        showToast('Мастер-пароль успешно изменён');
+      } catch (err) {
+        if (errBox) {
+          errBox.innerText = 'Ошибка: ' + err.message;
+          errBox.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  const btnLockNow = document.getElementById('sp-btn-lock-now');
+  if (btnLockNow) {
+    btnLockNow.addEventListener('click', () => {
+      lockVault();
+    });
+  }
+
+  const btnOpenSwitcher = document.getElementById('sp-btn-open-switcher');
+  if (btnOpenSwitcher) {
+    btnOpenSwitcher.addEventListener('click', () => {
+      updateState({ isProjectSwitcherOpen: true });
+    });
+  }
+
   const btnExportJson = document.getElementById('sp-btn-export-json');
   if (btnExportJson) {
     btnExportJson.addEventListener('click', async () => {
@@ -1109,6 +1497,66 @@ function attachEventHandlers() {
       a.download = `simplepass-${activeProj.name}.txt`;
       a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  const btnTriggerImport = document.getElementById('sp-btn-trigger-import');
+  const importFileInput = document.getElementById('sp-import-file-input');
+  if (btnTriggerImport && importFileInput) {
+    btnTriggerImport.addEventListener('click', () => {
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async evt => {
+        try {
+          const content = evt.target.result;
+          if (file.name.endsWith('.json')) {
+            const parsed = JSON.parse(content);
+            if (parsed.iv && parsed.salt && parsed.ciphertext) {
+              const decrypted = await decryptVault(parsed, state.masterPassword);
+              const normalized = normalizeVaultData(decrypted);
+              updateState({
+                projects: normalized.projects,
+                items: normalized.items
+              });
+              await persistVaultChanges();
+              showToast('Импорт зашифрованного JSON выполнен');
+            } else if (parsed.projects && parsed.items) {
+              const normalized = normalizeVaultData(parsed);
+              updateState({
+                projects: normalized.projects,
+                items: normalized.items
+              });
+              await persistVaultChanges();
+              showToast('Импорт данных выполнен');
+            } else {
+              alert('Неверный формат JSON файла');
+            }
+          } else {
+            alert('Поддерживаются только .json файлы');
+          }
+        } catch (err) {
+          alert('Ошибка при импорте: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  const btnResetAll = document.getElementById('sp-btn-reset-all');
+  if (btnResetAll) {
+    btnResetAll.addEventListener('click', async () => {
+      const confirmText = prompt('ВНИМАНИЕ: Для полного сброса всех данных введите СБРОС:');
+      if (confirmText === 'СБРОС') {
+        await clearStoredVault();
+        await destroySession();
+        window.location.reload();
+      }
     });
   }
 }

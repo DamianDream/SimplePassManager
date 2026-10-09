@@ -798,3 +798,143 @@ body.sp-body {
   line-height: 1.4;
 }
 
+/* ─── SETTINGS ACCORDIONS (mySmart Style) ─────── */
+.sp-settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sp-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-card);
+  transition: border-color 0.15s ease;
+}
+
+.sp-accordion:hover {
+  border-color: #3b3f52;
+}
+
+.sp-accordion.open {
+  border-color: var(--border-subtle);
+}
+
+.sp-accordion-header {
+  width: 100%;
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  gap: 8px;
+  text-align: left;
+  user-select: none;
+}
+
+.sp-accordion-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.sp-accordion-icon {
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: transform 0.2s ease;
+  display: flex;
+}
+
+.sp-accordion.open .sp-accordion-icon {
+  transform: rotate(180deg);
+}
+
+.sp-accordion-body {
+  display: none;
+  padding: 14px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sp-accordion.open .sp-accordion-body {
+  display: flex;
+}
+
+.sp-setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sp-setting-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sp-setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sp-setting-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sp-setting-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.sp-setting-control {
+  margin-top: 4px;
+}
+
+.sp-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.sp-select:focus {
+  border-color: var(--border-focus);
+}
+
+.sp-badge-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+
