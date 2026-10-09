@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { encryptVault, decryptVault } from '../src/core/crypto.js';
+import { encryptVault, decryptVault, validateMasterPassword } from '../src/core/crypto.js';
 import { normalizeVaultData, passFormatToItem, itemToPassFormat } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
 
@@ -69,6 +69,17 @@ async function runTests() {
   assert.strictEqual(parsed.url, 'https://example.com');
   assert.strictEqual(parsed.notes, 'Sample note 123');
   console.log('   ✓ UNIX pass format verified');
+
+  // Test 5: Master password policy validation (> 8 chars + special character)
+  console.log('5. Testing Master Password policy validation (>8 chars + special symbol)...');
+  assert.strictEqual(validateMasterPassword('').valid, false, 'Should fail empty');
+  assert.strictEqual(validateMasterPassword('short!').valid, false, 'Should fail length <= 8');
+  assert.strictEqual(validateMasterPassword('12345678').valid, false, 'Should fail 8 chars');
+  assert.strictEqual(validateMasterPassword('123456789').valid, false, 'Should fail no special char');
+  assert.strictEqual(validateMasterPassword('longpasswordwithoutspecial').valid, false, 'Should fail without special char');
+  assert.strictEqual(validateMasterPassword('validPass!').valid, true, 'Should pass: 10 chars + !');
+  assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Should pass: 11 chars + #');
+  console.log('   ✓ Master password policy verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

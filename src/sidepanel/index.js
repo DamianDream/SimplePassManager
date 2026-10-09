@@ -16,7 +16,7 @@ import {
   lockVault,
   copyToClipboard
 } from '../core/state.js';
-import { encryptVault, decryptVault } from '../core/crypto.js';
+import { encryptVault, decryptVault, validateMasterPassword } from '../core/crypto.js';
 import {
   getStoredVault,
   saveStoredVault,
@@ -122,9 +122,35 @@ async function init() {
   render();
 }
 
-// ─── VAULT ACTIONS ────────────────────────────────────────────────────────────
+// ─── VAULT ACTIONS & ERROR HANDLING ──────────────────────────────────────────
+
+function showFieldError(inputId, errorId, message) {
+  const inputEl = document.getElementById(inputId);
+  const errorEl = document.getElementById(errorId);
+  if (inputEl) inputEl.classList.add('has-error');
+  if (errorEl) {
+    errorEl.innerText = message;
+    errorEl.style.display = 'block';
+  }
+}
+
+function clearFieldErrors() {
+  document.querySelectorAll('.sp-field-error').forEach(el => {
+    el.innerText = '';
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.sp-input.has-error').forEach(el => {
+    el.classList.remove('has-error');
+  });
+}
 
 async function handleUnlock(password) {
+  clearFieldErrors();
+  if (!password) {
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Введите мастер-пароль');
+    return;
+  }
+
   try {
     const envelope = await getStoredVault();
     const decrypted = await decryptVault(envelope, password);
@@ -148,26 +174,30 @@ async function handleUnlock(password) {
       sessionExpiresAt: session.expiresAt
     });
   } catch (err) {
-    alert('Неверный мастер-пароль или хранилище повреждено.');
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Неверный мастер-пароль. Проверьте правильность ввода.');
   }
 }
 
 async function handleCreateVault(projectName, password, confirmPassword) {
-  if (!password || password.length < 8) {
-    alert('Мастер-пароль должен быть длиной не менее 8 символов.');
+  clearFieldErrors();
+
+  const pwdVal = validateMasterPassword(password);
+  if (!pwdVal.valid) {
+    showFieldError('sp-init-pwd', 'sp-err-pwd', pwdVal.error);
     return;
   }
   if (password !== confirmPassword) {
-    alert('Пароли не совпадают.');
+    showFieldError('sp-init-pwd2', 'sp-err-pwd2', 'Введенные пароли не совпадают');
     return;
   }
 
   const projId = 'proj_' + Date.now();
   const now = new Date().toISOString();
+  const profileName = (projectName && projectName.trim()) || 'Основной';
 
   const initialProject = {
     id: projId,
-    name: projectName.trim() || 'Основной',
+    name: profileName,
     type: 'browser',
     createdAt: now,
     updatedAt: now
@@ -440,10 +470,19 @@ function renderAuthScreen() {
           <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
           <h2 class="sp-auth-title">Создание хранилища</h2>
           <p class="sp-auth-desc">Задайте имя первой базы данных и мастер-пароль для шифрования AES-256-GCM.</p>
-          <form class="sp-auth-form" id="sp-init-form">
-            <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="Название базы (например: Основной)" value="Основной" required />
-            <input type="password" id="sp-init-pwd" class="sp-input" placeholder="Мастер-пароль (от 8 симв.)" required />
-            <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="Повторите мастер-пароль" required />
+          <form class="sp-auth-form" id="sp-init-form" novalidate>
+            <div>
+              <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="Название профиля" />
+              <div class="sp-field-error" id="sp-err-proj-name"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-init-pwd" class="sp-input" placeholder="Мастер-пароль (более 8 симв. + спецсимвол)" />
+              <div class="sp-field-error" id="sp-err-pwd"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="Повторите мастер-пароль" />
+              <div class="sp-field-error" id="sp-err-pwd2"></div>
+            </div>
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
               Создать хранилище
             </button>
@@ -451,6 +490,21 @@ function renderAuthScreen() {
         </div>
       </div>
     `;
+
+    ['sp-init-proj-name', 'sp-init-pwd', 'sp-init-pwd2'].forEach(id => {
+      const inp = document.getElementById(id);
+      if (inp) {
+        inp.addEventListener('input', () => {
+          inp.classList.remove('has-error');
+          const errEl = document.getElementById(id.replace('sp-init-', 'sp-err-'));
+          if (errEl) {
+            errEl.innerText = '';
+            errEl.style.display = 'none';
+          }
+        });
+      }
+    });
+
     document.getElementById('sp-init-form').addEventListener('submit', e => {
       e.preventDefault();
       const proj = document.getElementById('sp-init-proj-name').value;
@@ -467,8 +521,11 @@ function renderAuthScreen() {
         <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
         <h2 class="sp-auth-title">SimplePass заблокирован</h2>
         <p class="sp-auth-desc">Введите мастер-пароль для разблокировки записей</p>
-        <form class="sp-auth-form" id="sp-unlock-form">
-          <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="Мастер-пароль" autofocus required />
+        <form class="sp-auth-form" id="sp-unlock-form" novalidate>
+          <div>
+            <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="Мастер-пароль" autofocus />
+            <div class="sp-field-error" id="sp-err-unlock"></div>
+          </div>
           <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
             ${icons.iUnlock} Разблокировать
           </button>
@@ -476,6 +533,19 @@ function renderAuthScreen() {
       </div>
     </div>
   `;
+
+  const unlockInp = document.getElementById('sp-unlock-pwd');
+  if (unlockInp) {
+    unlockInp.addEventListener('input', () => {
+      unlockInp.classList.remove('has-error');
+      const errEl = document.getElementById('sp-err-unlock');
+      if (errEl) {
+        errEl.innerText = '';
+        errEl.style.display = 'none';
+      }
+    });
+  }
+
   document.getElementById('sp-unlock-form').addEventListener('submit', e => {
     e.preventDefault();
     const p = document.getElementById('sp-unlock-pwd').value;
@@ -957,7 +1027,7 @@ function renderSettingsView() {
           ? `
         <form id="sp-change-pwd-form" style="display:flex; flex-direction:column; gap:8px; margin-top:8px; padding:10px; background:var(--bg-surface); border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
           <input type="password" id="sp-pwd-old" class="sp-input" placeholder="Текущий мастер-пароль" required />
-          <input type="password" id="sp-pwd-new" class="sp-input" placeholder="Новый пароль (от 8 симв.)" required />
+          <input type="password" id="sp-pwd-new" class="sp-input" placeholder="Новый пароль (более 8 симв. + спецсимвол)" required />
           <input type="password" id="sp-pwd-new2" class="sp-input" placeholder="Повторите новый пароль" required />
           <div id="sp-change-pwd-err" style="display:none; font-size:11px; color:var(--danger);"></div>
           <button type="submit" class="sp-btn-primary" style="justify-content:center; padding:6px 12px; margin-top:4px;">
@@ -1605,16 +1675,17 @@ function attachEventHandlers() {
         }
         return;
       }
-      if (newPwd.length < 8) {
+      const pwdVal = validateMasterPassword(newPwd);
+      if (!pwdVal.valid) {
         if (errBox) {
-          errBox.innerText = 'Новый пароль должен быть от 8 символов';
+          errBox.innerText = pwdVal.error;
           errBox.style.display = 'block';
         }
         return;
       }
       if (newPwd !== newPwd2) {
         if (errBox) {
-          errBox.innerText = 'Новые пароли не совпадают';
+          errBox.innerText = 'Введенные новые пароли не совпадают';
           errBox.style.display = 'block';
         }
         return;

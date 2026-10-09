@@ -108,3 +108,22 @@ export async function decryptVault(envelope, masterPassword) {
     throw new Error('Invalid master password or corrupted vault.');
   }
 }
+
+/**
+ * Validates master password policy:
+ * - Strictly > 8 characters (at least 9 chars)
+ * - Includes at least one special character
+ */
+export function validateMasterPassword(password) {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Введите мастер-пароль' };
+  }
+  if (password.length <= 8) {
+    return { valid: false, error: 'Мастер-пароль должен содержать более 8 символов' };
+  }
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
+  if (!hasSpecialChar) {
+    return { valid: false, error: 'Пароль должен включать минимум один спецсимвол (!@#$%^&*...)' };
+  }
+  return { valid: true, error: null };
+}

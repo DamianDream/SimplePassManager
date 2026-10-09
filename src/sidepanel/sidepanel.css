@@ -462,6 +462,21 @@ body.sp-body {
   border-color: var(--border-focus);
 }
 
+.sp-input.has-error {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.sp-field-error {
+  font-size: 11px;
+  color: #f87171;
+  text-align: left;
+  line-height: 1.3;
+  margin-top: 4px;
+  display: none;
+  animation: fadeIn 0.15s ease;
+}
+
 /* ─── ITEM DETAILS / FORM ──────────────────────── */
 .sp-view-container {
   flex: 1;
