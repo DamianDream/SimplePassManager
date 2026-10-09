@@ -1,5 +1,12 @@
 import assert from 'assert';
-import { encryptVault, decryptVault, validateMasterPassword } from '../src/core/crypto.js';
+import {
+  encryptVault,
+  decryptVault,
+  validateMasterPassword,
+  generateSharePin,
+  encryptSharePayload,
+  decryptSharePayload
+} from '../src/core/crypto.js';
 import { normalizeVaultData, passFormatToItem, itemToPassFormat } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
 
@@ -80,6 +87,51 @@ async function runTests() {
   assert.strictEqual(validateMasterPassword('validPass!').valid, true, 'Should pass: 10 chars + !');
   assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Should pass: 11 chars + #');
   console.log('   ✓ Master password policy verified');
+
+  // Test 6: Secure Ephemeral Sharing (6-digit PIN + 2-min TTL)
+  console.log('6. Testing Secure Ephemeral Sharing (PIN + 2-minute TTL)...');
+  const pin = generateSharePin();
+  assert.strictEqual(pin.length, 6, 'PIN must be exactly 6 digits');
+  assert(/^\d{6}$/.test(pin), 'PIN must be purely digits');
+
+  const secretItem = {
+    title: 'Secret Server Access',
+    username: 'admin',
+    password: 'UltraSecretPassword2026!',
+    url: 'https://vpn.corp.net',
+    notes: 'Access token 999'
+  };
+
+  const { token, envelope, exp } = await encryptSharePayload(secretItem, pin, 120000);
+  assert(token.startsWith('SPASS1:'), 'Token must have SPASS1 prefix');
+  assert(envelope.spShare === true, 'Envelope must flag spShare');
+  assert(exp > Date.now(), 'Expiration must be in future');
+
+  // Successful decryption with token and correct PIN
+  const decryptedItem = await decryptSharePayload(token, pin);
+  assert.strictEqual(decryptedItem.title, secretItem.title);
+  assert.strictEqual(decryptedItem.password, secretItem.password);
+  assert.strictEqual(decryptedItem.username, secretItem.username);
+
+  // Failed decryption with wrong PIN
+  let wrongPinFailed = false;
+  try {
+    await decryptSharePayload(token, '000000');
+  } catch (err) {
+    wrongPinFailed = true;
+  }
+  assert(wrongPinFailed, 'Decryption with wrong PIN must fail');
+
+  // Expired TTL check: simulate an expired share (ttl = -1000)
+  const expiredShare = await encryptSharePayload(secretItem, pin, -1000);
+  let expiredFailed = false;
+  try {
+    await decryptSharePayload(expiredShare.token, pin);
+  } catch (err) {
+    expiredFailed = err.message.includes('истек');
+  }
+  assert(expiredFailed, 'Decryption of expired payload (>2 min) must fail with TTL expiration message');
+  console.log('   ✓ Ephemeral 2-minute PIN sharing verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

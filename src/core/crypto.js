@@ -127,3 +127,131 @@ export function validateMasterPassword(password) {
   }
   return { valid: true, error: null };
 }
+
+/**
+ * Generates a random 6-digit numeric PIN
+ */
+export function generateSharePin() {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  const num = (arr[0] % 900000) + 100000;
+  return num.toString();
+}
+
+/**
+ * Derives an ephemeral AES-GCM key from a 6-digit PIN
+ */
+async function derivePinKey(pin, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(pin),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Encrypts secret item with PIN and 2-minute expiration TTL
+ */
+export async function encryptSharePayload(item, pin, ttlMs = 120000) {
+  const exp = Date.now() + ttlMs;
+  const payload = {
+    title: item.title || '',
+    username: item.username || '',
+    password: item.password || '',
+    url: item.url || '',
+    notes: item.notes || '',
+    exp
+  };
+
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await derivePinKey(pin, salt);
+  const plaintext = enc.encode(JSON.stringify(payload));
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    plaintext
+  );
+
+  const envelope = {
+    spShare: true,
+    v: 1,
+    salt: bufferToBase64(salt),
+    iv: bufferToBase64(iv),
+    data: bufferToBase64(ciphertext),
+    exp
+  };
+
+  const rawJson = JSON.stringify(envelope);
+  const token = 'SPASS1:' + bufferToBase64(enc.encode(rawJson));
+  return { envelope, token, exp };
+}
+
+/**
+ * Decrypts shared payload using entered PIN
+ * Validates 2-minute expiration TTL
+ */
+export async function decryptSharePayload(tokenOrEnvelope, pin) {
+  let envelope = tokenOrEnvelope;
+  if (typeof tokenOrEnvelope === 'string') {
+    let rawJsonStr = tokenOrEnvelope.trim();
+    if (rawJsonStr.startsWith('SPASS1:')) {
+      const b64 = rawJsonStr.slice(7);
+      const dec = new TextDecoder();
+      rawJsonStr = dec.decode(base64ToBuffer(b64));
+    }
+    envelope = JSON.parse(rawJsonStr);
+  }
+
+  if (!envelope || !envelope.spShare || !envelope.data || !envelope.salt || !envelope.iv) {
+    throw new Error('Некорректный формат зашифрованного пакета.');
+  }
+
+  const now = Date.now();
+  if (envelope.exp && now > envelope.exp) {
+    throw new Error('Срок действия ключа (2 минуты) истек.');
+  }
+
+  const salt = new Uint8Array(base64ToBuffer(envelope.salt));
+  const iv = new Uint8Array(base64ToBuffer(envelope.iv));
+  const ciphertext = base64ToBuffer(envelope.data);
+
+  const key = await derivePinKey(pin.trim(), salt);
+  const dec = new TextDecoder();
+
+  try {
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+    const item = JSON.parse(dec.decode(decryptedBuffer));
+    if (item.exp && now > item.exp) {
+      throw new Error('Срок действия ключа (2 минуты) истек.');
+    }
+    return item;
+  } catch (err) {
+    if (err.message && err.message.includes('истек')) {
+      throw err;
+    }
+    throw new Error('Неверный PIN-код или поврежденные данные.');
+  }
+}
+

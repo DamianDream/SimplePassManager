@@ -14,7 +14,8 @@ export const DEFAULT_CONFIG = {
   lockInterval: '3days',
   clipboardClearSeconds: 30,
   theme: 'dark',
-  defaultCategory: 'General'
+  defaultCategory: 'Work',
+  categories: ['Work', 'Personal']
 };
 
 const storageAPI = (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local)
@@ -88,7 +89,7 @@ export function clearStoredVault() {
 /**
  * Normalizes vault data ensuring multi-project support and backward compatibility.
  */
-export function normalizeVaultData(data, initialProjectName = 'Основной') {
+export function normalizeVaultData(data, initialProjectName = 'main') {
   const now = new Date().toISOString();
   let projects = data.projects || [];
   let items = data.items || [];

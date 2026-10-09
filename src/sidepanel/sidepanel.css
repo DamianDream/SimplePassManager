@@ -5,13 +5,14 @@
   --bg-card-hover: #2a2c37;
   --bg-input: #15161b;
   --border-subtle: #2d303e;
-  --border-focus: #06b6d4;
   --text-main: #f3f4f6;
   --text-muted: #9ca3af;
   --text-dim: #6b7280;
-  --accent: #06b6d4;
-  --accent-hover: #0891b2;
-  --accent-glow: rgba(6, 182, 212, 0.2);
+  --accent: #F4E649;
+  --accent-hover: #e0d33b;
+  --accent-glow: rgba(244, 230, 73, 0.25);
+  --accent-text: #121316;
+  --border-focus: #F4E649;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -121,9 +122,9 @@ body.sp-body {
 
 .sp-btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text, #121316);
   border: none;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
   padding: 8px 14px;
   border-radius: var(--radius-sm);
@@ -291,8 +292,9 @@ body.sp-body {
 
 .sp-pill.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text, #121316);
   border-color: var(--accent);
+  font-weight: 700;
 }
 
 /* ─── VAULT LIST ───────────────────────────────── */
@@ -946,7 +948,7 @@ body.sp-body {
   gap: 4px;
   padding: 3px 8px;
   border-radius: 4px;
-  background: rgba(6, 182, 212, 0.12);
+  background: rgba(244, 230, 73, 0.15);
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
@@ -1001,6 +1003,271 @@ body.sp-body {
   gap: 6px;
   font-size: 11px;
 }
+
+/* ─── CUSTOM SELECT DROPDOWN (Pixel-perfect replacement for native select) ─── */
+.sp-custom-select {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.sp-custom-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  outline: none;
+}
+
+.sp-custom-select-trigger:hover,
+.sp-custom-select.open .sp-custom-select-trigger {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.sp-custom-select-value {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+
+.sp-custom-select-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sp-custom-select.open .sp-custom-select-arrow {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.sp-custom-select-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  z-index: 120;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.sp-custom-select.open .sp-custom-select-dropdown {
+  display: flex;
+  flex-direction: column;
+  animation: spSelectPop 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes spSelectPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sp-custom-select-option {
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sp-custom-select-option:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.sp-custom-select-option.selected {
+  background: rgba(244, 230, 73, 0.12);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── LIQUID / SMOOTH TOGGLE SWITCH (mySmart style) ─── */
+.sp-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sp-toggle-row:hover {
+  border-color: #3f4255;
+  background: #1e2028;
+}
+
+.sp-toggle-label {
+  font-size: 12px;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.sp-liquid-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.sp-liquid-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.sp-liquid-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-subtle);
+  transition: background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 22px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.sp-liquid-switch:hover .sp-liquid-slider {
+  background-color: #3b3f52;
+}
+
+.sp-liquid-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.sp-liquid-switch input:checked + .sp-liquid-slider {
+  background-color: var(--accent);
+}
+
+.sp-liquid-switch input:checked + .sp-liquid-slider:before {
+  transform: translateX(16px);
+  background-color: var(--accent-text, #121316);
+}
+
+/* ─── CATEGORY MANAGEMENT STYLES ─── */
+.sp-cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sp-cat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.sp-cat-item.default {
+  opacity: 0.85;
+}
+
+.sp-cat-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sp-cat-del-btn:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ─── SECURE EPHEMERAL SHARING MODAL ─── */
+.sp-pin-card {
+  background: #14161d;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.sp-pin-digits {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--accent);
+}
+
+.sp-timer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sp-timer-chip.expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
 
 
 

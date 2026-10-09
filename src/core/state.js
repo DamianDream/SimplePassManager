@@ -13,7 +13,7 @@ export const state = {
   projects: [],
   activeProjectId: null,
   items: [],
-  categories: ['All', 'Work', 'Personal', 'Servers', 'Finance', 'General'],
+  categories: ['All', 'Work', 'Personal'],
   activeCategory: 'All',
   searchQuery: '',
   activeTab: 'vault', // 'vault' | 'generator' | 'settings' | 'item-details'

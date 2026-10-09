@@ -16,7 +16,14 @@ import {
   lockVault,
   copyToClipboard
 } from '../core/state.js';
-import { encryptVault, decryptVault, validateMasterPassword } from '../core/crypto.js';
+import {
+  encryptVault,
+  decryptVault,
+  validateMasterPassword,
+  generateSharePin,
+  encryptSharePayload,
+  decryptSharePayload
+} from '../core/crypto.js';
 import {
   getStoredVault,
   saveStoredVault,
@@ -62,6 +69,24 @@ let isPasswordVisible = false;
 let settingsSearchQuery = '';
 let openAccordions = new Set(['security']);
 let isChangePwdOpen = false;
+let isCustomSelectOpen = false;
+
+// Ephemeral password sharing state
+let shareModalState = {
+  isOpen: false,
+  item: null,
+  pin: '',
+  token: '',
+  expiresAt: 0,
+  timerId: null
+};
+
+// Receiving shared password state
+let receiveModalState = {
+  isOpen: false,
+  error: '',
+  decryptedItem: null
+};
 
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
 
@@ -80,9 +105,13 @@ async function init() {
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
 
+  const userCategories = storedConfig.categories || ['Work', 'Personal'];
+  const fullCategories = ['All', ...userCategories.filter(c => c !== 'All')];
+
   updateState({
     isInitialized: storedVault !== null,
-    lockInterval: storedConfig.lockInterval || '3days'
+    lockInterval: storedConfig.lockInterval || '3days',
+    categories: fullCategories
   });
 
   // Attempt to restore active session (e.g. valid within 3 days)
@@ -193,7 +222,7 @@ async function handleCreateVault(projectName, password, confirmPassword) {
 
   const projId = 'proj_' + Date.now();
   const now = new Date().toISOString();
-  const profileName = (projectName && projectName.trim()) || 'Основной';
+  const profileName = (projectName && projectName.trim()) || 'main';
 
   const initialProject = {
     id: projId,
@@ -348,7 +377,7 @@ function showToast(text) {
     toast.id = 'sp-toast';
     toast.style.cssText = `
       position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
-      background: #06b6d4; color: #fff; font-size: 12px; font-weight: 600;
+      background: var(--accent); color: var(--accent-text, #121316); font-size: 12px; font-weight: 700;
       padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
       z-index: 9999; transition: opacity 0.2s ease;
     `;
@@ -385,6 +414,7 @@ function render() {
           <span>SimplePass</span>
         </div>
         <div class="sp-header-actions">
+          <button class="sp-btn-icon" id="sp-btn-receive-share" title="Открыть общий пароль (PIN-код)">${icons.iUnlock}</button>
           <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
           <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
         </div>
@@ -429,6 +459,12 @@ function render() {
 
       <!-- PASS CLI Instructions Modal -->
       ${renderPassInstructionsModal()}
+
+      <!-- Secure Ephemeral Share Modal -->
+      ${renderShareModal()}
+
+      <!-- Secure Receive Decrypt Modal -->
+      ${renderReceiveModal()}
     </div>
   `;
 
@@ -577,7 +613,7 @@ function renderVaultView() {
     );
     if (domainMatches.length > 0) {
       activeDomainNotice = `
-        <div style="background: rgba(6, 182, 212, 0.1); border: 1px solid var(--accent); padding: 6px 12px; margin: 8px 14px 0; border-radius: 8px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="background: rgba(244, 230, 73, 0.12); border: 1px solid var(--accent); padding: 6px 12px; margin: 8px 14px 0; border-radius: 8px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
           <span style="color: var(--accent); font-weight: 600;">Найдено для ${activeTabDomain}: ${domainMatches.length}</span>
           <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="Показать">${icons.iGlobe}</button>
         </div>
@@ -611,6 +647,7 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
+            <button class="sp-btn-icon" data-action="share" title="Поделиться (PIN-код)">${icons.iShare}</button>
             <button class="sp-btn-icon" data-action="autofill" title="Заполнить на сайте">${icons.iZap}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="Копировать логин">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="Копировать пароль">${icons.iKey}</button>
@@ -805,6 +842,284 @@ function renderPassInstructionsModal() {
   `;
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function parseCsvFile(csvContent) {
+  const rows = [];
+  let currentRow = [];
+  let currentVal = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvContent.length; i++) {
+    const char = csvContent[i];
+    const nextChar = csvContent[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && nextChar === '"') {
+        currentVal += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        currentVal += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        currentRow.push(currentVal.trim());
+        currentVal = '';
+      } else if (char === '\r') {
+        // skip carriage return
+      } else if (char === '\n') {
+        currentRow.push(currentVal.trim());
+        if (currentRow.some(c => c.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+        currentVal = '';
+      } else {
+        currentVal += char;
+      }
+    }
+  }
+  if (currentVal || currentRow.length) {
+    currentRow.push(currentVal.trim());
+    if (currentRow.some(c => c.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  if (rows.length < 2) {
+    throw new Error('CSV-файл пуст или не содержит строк с данными.');
+  }
+
+  const headers = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+  const findCol = (...names) => {
+    return headers.findIndex(h => names.some(n => h === n || h.includes(n)));
+  };
+
+  const colTitle = findCol('name', 'title', 'site');
+  const colUrl = findCol('url', 'uri', 'website', 'login_uri');
+  const colUser = findCol('username', 'login', 'email', 'user');
+  const colPass = findCol('password', 'pass');
+  const colNotes = findCol('notes', 'note', 'comment');
+  const colCategory = findCol('category', 'folder', 'group');
+
+  if (colPass === -1 && colTitle === -1) {
+    throw new Error('Не удалось распознать заголовки CSV (требуются хотя бы Title/Name или Password).');
+  }
+
+  const items = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const password = colPass !== -1 ? (row[colPass] || '') : '';
+    const title = colTitle !== -1 ? (row[colTitle] || '') : '';
+    if (!password && !title) continue;
+
+    items.push({
+      id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      title: title || 'Без названия',
+      password: password,
+      username: colUser !== -1 ? (row[colUser] || '') : '',
+      url: colUrl !== -1 ? (row[colUrl] || '') : '',
+      notes: colNotes !== -1 ? (row[colNotes] || '') : '',
+      category: colCategory !== -1 && row[colCategory] ? row[colCategory] : 'Work',
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  return items;
+}
+
+// ─── SECURE EPHEMERAL SHARING MODALS ──────────────────────────────────────────
+
+async function openShareModal(item) {
+  if (shareModalState.timerId) {
+    clearInterval(shareModalState.timerId);
+  }
+  const pin = generateSharePin();
+  const { token, exp } = await encryptSharePayload(item, pin, 120000);
+  shareModalState = {
+    isOpen: true,
+    item,
+    pin,
+    token,
+    expiresAt: exp,
+    timerId: null
+  };
+  render();
+
+  shareModalState.timerId = setInterval(() => {
+    const diff = Math.max(0, Math.floor((shareModalState.expiresAt - Date.now()) / 1000));
+    const countdownEl = document.getElementById('sp-share-countdown');
+    const timerChip = document.getElementById('sp-share-timer');
+    if (countdownEl) {
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      countdownEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+    if (diff <= 0) {
+      clearInterval(shareModalState.timerId);
+      if (timerChip) {
+        timerChip.classList.add('expired');
+        timerChip.innerHTML = '⚠️ Срок действия истек';
+      }
+      const copyPinBtn = document.getElementById('sp-share-copy-pin');
+      if (copyPinBtn) copyPinBtn.disabled = true;
+    }
+  }, 1000);
+}
+
+function closeShareModal() {
+  if (shareModalState.timerId) {
+    clearInterval(shareModalState.timerId);
+  }
+  shareModalState = {
+    isOpen: false,
+    item: null,
+    pin: '',
+    token: '',
+    expiresAt: 0,
+    timerId: null
+  };
+  render();
+}
+
+function renderShareModal() {
+  if (!shareModalState.isOpen || !shareModalState.item) return '';
+
+  return `
+    <div class="sp-modal-overlay" id="sp-share-modal-overlay" style="z-index: 200;">
+      <div class="sp-modal-content" style="max-width:340px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--accent);">${icons.iShare} Безопасный обмен паролем</span>
+          <button class="sp-btn-icon" id="sp-share-close">${icons.iX}</button>
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+          Пароль для <b>${escapeHtml(shareModalState.item.title)}</b> зашифрован. Передайте получателю зашифрованный код/файл и отдельно PIN-код.
+        </div>
+
+        <div class="sp-pin-card">
+          <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Одноразовый PIN-код</span>
+          <div class="sp-pin-digits" id="sp-share-pin-display">${shareModalState.pin}</div>
+          <div class="sp-timer-chip" id="sp-share-timer">
+            ⏱ Срок действия: <span id="sp-share-countdown">2:00</span>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="sp-btn-primary" id="sp-share-copy-pin" style="justify-content:center; font-size:12px;">
+            ${icons.iCopy} Скопировать PIN-код (${shareModalState.pin})
+          </button>
+          <button class="sp-btn-secondary" id="sp-share-copy-token" style="justify-content:center; font-size:12px;">
+            ${icons.iCopy} Скопировать зашифрованный код
+          </button>
+          <button class="sp-btn-secondary" id="sp-share-download-file" style="justify-content:center; font-size:12px;">
+            ${icons.iDownload} Скачать файл .spass
+          </button>
+        </div>
+
+        <p style="font-size:10px; color:var(--text-dim); margin-top:8px; text-align:center;">
+          🔒 Шифрование AES-256-GCM. Срок жизни ключа строго 2 минуты.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function renderReceiveModal() {
+  if (!receiveModalState.isOpen) return '';
+
+  return `
+    <div class="sp-modal-overlay" id="sp-receive-modal-overlay" style="z-index: 200;">
+      <div class="sp-modal-content" style="max-width:340px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--accent);">${icons.iUnlock} Открыть общий пароль</span>
+          <button class="sp-btn-icon" id="sp-receive-close">${icons.iX}</button>
+        </div>
+
+        ${!receiveModalState.decryptedItem ? `
+          <div style="font-size:12px; color:var(--text-muted); line-height:1.4; margin-bottom:8px;">
+            Введите зашифрованный код (или выберите .spass файл) и 6-значный PIN-код, переданный отправителем.
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label class="sp-label" style="margin:0;">Зашифрованный код / Файл</label>
+                <label class="sp-btn-secondary" style="font-size:10px; padding:2px 6px; cursor:pointer;">
+                  ${icons.iUpload} Загрузить .spass
+                  <input type="file" id="sp-receive-file-input" accept=".spass,.txt,.json" style="display:none;" />
+                </label>
+              </div>
+              <textarea id="sp-receive-token" class="sp-input" rows="3" placeholder="Вставьте зашифрованный код SPASS1:..."></textarea>
+            </div>
+
+            <div>
+              <label class="sp-label">6-значный PIN-код</label>
+              <input type="text" id="sp-receive-pin" class="sp-input" maxlength="6" placeholder="000000" style="letter-spacing:4px; font-weight:700; text-align:center; font-size:16px;" />
+            </div>
+
+            <div id="sp-receive-error" style="display:${receiveModalState.error ? 'block' : 'none'}; font-size:11px; color:var(--danger); padding:4px 0;">
+              ${receiveModalState.error}
+            </div>
+
+            <button class="sp-btn-primary" id="sp-receive-decrypt-btn" style="justify-content:center; margin-top:4px;">
+              ${icons.iUnlock} Расшифровать пароль
+            </button>
+          </div>
+        ` : `
+          <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; color:var(--text-dim);">Название:</span>
+              <span style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(receiveModalState.decryptedItem.title)}</span>
+            </div>
+            ${receiveModalState.decryptedItem.username ? `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; color:var(--text-dim);">Логин:</span>
+              <span style="font-family:monospace; color:var(--text-muted); font-size:12px;">${escapeHtml(receiveModalState.decryptedItem.username)}</span>
+            </div>` : ''}
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; color:var(--text-dim);">Пароль:</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-family:monospace; font-weight:700; color:var(--accent); font-size:13px;" id="sp-decrypted-pwd-val">${escapeHtml(receiveModalState.decryptedItem.password)}</span>
+                <button class="sp-btn-icon" id="sp-btn-copy-decrypted-pwd" title="Копировать">${icons.iCopy}</button>
+              </div>
+            </div>
+            ${receiveModalState.decryptedItem.url ? `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; color:var(--text-dim);">URL:</span>
+              <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(receiveModalState.decryptedItem.url)}</span>
+            </div>` : ''}
+            ${receiveModalState.decryptedItem.notes ? `
+            <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
+              Заметки: <span style="color:var(--text-muted);">${escapeHtml(receiveModalState.decryptedItem.notes)}</span>
+            </div>` : ''}
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="sp-btn-primary" id="sp-receive-save-btn" style="flex:1; justify-content:center; font-size:12px;">
+              ${icons.iPlus} Сохранить в профиль
+            </button>
+            <button class="sp-btn-secondary" id="sp-receive-done-btn" style="padding:6px 12px; font-size:12px;">
+              Закрыть
+            </button>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
 // ─── ITEM FORM VIEW (ADD / EDIT) ─────────────────────────────────────────────
 
 function renderItemFormView() {
@@ -816,7 +1131,7 @@ function renderItemFormView() {
     username: '',
     password: '',
     url: activeTabDomain ? `https://${activeTabDomain}` : '',
-    category: 'General',
+    category: 'Work',
     notes: ''
   };
 
@@ -829,8 +1144,28 @@ function renderItemFormView() {
           ${icons.iX} Назад
         </button>
         <h3 style="font-size:14px; font-weight:700;">${isNew ? 'Новая запись' : 'Редактирование'}</h3>
-        ${!isNew ? `<button class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;">${icons.iTrash}</button>` : '<div></div>'}
+        <div style="display:flex; gap:6px;">
+          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="Поделиться (PIN-код)">${icons.iShare}</button>` : ''}
+          ${!isNew ? `<button type="button" class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;" title="Удалить">${icons.iTrash}</button>` : '<div></div>'}
+        </div>
       </div>
+
+      ${
+        isNew
+          ? `
+        <div style="background:var(--bg-surface); border:1px dashed var(--border-subtle); border-radius:var(--radius-sm); padding:10px 12px; display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-main);">Импорт паролей из CSV</div>
+            <div style="font-size:11px; color:var(--text-dim);">Chrome, Bitwarden, 1Password...</div>
+          </div>
+          <label class="sp-btn-secondary" style="padding:5px 10px; font-size:11px; cursor:pointer;">
+            ${icons.iDownload} Выбрать CSV
+            <input type="file" id="sp-csv-file-input" accept=".csv,text/csv" style="display:none;" />
+          </label>
+        </div>
+      `
+          : ''
+      }
 
       <form id="sp-item-form" style="display:flex; flex-direction:column; gap:12px;">
         <input type="hidden" id="sp-item-id" value="${item.id}" />
@@ -879,7 +1214,7 @@ function renderItemFormView() {
           <select id="sp-item-category" class="sp-input">
             ${state.categories
               .filter(c => c !== 'All')
-              .map(c => `<option value="${c}" ${item.category === c ? 'selected' : ''}>${c}</option>`)
+              .map(c => `<option value="${c}" ${(item.category === c || (!item.category && c === 'Work')) ? 'selected' : ''}>${c}</option>`)
               .join('')}
           </select>
         </div>
@@ -924,35 +1259,50 @@ function renderGeneratorView() {
         </div>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; flex-direction:column; gap:8px;">
         <div class="sp-form-group">
-          <div style="display:flex; justify-content:space-between;">
-            <label class="sp-label">Длина пароля</label>
-            <span style="font-size:12px; font-weight:700; color:var(--accent);" id="sp-length-val">${genOptions.length}</span>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <label class="sp-label" style="margin:0;">Длина пароля</label>
+            <span style="font-size:13px; font-weight:700; color:var(--accent);" id="sp-length-val">${genOptions.length}</span>
           </div>
-          <input type="range" id="sp-slider-len" min="8" max="64" value="${genOptions.length}" style="width:100%; accent-color:var(--accent);" />
+          <input type="range" id="sp-slider-len" min="8" max="64" value="${genOptions.length}" style="width:100%; accent-color:var(--accent); cursor:pointer;" />
         </div>
 
-        <label class="sp-checkbox-row">
-          <span>Прописные буквы (A-Z)</span>
-          <input type="checkbox" id="sp-chk-upper" ${genOptions.useUpper ? 'checked' : ''} />
-        </label>
-        <label class="sp-checkbox-row">
-          <span>Строчные буквы (a-z)</span>
-          <input type="checkbox" id="sp-chk-lower" ${genOptions.useLower ? 'checked' : ''} />
-        </label>
-        <label class="sp-checkbox-row">
-          <span>Цифры (0-9)</span>
-          <input type="checkbox" id="sp-chk-digits" ${genOptions.useDigits ? 'checked' : ''} />
-        </label>
-        <label class="sp-checkbox-row">
-          <span>Спецсимволы (!@#$%^&*)</span>
-          <input type="checkbox" id="sp-chk-symbols" ${genOptions.useSymbols ? 'checked' : ''} />
-        </label>
-        <label class="sp-checkbox-row">
-          <span>Исключить неоднозначные (0, O, 1, l)</span>
-          <input type="checkbox" id="sp-chk-ambig" ${genOptions.avoidAmbiguous ? 'checked' : ''} />
-        </label>
+        <div class="sp-toggle-row">
+          <span class="sp-toggle-label">Прописные буквы (A-Z)</span>
+          <label class="sp-liquid-switch">
+            <input type="checkbox" id="sp-chk-upper" ${genOptions.useUpper ? 'checked' : ''} />
+            <span class="sp-liquid-slider"></span>
+          </label>
+        </div>
+        <div class="sp-toggle-row">
+          <span class="sp-toggle-label">Строчные буквы (a-z)</span>
+          <label class="sp-liquid-switch">
+            <input type="checkbox" id="sp-chk-lower" ${genOptions.useLower ? 'checked' : ''} />
+            <span class="sp-liquid-slider"></span>
+          </label>
+        </div>
+        <div class="sp-toggle-row">
+          <span class="sp-toggle-label">Цифры (0-9)</span>
+          <label class="sp-liquid-switch">
+            <input type="checkbox" id="sp-chk-digits" ${genOptions.useDigits ? 'checked' : ''} />
+            <span class="sp-liquid-slider"></span>
+          </label>
+        </div>
+        <div class="sp-toggle-row">
+          <span class="sp-toggle-label">Спецсимволы (!@#$%^&*)</span>
+          <label class="sp-liquid-switch">
+            <input type="checkbox" id="sp-chk-symbols" ${genOptions.useSymbols ? 'checked' : ''} />
+            <span class="sp-liquid-slider"></span>
+          </label>
+        </div>
+        <div class="sp-toggle-row">
+          <span class="sp-toggle-label">Исключить неоднозначные (0, O, 1, l)</span>
+          <label class="sp-liquid-switch">
+            <input type="checkbox" id="sp-chk-ambig" ${genOptions.avoidAmbiguous ? 'checked' : ''} />
+            <span class="sp-liquid-slider"></span>
+          </label>
+        </div>
       </div>
 
       <button class="sp-btn-primary" id="sp-gen-use-btn" style="justify-content:center; margin-top:10px;">
@@ -986,6 +1336,15 @@ function renderSettingsView() {
     }
   }
 
+  const intervalLabels = {
+    session: 'Каждый раз при новой сессии браузера',
+    '1day': 'Раз в день (24 часа)',
+    '3days': 'Раз в три дня (по умолчанию, 72 часа)',
+    '1week': 'Раз в неделю (7 дней)',
+    '1month': 'Раз в месяц (30 дней)'
+  };
+  const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['3days'];
+
   // 1. Accordion: Security & Session
   const secHtml = `
     <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность">
@@ -995,13 +1354,34 @@ function renderSettingsView() {
       </div>
       <p class="sp-setting-desc">Периодичность, с которой расширение запрашивает мастер-пароль.</p>
       <div class="sp-setting-control">
-        <select class="sp-select" id="sp-setting-lock-interval">
-          <option value="session" ${state.lockInterval === 'session' ? 'selected' : ''}>Каждый раз при новой сессии браузера</option>
-          <option value="1day" ${state.lockInterval === '1day' ? 'selected' : ''}>Раз в день (24 часа)</option>
-          <option value="3days" ${state.lockInterval === '3days' ? 'selected' : ''}>Раз в три дня (по умолчанию, 72 часа)</option>
-          <option value="1week" ${state.lockInterval === '1week' ? 'selected' : ''}>Раз в неделю (7 дней)</option>
-          <option value="1month" ${state.lockInterval === '1month' ? 'selected' : ''}>Раз в месяц (30 дней)</option>
-        </select>
+        <div class="sp-custom-select ${isCustomSelectOpen ? 'open' : ''}" id="sp-setting-lock-interval-dropdown">
+          <button type="button" class="sp-custom-select-trigger" id="sp-custom-lock-trigger">
+            <span class="sp-custom-select-value">${selectedIntervalLabel}</span>
+            <span class="sp-custom-select-arrow">${icons.iChevronDown}</span>
+          </button>
+          <div class="sp-custom-select-dropdown">
+            <div class="sp-custom-select-option ${state.lockInterval === 'session' ? 'selected' : ''}" data-val="session">
+              <span>Каждый раз при новой сессии браузера</span>
+              ${state.lockInterval === 'session' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '1day' ? 'selected' : ''}" data-val="1day">
+              <span>Раз в день (24 часа)</span>
+              ${state.lockInterval === '1day' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '3days' ? 'selected' : ''}" data-val="3days">
+              <span>Раз в три дня (по умолчанию, 72 часа)</span>
+              ${state.lockInterval === '3days' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '1week' ? 'selected' : ''}" data-val="1week">
+              <span>Раз в неделю (7 дней)</span>
+              ${state.lockInterval === '1week' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '1month' ? 'selected' : ''}" data-val="1month">
+              <span>Раз в месяц (30 дней)</span>
+              ${state.lockInterval === '1month' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1126,7 +1506,41 @@ function renderSettingsView() {
     </div>
   `;
 
-  // 3. Accordion: Backup & Data Transfer
+  // 3. Accordion: Categories Management
+  const catItems = state.categories.filter(c => c !== 'All');
+  const catListHtml = catItems.map(c => {
+    const isDefault = c === 'Work' || c === 'Personal';
+    return `
+      <div class="sp-cat-item ${isDefault ? 'default' : ''}">
+        <span>${c} ${isDefault ? '<span style="font-size:10px; color:var(--text-dim);">(базовая)</span>' : ''}</span>
+        ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="Удалить категорию">${icons.iTrash}</button>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const catHtml = `
+    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iFolder} Категории записей</span>
+        <span class="sp-badge-info">${catItems.length} шт.</span>
+      </div>
+      <p class="sp-setting-desc">По умолчанию создаются только «Work» и «Personal». Вы можете добавить любые свои категории.</p>
+
+      <div class="sp-cat-list">
+        ${catListHtml}
+      </div>
+
+      <div style="display:flex; gap:6px; margin-top:10px;">
+        <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="Название новой категории..." style="flex:1;" />
+        <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
+          ${icons.iPlus} Добавить
+        </button>
+      </div>
+      <div id="sp-cat-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
+    </div>
+  `;
+
+  // 4. Accordion: Backup & Data Transfer
   const backupHtml = `
     <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать">
       <div class="sp-setting-header">
@@ -1216,6 +1630,13 @@ function renderSettingsView() {
       icon: icons.iFolder,
       content: dbHtml,
       keywords: 'база проект хранилище список pass'
+    },
+    {
+      id: 'categories',
+      title: 'Управление категориями',
+      icon: icons.iFolder,
+      content: catHtml,
+      keywords: 'категории папки work personal создать добавить'
     },
     {
       id: 'backup',
@@ -1488,6 +1909,11 @@ function attachEventHandlers() {
       updateState({ activeTab: 'item-details', selectedItem: item });
     });
 
+    card.querySelector('[data-action="share"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openShareModal(item);
+    });
+
     card.querySelector('[data-action="autofill"]')?.addEventListener('click', e => {
       e.stopPropagation();
       triggerAutofill(item);
@@ -1506,11 +1932,27 @@ function attachEventHandlers() {
     });
   });
 
+  // Header receive share button
+  const btnReceiveShare = document.getElementById('sp-btn-receive-share');
+  if (btnReceiveShare) {
+    btnReceiveShare.addEventListener('click', () => {
+      receiveModalState = { isOpen: true, error: '', decryptedItem: null };
+      render();
+    });
+  }
+
   // Item form back & delete
   const btnBack = document.getElementById('sp-form-back');
   if (btnBack) {
     btnBack.addEventListener('click', () => {
       updateState({ activeTab: 'vault', selectedItem: null });
+    });
+  }
+
+  const btnFormShare = document.getElementById('sp-form-share');
+  if (btnFormShare && state.selectedItem) {
+    btnFormShare.addEventListener('click', () => {
+      openShareModal(state.selectedItem);
     });
   }
 
@@ -1544,6 +1986,30 @@ function attachEventHandlers() {
     });
   }
 
+  // CSV Import in Item Form
+  const csvFileInput = document.getElementById('sp-csv-file-input');
+  if (csvFileInput) {
+    csvFileInput.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const activeProj = getActiveProject();
+        const imported = parseCsvFile(text);
+        imported.forEach(it => {
+          it.projectId = activeProj ? activeProj.id : 'proj_default';
+        });
+        state.items = [...state.items, ...imported];
+        await persistVaultChanges();
+        notifyStateChange();
+        showToast(`Импортировано ${imported.length} паролей в «${activeProj ? activeProj.name : 'базу'}»`);
+        updateState({ activeTab: 'vault', selectedItem: null });
+      } catch (err) {
+        alert('Ошибка импорта CSV: ' + err.message);
+      }
+    });
+  }
+
   const itemForm = document.getElementById('sp-item-form');
   if (itemForm) {
     itemForm.addEventListener('submit', e => {
@@ -1561,14 +2027,26 @@ function attachEventHandlers() {
     });
   }
 
-  // Generator Tab controls
+  // ─── Generator Tab controls (Smooth 60fps Interactive Live-Update) ───
+  function updateGeneratorLiveUI() {
+    currentGeneratedPassword = generatePassword(genOptions);
+    const disp = document.getElementById('sp-gen-display');
+    if (disp) disp.innerText = currentGeneratedPassword;
+    const lenVal = document.getElementById('sp-length-val');
+    if (lenVal) lenVal.innerText = genOptions.length;
+    const strength = evaluatePasswordStrength(currentGeneratedPassword);
+    const bar = document.querySelector('.sp-strength-bar');
+    if (bar) {
+      bar.style.width = `${strength.score}%`;
+      bar.style.backgroundColor = strength.color;
+    }
+  }
+
   const sliderLen = document.getElementById('sp-slider-len');
   if (sliderLen) {
     sliderLen.addEventListener('input', e => {
       genOptions.length = parseInt(e.target.value, 10);
-      document.getElementById('sp-length-val').innerText = genOptions.length;
-      currentGeneratedPassword = generatePassword(genOptions);
-      render();
+      updateGeneratorLiveUI();
     });
   }
 
@@ -1581,8 +2059,7 @@ function attachEventHandlers() {
         if (type === 'digits') genOptions.useDigits = e.target.checked;
         if (type === 'symbols') genOptions.useSymbols = e.target.checked;
         if (type === 'ambig') genOptions.avoidAmbiguous = e.target.checked;
-        currentGeneratedPassword = generatePassword(genOptions);
-        render();
+        updateGeneratorLiveUI();
       });
     }
   });
@@ -1590,8 +2067,7 @@ function attachEventHandlers() {
   const btnGenRefresh = document.getElementById('sp-gen-refresh');
   if (btnGenRefresh) {
     btnGenRefresh.addEventListener('click', () => {
-      currentGeneratedPassword = generatePassword(genOptions);
-      render();
+      updateGeneratorLiveUI();
     });
   }
 
@@ -1635,18 +2111,219 @@ function attachEventHandlers() {
     });
   });
 
-  const lockIntervalSelect = document.getElementById('sp-setting-lock-interval');
-  if (lockIntervalSelect) {
-    lockIntervalSelect.addEventListener('change', async e => {
-      const val = e.target.value;
-      state.lockInterval = val;
-      const cfg = await getStoredConfig();
-      await saveStoredConfig({ ...cfg, lockInterval: val });
-      if (state.masterPassword) {
-        const session = await createSession(state.masterPassword, val);
-        updateState({ sessionExpiresAt: session.expiresAt });
+  // Custom Select Dropdown for Lock Interval
+  const customLockSelect = document.getElementById('sp-setting-lock-interval-dropdown');
+  const customLockTrigger = document.getElementById('sp-custom-lock-trigger');
+  if (customLockSelect && customLockTrigger) {
+    customLockTrigger.addEventListener('click', e => {
+      e.stopPropagation();
+      isCustomSelectOpen = !isCustomSelectOpen;
+      customLockSelect.classList.toggle('open', isCustomSelectOpen);
+    });
+
+    customLockSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
+      opt.addEventListener('click', async e => {
+        e.stopPropagation();
+        const val = opt.dataset.val;
+        state.lockInterval = val;
+        isCustomSelectOpen = false;
+        const cfg = await getStoredConfig();
+        await saveStoredConfig({ ...cfg, lockInterval: val });
+        if (state.masterPassword) {
+          const session = await createSession(state.masterPassword, val);
+          updateState({ sessionExpiresAt: session.expiresAt });
+        }
+        showToast('Периодичность проверки обновлена');
+        render();
+      });
+    });
+  }
+
+  // Category Management Handlers in Settings
+  const btnAddCat = document.getElementById('sp-btn-add-cat');
+  const newCatInput = document.getElementById('sp-new-cat-name');
+  const catErr = document.getElementById('sp-cat-err');
+  if (btnAddCat && newCatInput) {
+    btnAddCat.addEventListener('click', async () => {
+      const name = newCatInput.value.trim();
+      if (!name) return;
+      if (state.categories.some(c => c.toLowerCase() === name.toLowerCase())) {
+        if (catErr) {
+          catErr.innerText = 'Категория с таким именем уже существует';
+          catErr.style.display = 'block';
+        }
+        return;
       }
-      showToast('Периодичность проверки обновлена');
+      state.categories.push(name);
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({
+        ...cfg,
+        categories: state.categories.filter(c => c !== 'All')
+      });
+      showToast(`Категория «${name}» добавлена`);
+      render();
+    });
+  }
+
+  document.querySelectorAll('.sp-cat-del-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const catToDelete = btn.dataset.cat;
+      if (catToDelete === 'Work' || catToDelete === 'Personal') return;
+      state.categories = state.categories.filter(c => c !== catToDelete);
+      state.items = state.items.map(it => {
+        if (it.category === catToDelete) {
+          return { ...it, category: 'Work' };
+        }
+        return it;
+      });
+      await persistVaultChanges();
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({
+        ...cfg,
+        categories: state.categories.filter(c => c !== 'All')
+      });
+      showToast(`Категория «${catToDelete}» удалена`);
+      render();
+    });
+  });
+
+  // Ephemeral Share Modal Listeners
+  const shareCloseBtn = document.getElementById('sp-share-close');
+  if (shareCloseBtn) {
+    shareCloseBtn.addEventListener('click', () => {
+      closeShareModal();
+    });
+  }
+
+  const shareOverlay = document.getElementById('sp-share-modal-overlay');
+  if (shareOverlay) {
+    shareOverlay.addEventListener('click', e => {
+      if (e.target === shareOverlay) closeShareModal();
+    });
+  }
+
+  const btnCopyPin = document.getElementById('sp-share-copy-pin');
+  if (btnCopyPin) {
+    btnCopyPin.addEventListener('click', () => {
+      copyToClipboard(shareModalState.pin);
+      showToast(`PIN скопирован: ${shareModalState.pin}`);
+    });
+  }
+
+  const btnCopyToken = document.getElementById('sp-share-copy-token');
+  if (btnCopyToken) {
+    btnCopyToken.addEventListener('click', () => {
+      copyToClipboard(shareModalState.token);
+      showToast('Зашифрованный код скопирован');
+    });
+  }
+
+  const btnDownloadShare = document.getElementById('sp-share-download-file');
+  if (btnDownloadShare && shareModalState.item) {
+    btnDownloadShare.addEventListener('click', () => {
+      const blob = new Blob([shareModalState.token], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `share-${shareModalState.item.title || 'secret'}.spass`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Файл .spass сохранён');
+    });
+  }
+
+  // Receive Shared Password Modal Listeners
+  const receiveCloseBtn = document.getElementById('sp-receive-close');
+  const receiveDoneBtn = document.getElementById('sp-receive-done-btn');
+  [receiveCloseBtn, receiveDoneBtn].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        receiveModalState = { isOpen: false, error: '', decryptedItem: null };
+        render();
+      });
+    }
+  });
+
+  const receiveOverlay = document.getElementById('sp-receive-modal-overlay');
+  if (receiveOverlay) {
+    receiveOverlay.addEventListener('click', e => {
+      if (e.target === receiveOverlay) {
+        receiveModalState = { isOpen: false, error: '', decryptedItem: null };
+        render();
+      }
+    });
+  }
+
+  const receiveFileInput = document.getElementById('sp-receive-file-input');
+  if (receiveFileInput) {
+    receiveFileInput.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const tokenInput = document.getElementById('sp-receive-token');
+      if (tokenInput) tokenInput.value = text.trim();
+    });
+  }
+
+  const receiveDecryptBtn = document.getElementById('sp-receive-decrypt-btn');
+  if (receiveDecryptBtn) {
+    receiveDecryptBtn.addEventListener('click', async () => {
+      const token = document.getElementById('sp-receive-token')?.value.trim();
+      const pin = document.getElementById('sp-receive-pin')?.value.trim();
+      const errBox = document.getElementById('sp-receive-error');
+
+      if (!token) {
+        if (errBox) { errBox.innerText = 'Вставьте зашифрованный код'; errBox.style.display = 'block'; }
+        return;
+      }
+      if (!pin || pin.length < 4) {
+        if (errBox) { errBox.innerText = 'Введите PIN-код'; errBox.style.display = 'block'; }
+        return;
+      }
+
+      try {
+        const decrypted = await decryptSharePayload(token, pin);
+        receiveModalState.decryptedItem = decrypted;
+        receiveModalState.error = '';
+        render();
+      } catch (err) {
+        if (errBox) {
+          errBox.innerText = '⚠️ ' + err.message;
+          errBox.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  const btnCopyDecrypted = document.getElementById('sp-btn-copy-decrypted-pwd');
+  if (btnCopyDecrypted && receiveModalState.decryptedItem) {
+    btnCopyDecrypted.addEventListener('click', () => {
+      copyToClipboard(receiveModalState.decryptedItem.password);
+      showToast('Пароль скопирован в буфер');
+    });
+  }
+
+  const btnSaveDecrypted = document.getElementById('sp-receive-save-btn');
+  if (btnSaveDecrypted && receiveModalState.decryptedItem) {
+    btnSaveDecrypted.addEventListener('click', async () => {
+      const activeProj = getActiveProject();
+      const itemToSave = {
+        id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        projectId: activeProj ? activeProj.id : 'proj_default',
+        title: receiveModalState.decryptedItem.title || 'Полученный пароль',
+        username: receiveModalState.decryptedItem.username || '',
+        password: receiveModalState.decryptedItem.password || '',
+        url: receiveModalState.decryptedItem.url || '',
+        notes: receiveModalState.decryptedItem.notes || '',
+        category: 'Work',
+        updatedAt: new Date().toISOString()
+      };
+      state.items.push(itemToSave);
+      await persistVaultChanges();
+      notifyStateChange();
+      receiveModalState = { isOpen: false, error: '', decryptedItem: null };
+      showToast(`Пароль сохранён в «${activeProj ? activeProj.name : 'базу'}»!`);
       render();
     });
   }
