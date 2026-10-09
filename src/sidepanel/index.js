@@ -468,8 +468,8 @@ function renderAuthScreen() {
       <div class="sp-auth-screen">
         <div class="sp-auth-box">
           <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
-          <h2 class="sp-auth-title">Создание хранилища</h2>
-          <p class="sp-auth-desc">Задайте имя первой базы данных и мастер-пароль для шифрования AES-256-GCM.</p>
+          <h2 class="sp-auth-title">Создание профиля</h2>
+          <p class="sp-auth-desc">Задайте имя первого профиля и мастер-пароль для шифрования AES-256-GCM.</p>
           <form class="sp-auth-form" id="sp-init-form" novalidate>
             <div>
               <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="Название профиля" />
@@ -484,7 +484,7 @@ function renderAuthScreen() {
               <div class="sp-field-error" id="sp-err-pwd2"></div>
             </div>
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-              Создать хранилище
+              Создать профиль
             </button>
           </form>
         </div>
