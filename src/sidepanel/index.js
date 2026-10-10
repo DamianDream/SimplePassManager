@@ -545,7 +545,7 @@ function render() {
           <span class="sp-header-title" id="sp-header-title">${sectionTitle}</span>
         </div>
         <div class="sp-header-actions">
-          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="Принять пароль (E2EE туннель)">${icons.iTunnel}</button>
+          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="Поделиться паролем (E2EE туннель)">${icons.iLink}</button>
           <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
           <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
         </div>
@@ -615,7 +615,7 @@ function render() {
 
   if (activeElId) {
     const el = document.getElementById(activeElId);
-    if (el) {
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
       el.focus();
       if (selStart !== null && selEnd !== null) {
         try {
@@ -1575,24 +1575,16 @@ function renderGeneratorView() {
     currentGeneratedPassword = generatePassword(genOptions);
   }
 
-  const strength = evaluatePasswordStrength(currentGeneratedPassword);
-
   return `
     <div class="sp-view-container">
       <div class="sp-gen-result-card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:11px; font-weight:700; color:${strength.color}; text-transform:uppercase;">
-            ${strength.label} (${strength.score}/100)
-          </span>
+        <div style="display:flex; justify-content:flex-end; align-items:center;">
           <div style="display:flex; gap:4px;">
             <button class="sp-btn-icon" id="sp-gen-refresh" title="Сгенерировать новый">${icons.iRefresh}</button>
             <button class="sp-btn-icon" id="sp-gen-copy" title="Копировать">${icons.iCopy}</button>
           </div>
         </div>
         <div class="sp-gen-password-display" id="sp-gen-display">${currentGeneratedPassword}</div>
-        <div class="sp-strength-meter">
-          <div class="sp-strength-bar" style="width:${strength.score}%; background-color:${strength.color};"></div>
-        </div>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
@@ -1640,10 +1632,6 @@ function renderGeneratorView() {
           </label>
         </div>
       </div>
-
-      <button class="sp-btn-primary" id="sp-gen-use-btn" style="justify-content:center; margin-top:10px;">
-        ${icons.iCopy} Скопировать пароль
-      </button>
     </div>
   `;
 }
@@ -2184,7 +2172,12 @@ function attachEventHandlers() {
 
   const closeProjectPanelBtn = document.getElementById('sp-close-project-panel');
   if (closeProjectPanelBtn) {
-    closeProjectPanelBtn.addEventListener('click', () => {
+    closeProjectPanelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (document.activeElement) document.activeElement.blur();
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
       updateState({ isProjectSwitcherOpen: false });
     });
   }
@@ -2449,12 +2442,6 @@ function attachEventHandlers() {
     if (disp) disp.innerText = currentGeneratedPassword;
     const lenVal = document.getElementById('sp-length-val');
     if (lenVal) lenVal.innerText = genOptions.length;
-    const strength = evaluatePasswordStrength(currentGeneratedPassword);
-    const bar = document.querySelector('.sp-strength-bar');
-    if (bar) {
-      bar.style.width = `${strength.score}%`;
-      bar.style.backgroundColor = strength.color;
-    }
   }
 
   const sliderLen = document.getElementById('sp-slider-len');
@@ -2487,15 +2474,12 @@ function attachEventHandlers() {
   }
 
   const btnGenCopy = document.getElementById('sp-gen-copy');
-  const btnGenUse = document.getElementById('sp-gen-use-btn');
-  [btnGenCopy, btnGenUse].forEach(btn => {
-    if (btn) {
-      btn.addEventListener('click', () => {
-        copyToClipboard(currentGeneratedPassword);
-        showToast('Пароль скопирован в буфер');
-      });
-    }
-  });
+  if (btnGenCopy) {
+    btnGenCopy.addEventListener('click', () => {
+      copyToClipboard(currentGeneratedPassword);
+      showToast('Пароль скопирован в буфер');
+    });
+  }
 
   // ─── Settings tab handlers ───
   const settingsSearchInput = document.getElementById('sp-settings-search');
