@@ -526,9 +526,7 @@ function render() {
 
   // Section title mapping
   let sectionTitle = 'Пароли';
-  if (state.activeTab === 'vault') {
-    sectionTitle = `Пароли (${activeItems.length})`;
-  } else if (state.activeTab === 'generator') {
+  if (state.activeTab === 'generator') {
     sectionTitle = 'Генератор пароля';
   } else if (state.activeTab === 'settings') {
     sectionTitle = 'Настройки';
@@ -894,7 +892,7 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
-            <button class="sp-btn-icon" data-action="share" title="Поделиться (PIN-код)">${icons.iShare}</button>
+            <button class="sp-btn-icon" data-action="share" title="Поделиться через E2EE туннель">${icons.iLink}</button>
             <button class="sp-btn-icon" data-action="autofill" title="Заполнить на сайте">${icons.iZap}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="Копировать логин">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="Копировать пароль">${icons.iKey}</button>
@@ -1481,7 +1479,7 @@ function renderItemFormView() {
         </button>
         <h3 style="font-size:14px; font-weight:700;">${isNew ? 'Новая запись' : 'Редактирование'}</h3>
         <div style="display:flex; gap:6px;">
-          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="Поделиться (PIN-код)">${icons.iShare}</button>` : ''}
+          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="Поделиться через E2EE туннель">${icons.iLink}</button>` : ''}
           ${!isNew ? `<button type="button" class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;" title="Удалить">${icons.iTrash}</button>` : '<div></div>'}
         </div>
       </div>
@@ -2605,13 +2603,20 @@ function attachEventHandlers() {
   const sendTunnelOverlay = document.getElementById('sp-send-tunnel-overlay');
   const btnCloseSendTunnel = document.getElementById('sp-btn-close-send-tunnel');
 
-  [sendTunnelCloseBtn, sendTunnelOverlay, btnCloseSendTunnel].forEach(el => {
-    if (el) {
-      el.addEventListener('click', e => {
-        if (e.target === el) closeSendTunnelModal();
+  [sendTunnelCloseBtn, btnCloseSendTunnel].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        closeSendTunnelModal();
       });
     }
   });
+
+  if (sendTunnelOverlay) {
+    sendTunnelOverlay.addEventListener('click', e => {
+      if (e.target === sendTunnelOverlay) closeSendTunnelModal();
+    });
+  }
 
   const btnConnectAndEncrypt = document.getElementById('sp-btn-connect-and-encrypt');
   if (btnConnectAndEncrypt && sendTunnelModalState.item) {
@@ -2655,13 +2660,20 @@ function attachEventHandlers() {
   const receiveTunnelOverlay = document.getElementById('sp-receive-tunnel-overlay');
   const btnFinishTunnel = document.getElementById('sp-btn-finish-tunnel');
 
-  [receiveTunnelCloseBtn, receiveTunnelOverlay, btnFinishTunnel].forEach(el => {
-    if (el) {
-      el.addEventListener('click', e => {
-        if (e.target === el) closeReceiveTunnelModal();
+  [receiveTunnelCloseBtn, btnFinishTunnel].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        closeReceiveTunnelModal();
       });
     }
   });
+
+  if (receiveTunnelOverlay) {
+    receiveTunnelOverlay.addEventListener('click', e => {
+      if (e.target === receiveTunnelOverlay) closeReceiveTunnelModal();
+    });
+  }
 
   const btnCopyTunnelToken = document.getElementById('sp-btn-copy-tunnel-token');
   if (btnCopyTunnelToken && receiveTunnelModalState.tunnelToken) {

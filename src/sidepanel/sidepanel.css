@@ -248,6 +248,11 @@ body.sp-body {
   transition: all 0.15s ease;
 }
 
+button svg,
+.sp-btn-icon svg {
+  pointer-events: none;
+}
+
 .sp-btn-icon:hover {
   background: var(--bg-card);
   color: var(--text-main);
