@@ -166,6 +166,31 @@ async function runTests() {
   assert.strictEqual(decNew.count, 42, 'Rekeyed vault must decrypt with new password');
   console.log('   ✓ 12-word recovery key & Dual-Key envelope verified');
 
+  // Test 8: Active Tab Domain Auto-detection & Priority Sorting
+  console.log('8. Testing Domain Auto-Detection & Priority Card Sorting...');
+  const { isItemMatchingDomain, sortItemsByDomainMatch, extractCleanDomain } = await import('../src/core/domain.js');
+
+  assert.strictEqual(extractCleanDomain('https://www.github.com/settings'), 'github.com');
+  assert.strictEqual(extractCleanDomain('gist.github.com'), 'gist.github.com');
+  assert.strictEqual(extractCleanDomain('chrome://extensions'), '');
+
+  const itemsList = [
+    { id: '1', title: 'Google Mail', url: 'https://mail.google.com' },
+    { id: '2', title: 'GitHub', url: 'https://github.com/login' },
+    { id: '3', title: 'AWS Console', url: 'https://aws.amazon.com' },
+    { id: '4', title: 'Gist Snippets', url: 'https://gist.github.com' }
+  ];
+
+  assert(isItemMatchingDomain(itemsList[1], 'github.com'), 'GitHub must match github.com');
+  assert(isItemMatchingDomain(itemsList[3], 'github.com'), 'Subdomain gist.github.com must match github.com');
+  assert(!isItemMatchingDomain(itemsList[0], 'github.com'), 'Google must not match github.com');
+
+  const sortedByDomain = sortItemsByDomainMatch(itemsList, 'github.com');
+  assert.strictEqual(sortedByDomain[0].title, 'GitHub', 'Matched item must be first');
+  assert.strictEqual(sortedByDomain[1].title, 'Gist Snippets', 'Matched item must be second');
+  assert.strictEqual(sortedByDomain[2].title, 'Google Mail', 'Unmatched item must follow');
+  console.log('   ✓ Domain Auto-detection & Priority Sorting verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

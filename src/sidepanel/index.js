@@ -47,6 +47,11 @@ import {
   saveItemToPassCli,
   deleteItemFromPassCli
 } from '../core/pass-native.js';
+import {
+  extractCleanDomain,
+  isItemMatchingDomain,
+  sortItemsByDomainMatch
+} from '../core/domain.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -111,19 +116,62 @@ let receiveTunnelModalState = {
   error: ''
 };
 
-// ─── INITIALIZATION ──────────────────────────────────────────────────────────
+// ─── ACTIVE TAB AUTO-DETECTION ─────────────────────────────────────────────
 
-async function init() {
-  // Query active tab domain from background
-  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+function updateActiveTabDomain() {
+  const applyTab = (url, tabId) => {
+    const clean = extractCleanDomain(url);
+    if (clean !== activeTabDomain || tabId !== activeTabId) {
+      activeTabDomain = clean;
+      activeTabId = tabId;
+      if (state.isUnlocked) {
+        render();
+      }
+    }
+  };
+
+  if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+      if (tabs && tabs[0]) {
+        applyTab(tabs[0].url, tabs[0].id);
+      } else {
+        chrome.tabs.query({ active: true, currentWindow: true }, tabs2 => {
+          if (tabs2 && tabs2[0]) applyTab(tabs2[0].url, tabs2[0].id);
+        });
+      }
+    });
+  } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage({ type: 'GET_ACTIVE_TAB_INFO' }, response => {
       if (response && response.domain) {
-        activeTabDomain = response.domain;
-        activeTabId = response.tabId;
-        render();
+        applyTab(response.domain, response.tabId);
       }
     });
   }
+}
+
+// Real-time tab change listeners
+if (typeof chrome !== 'undefined' && chrome.tabs) {
+  try {
+    if (chrome.tabs.onActivated) {
+      chrome.tabs.onActivated.addListener(() => {
+        updateActiveTabDomain();
+      });
+    }
+    if (chrome.tabs.onUpdated) {
+      chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+        if (changeInfo.status === 'complete' || changeInfo.url) {
+          updateActiveTabDomain();
+        }
+      });
+    }
+  } catch (_) {}
+}
+
+// ─── INITIALIZATION ──────────────────────────────────────────────────────────
+
+async function init() {
+  // Auto-detect active website domain immediately
+  updateActiveTabDomain();
 
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
@@ -851,16 +899,19 @@ function renderVaultView() {
     return matchesCat && matchesQuery;
   });
 
+  // Sort items: matching active domain cards appear at the top
+  const sortedItems = sortItemsByDomainMatch(filteredItems, activeTabDomain);
+
   let activeDomainNotice = '';
   if (activeTabDomain) {
-    const domainMatches = projectItems.filter(
-      i => i.url && i.url.toLowerCase().includes(activeTabDomain.toLowerCase())
-    );
+    const domainMatches = projectItems.filter(i => isItemMatchingDomain(i, activeTabDomain));
     if (domainMatches.length > 0) {
       activeDomainNotice = `
         <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 6px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="color: var(--text-main); font-weight: 600;">Найдено для ${activeTabDomain}: ${domainMatches.length}</span>
-          <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="Показать">${icons.iGlobe}</button>
+          <span style="color: var(--text-main); font-weight: 600; display:flex; align-items:center; gap:6px;">
+            <span style="color:var(--accent);">${icons.iGlobe}</span> Текущий сайт: <b>${escapeHtml(activeTabDomain)}</b> (${domainMatches.length})
+          </span>
+          <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="Оставить только этот сайт">${icons.iSearch}</button>
         </div>
       `;
     }
@@ -871,7 +922,7 @@ function renderVaultView() {
     .join('');
 
   const cardsHtml =
-    filteredItems.length === 0
+    sortedItems.length === 0
       ? `
       <div class="sp-empty-state">
         <div class="sp-empty-icon">${icons.iKey}</div>
@@ -879,16 +930,20 @@ function renderVaultView() {
         <p style="font-size: 11px;">Нажмите «+» вверху, чтобы добавить запись</p>
       </div>
     `
-      : filteredItems
+      : sortedItems
           .map(item => {
             const letter = item.title ? item.title[0] : '?';
+            const isMatched = isItemMatchingDomain(item, activeTabDomain);
             return `
-        <div class="sp-card" data-id="${item.id}">
+        <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
           <div class="sp-card-left" data-action="view">
-            <div class="sp-card-avatar">${letter}</div>
+            <div class="sp-card-avatar ${isMatched ? 'matched' : ''}">${letter}</div>
             <div class="sp-card-meta">
-              <span class="sp-card-title">${item.title}</span>
-              <span class="sp-card-sub">${item.username || item.url || 'Нет логина'}</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="sp-card-title">${escapeHtml(item.title)}</span>
+                ${isMatched ? `<span class="sp-matched-pill" title="Текущий сайт">${icons.iGlobe} сайт</span>` : ''}
+              </div>
+              <span class="sp-card-sub">${escapeHtml(item.username || item.url || 'Нет логина')}</span>
             </div>
           </div>
           <div class="sp-card-actions">
@@ -2303,7 +2358,8 @@ function attachEventHandlers() {
   const filterDomainBtn = document.getElementById('sp-filter-domain');
   if (filterDomainBtn) {
     filterDomainBtn.addEventListener('click', () => {
-      updateState({ searchQuery: activeTabDomain });
+      const isAlreadyFiltered = state.searchQuery === activeTabDomain;
+      updateState({ searchQuery: isAlreadyFiltered ? '' : activeTabDomain });
     });
   }
 
