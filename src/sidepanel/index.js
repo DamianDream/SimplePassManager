@@ -20,9 +20,12 @@ import {
   encryptVault,
   decryptVault,
   validateMasterPassword,
-  generateSharePin,
-  encryptSharePayload,
-  decryptSharePayload
+  generateRecoveryPhrase,
+  decryptVaultWithRecovery,
+  rekeyVault,
+  generateTunnelKeyPair,
+  encryptTunnelPayload,
+  decryptTunnelPayload
 } from '../core/crypto.js';
 import {
   getStoredVault,
@@ -51,6 +54,14 @@ const rootEl = document.getElementById('sp-app-root');
 let activeTabDomain = '';
 let activeTabId = null;
 
+// Drawer / Menu state (mySmart style)
+let isDrawerOpen = false;
+
+// Failed unlock attempt counter & lockout state
+let failedAttempts = 0;
+let isRecoveryViewActive = false;
+let newlyCreatedRecoveryPhrase = null;
+
 // Temporary generator options
 let genOptions = {
   length: 20,
@@ -71,21 +82,25 @@ let openAccordions = new Set(['security']);
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
 
-// Ephemeral password sharing state
-let shareModalState = {
+// ─── E2EE BROWSER-TO-BROWSER TUNNEL STATE ───
+// Side A: Sending party (holds secret item, connects to Side B's tunnel)
+let sendTunnelModalState = {
   isOpen: false,
   item: null,
-  pin: '',
-  token: '',
-  expiresAt: 0,
-  timerId: null
+  peerPublicKey: '',
+  encryptedPacket: '',
+  status: 'awaiting_tunnel', // 'awaiting_tunnel' | 'ready_to_send' | 'sent'
+  error: ''
 };
 
-// Receiving shared password state
-let receiveModalState = {
+// Side B: Receiving party (opens tunnel, receives encrypted payload into memory)
+let receiveTunnelModalState = {
   isOpen: false,
-  error: '',
-  decryptedItem: null
+  keyPair: null,
+  tunnelToken: '', // invitation code containing Side B public key
+  status: 'waiting', // 'waiting' | 'received'
+  decryptedItem: null,
+  error: ''
 };
 
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
@@ -104,6 +119,13 @@ async function init() {
 
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
+
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get('sp_failed_attempts', res => {
+      failedAttempts = res.sp_failed_attempts || 0;
+      if (!state.isUnlocked) render();
+    });
+  }
 
   const userCategories = storedConfig.categories || ['Work', 'Personal'];
   const fullCategories = ['All', ...userCategories.filter(c => c !== 'All')];
@@ -175,6 +197,12 @@ function clearFieldErrors() {
 
 async function handleUnlock(password) {
   clearFieldErrors();
+  if (failedAttempts >= 3) {
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Ввод пароля заблокирован после 3 неверных попыток. Используйте ключ восстановления.');
+    renderAuthScreen();
+    return;
+  }
+
   if (!password) {
     showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Введите мастер-пароль');
     return;
@@ -191,6 +219,12 @@ async function handleUnlock(password) {
         ? storedConfig.latestProjectId
         : normalized.projects[0].id;
 
+    // Reset failed attempts counter on success
+    failedAttempts = 0;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ sp_failed_attempts: 0 });
+    }
+
     // Create session (default 3 days or configured interval)
     const session = await createSession(password, state.lockInterval || '3days');
 
@@ -203,7 +237,18 @@ async function handleUnlock(password) {
       sessionExpiresAt: session.expiresAt
     });
   } catch (err) {
-    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Неверный мастер-пароль. Проверьте правильность ввода.');
+    failedAttempts++;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ sp_failed_attempts: failedAttempts });
+    }
+
+    if (failedAttempts >= 3) {
+      renderAuthScreen();
+    } else {
+      showFieldError('sp-unlock-pwd', 'sp-err-unlock', `Неверный мастер-пароль. Попытка ${failedAttempts} из 3.`);
+      const forgotWrap = document.getElementById('sp-forgot-pwd-wrap');
+      if (forgotWrap) forgotWrap.style.display = 'block';
+    }
   }
 }
 
@@ -252,7 +297,9 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     ]
   };
 
-  const encrypted = await encryptVault(initialData, password);
+  // Generate 12-word recovery phrase and encrypt with Dual-Key Envelope
+  const recoveryPhrase = generateRecoveryPhrase();
+  const encrypted = await encryptVault(initialData, password, recoveryPhrase);
   await saveStoredVault(encrypted);
   await saveStoredConfig({
     activeProjectId: projId,
@@ -261,7 +308,13 @@ async function handleCreateVault(projectName, password, confirmPassword) {
   });
 
   const session = await createSession(password, '3days');
+  failedAttempts = 0;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({ sp_failed_attempts: 0 });
+  }
 
+  // Display 12-word recovery phrase modal to user before final unlock
+  newlyCreatedRecoveryPhrase = recoveryPhrase;
   updateState({
     isInitialized: true,
     isUnlocked: true,
@@ -271,6 +324,58 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     activeProjectId: projId,
     sessionExpiresAt: session.expiresAt
   });
+}
+
+async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
+  clearFieldErrors();
+  const normPhrase = phrase ? phrase.trim().toLowerCase().split(/\s+/).join(' ') : '';
+  if (!normPhrase || normPhrase.split(' ').length !== 12) {
+    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', 'Введите ровно 12 слов ключа восстановления через пробел');
+    return;
+  }
+
+  const pwdVal = validateMasterPassword(newPassword);
+  if (!pwdVal.valid) {
+    showFieldError('sp-recover-new-pwd', 'sp-err-recover-pwd', pwdVal.error);
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    showFieldError('sp-recover-new-pwd2', 'sp-err-recover-pwd2', 'Введенные новые пароли не совпадают');
+    return;
+  }
+
+  try {
+    const envelope = await getStoredVault();
+    const { vaultData } = await decryptVaultWithRecovery(envelope, normPhrase);
+    const normalized = normalizeVaultData(vaultData);
+
+    // Re-encrypt vault with new password and new recovery phrase
+    const newRecoveryPhrase = generateRecoveryPhrase();
+    const rekeyedEnvelope = await encryptVault(normalized, newPassword, newRecoveryPhrase);
+    await saveStoredVault(rekeyedEnvelope);
+
+    // Reset failed attempts
+    failedAttempts = 0;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ sp_failed_attempts: 0 });
+    }
+
+    const session = await createSession(newPassword, '3days');
+    isRecoveryViewActive = false;
+    newlyCreatedRecoveryPhrase = newRecoveryPhrase;
+
+    updateState({
+      isUnlocked: true,
+      masterPassword: newPassword,
+      projects: normalized.projects,
+      items: normalized.items,
+      activeProjectId: normalized.projects[0].id,
+      sessionExpiresAt: session.expiresAt
+    });
+    showToast('Доступ восстановлен! Сохраните новый ключ восстановления.');
+  } catch (err) {
+    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', 'Неверный ключ восстановления или поврежденные данные.');
+  }
 }
 
 async function persistVaultChanges() {
@@ -405,35 +510,58 @@ function render() {
   const activeProj = getActiveProject();
   const activeItems = getActiveProjectItems();
 
+  // Section title mapping
+  let sectionTitle = 'Пароли';
+  if (state.activeTab === 'vault') {
+    sectionTitle = `Пароли (${activeItems.length})`;
+  } else if (state.activeTab === 'generator') {
+    sectionTitle = 'Генератор пароля';
+  } else if (state.activeTab === 'settings') {
+    sectionTitle = 'Настройки';
+  } else if (state.activeTab === 'item-details') {
+    sectionTitle = state.selectedItem ? 'Редактирование' : 'Новый пароль';
+  }
+
   rootEl.innerHTML = `
     <div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden;">
-      <!-- Header -->
+      <!-- Top Bar (mySmart style: Burger + Current Section Title + Action Icons) -->
       <header class="sp-header">
-        <div class="sp-brand">
-          <div class="sp-brand-icon"><img src="icons/icon-32.png" style="width:24px;height:24px;border-radius:6px;display:block;" alt="Logo" /></div>
-          <span>SimplePass</span>
+        <div class="sp-header-left">
+          <button class="sp-btn-icon" id="sp-burger-btn" title="Меню">${icons.iMenu}</button>
+          <span class="sp-header-title" id="sp-header-title">${sectionTitle}</span>
         </div>
         <div class="sp-header-actions">
-          <button class="sp-btn-icon" id="sp-btn-receive-share" title="Открыть общий пароль (PIN-код)">${icons.iUnlock}</button>
+          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="Принять пароль (E2EE туннель)">${icons.iTunnel}</button>
           <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
           <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
         </div>
       </header>
 
-      <!-- Nav Tabs -->
-      <nav class="sp-nav">
-        <button class="sp-nav-tab ${state.activeTab === 'vault' ? 'active' : ''}" data-tab="vault">
-          ${icons.iKey} <span>Пароли (${activeItems.length})</span>
-        </button>
-        <button class="sp-nav-tab ${state.activeTab === 'generator' ? 'active' : ''}" data-tab="generator">
-          ${icons.iDice} <span>Генератор</span>
-        </button>
-        <button class="sp-nav-tab ${state.activeTab === 'settings' ? 'active' : ''}" data-tab="settings">
-          ${icons.iSettings} <span>Настройки</span>
-        </button>
-      </nav>
+      <!-- Slide-Over Drawer Navigation (mySmart style) -->
+      <div class="sp-drawer-overlay ${isDrawerOpen ? 'open' : ''}" id="sp-drawer-overlay"></div>
+      <aside class="sp-drawer ${isDrawerOpen ? 'open' : ''}" id="sp-drawer">
+        <div class="sp-drawer-header">
+          <span class="sp-drawer-heading">Меню</span>
+          <button class="sp-btn-icon" id="sp-close-drawer-btn" title="Закрыть">${icons.iX}</button>
+        </div>
+        <nav class="sp-drawer-menu">
+          <button class="sp-drawer-item ${state.activeTab === 'vault' ? 'active' : ''}" data-nav="vault">
+            <span class="sp-drawer-item-icon">${icons.iKey}</span>
+            <span>Пароли</span>
+            <span class="sp-drawer-item-badge">${activeItems.length}</span>
+          </button>
+          <button class="sp-drawer-item ${state.activeTab === 'generator' ? 'active' : ''}" data-nav="generator">
+            <span class="sp-drawer-item-icon">${icons.iDice}</span>
+            <span>Генератор пароля</span>
+          </button>
+          <button class="sp-drawer-item ${state.activeTab === 'settings' ? 'active' : ''}" data-nav="settings">
+            <span class="sp-drawer-item-icon">${icons.iSettings}</span>
+            <span>Настройки</span>
+          </button>
+        </nav>
+      </aside>
 
-      <!-- Tab View Container -->
+      <!-- Main Content Container -->
       <main id="sp-tab-content" style="flex:1; overflow:hidden; display:flex; flex-direction:column;">
         ${renderActiveTabContent()}
       </main>
@@ -460,11 +588,12 @@ function render() {
       <!-- PASS CLI Instructions Modal -->
       ${renderPassInstructionsModal()}
 
-      <!-- Secure Ephemeral Share Modal -->
-      ${renderShareModal()}
+      <!-- E2EE Tunnel Modals (Party A Sender & Party B Receiver) -->
+      ${renderSendTunnelModal()}
+      ${renderReceiveTunnelModal()}
 
-      <!-- Secure Receive Decrypt Modal -->
-      ${renderReceiveModal()}
+      <!-- 12-Word Recovery Key Backup Modal (shown on profile creation or recovery rekey) -->
+      ${renderRecoveryBackupModal()}
     </div>
   `;
 
@@ -551,20 +680,104 @@ function renderAuthScreen() {
     return;
   }
 
+  // 2. Recovery screen view
+  if (isRecoveryViewActive) {
+    rootEl.innerHTML = `
+      <div class="sp-auth-screen">
+        <div class="sp-auth-box" style="max-width: 360px;">
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;border-radius:10px;display:block;" alt="Logo" /></div>
+          <h2 class="sp-auth-title">Восстановление доступа</h2>
+          <p class="sp-auth-desc">Введите ваш секретный ключ из 12 слов и задайте новый мастер-пароль.</p>
+
+          <form class="sp-auth-form" id="sp-recovery-form" novalidate>
+            <div>
+              <textarea id="sp-recover-phrase" class="sp-input" style="height: 72px; resize:none; font-family:monospace; font-size:12px; line-height:1.4;" placeholder="12 слов через пробел (например: abandon ability able ...)"></textarea>
+              <div class="sp-field-error" id="sp-err-recover-phrase"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-recover-new-pwd" class="sp-input" placeholder="Новый мастер-пароль (>8 симв. + спецсимвол)" />
+              <div class="sp-field-error" id="sp-err-recover-pwd"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-recover-new-pwd2" class="sp-input" placeholder="Повторите новый мастер-пароль" />
+              <div class="sp-field-error" id="sp-err-recover-pwd2"></div>
+            </div>
+            <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
+              ${icons.iUnlock} Восстановить доступ
+            </button>
+            <div style="text-align:center; margin-top: 6px;">
+              <button type="button" class="sp-link-btn" id="sp-btn-cancel-recovery">Вернуться ко входу</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    ['sp-recover-phrase', 'sp-recover-new-pwd', 'sp-recover-new-pwd2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          el.classList.remove('has-error');
+          const errEl = document.getElementById(id.replace('sp-recover-', 'sp-err-recover-'));
+          if (errEl) { errEl.innerText = ''; errEl.style.display = 'none'; }
+        });
+      }
+    });
+
+    const btnCancel = document.getElementById('sp-btn-cancel-recovery');
+    if (btnCancel) {
+      btnCancel.addEventListener('click', () => {
+        isRecoveryViewActive = false;
+        renderAuthScreen();
+      });
+    }
+
+    document.getElementById('sp-recovery-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const phrase = document.getElementById('sp-recover-phrase').value;
+      const p1 = document.getElementById('sp-recover-new-pwd').value;
+      const p2 = document.getElementById('sp-recover-new-pwd2').value;
+      handleRestoreWithRecovery(phrase, p1, p2);
+    });
+    return;
+  }
+
+  // 3. Normal Lock Screen with failed attempt lockout and inline "Забыли пароль?"
+  const isLockedOut = failedAttempts >= 3;
+
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
       <div class="sp-auth-box">
         <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
         <h2 class="sp-auth-title">SimplePass заблокирован</h2>
         <p class="sp-auth-desc">Введите мастер-пароль для разблокировки записей</p>
+
+        ${isLockedOut ? `
+          <div class="sp-lockout-alert">
+            <strong>🔒 Ввод пароля заблокирован!</strong><br>
+            Превышен лимит 3 неудачных попыток ввода. Доступ к хранилищу возможен только по секретному ключу восстановления (12 слов).
+          </div>
+        ` : ''}
+
         <form class="sp-auth-form" id="sp-unlock-form" novalidate>
           <div>
-            <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="Мастер-пароль" autofocus />
-            <div class="sp-field-error" id="sp-err-unlock"></div>
+            <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="Мастер-пароль" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
+            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? `Неверный мастер-пароль. Попытка ${failedAttempts} из 3.` : ''}</div>
           </div>
-          <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-            ${icons.iUnlock} Разблокировать
-          </button>
+
+          <div id="sp-forgot-pwd-wrap" style="text-align:center; margin-top:-4px; margin-bottom:4px; display:${failedAttempts > 0 || isLockedOut ? 'block' : 'none'};">
+            <button type="button" class="sp-link-btn" id="sp-forgot-pwd">Забыли пароль?</button>
+          </div>
+
+          ${isLockedOut ? `
+            <button type="button" class="sp-btn-primary" id="sp-btn-goto-recovery" style="justify-content:center; margin-top: 6px;">
+              ${icons.iKey} Восстановить по ключу (12 слов)
+            </button>
+          ` : `
+            <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
+              ${icons.iUnlock} Разблокировать
+            </button>
+          `}
         </form>
       </div>
     </div>
@@ -582,11 +795,31 @@ function renderAuthScreen() {
     });
   }
 
-  document.getElementById('sp-unlock-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const p = document.getElementById('sp-unlock-pwd').value;
-    handleUnlock(p);
-  });
+  const forgotBtn = document.getElementById('sp-forgot-pwd');
+  if (forgotBtn) {
+    forgotBtn.addEventListener('click', () => {
+      isRecoveryViewActive = true;
+      renderAuthScreen();
+    });
+  }
+
+  const gotoRecoveryBtn = document.getElementById('sp-btn-goto-recovery');
+  if (gotoRecoveryBtn) {
+    gotoRecoveryBtn.addEventListener('click', () => {
+      isRecoveryViewActive = true;
+      renderAuthScreen();
+    });
+  }
+
+  const unlockForm = document.getElementById('sp-unlock-form');
+  if (unlockForm) {
+    unlockForm.addEventListener('submit', e => {
+      e.preventDefault();
+      if (isLockedOut) return;
+      const p = document.getElementById('sp-unlock-pwd').value;
+      handleUnlock(p);
+    });
+  }
 }
 
 // ─── VAULT VIEW ──────────────────────────────────────────────────────────────
@@ -940,181 +1173,270 @@ function parseCsvFile(csvContent) {
   return items;
 }
 
-// ─── SECURE EPHEMERAL SHARING MODALS ──────────────────────────────────────────
+// ─── E2EE BROWSER-TO-BROWSER TUNNEL LOGIC ────────────────────────────────────
 
-async function openShareModal(item) {
-  if (shareModalState.timerId) {
-    clearInterval(shareModalState.timerId);
-  }
-  const pin = generateSharePin();
-  const { token, exp } = await encryptSharePayload(item, pin, 120000);
-  shareModalState = {
+/**
+ * Side A: Sender initiates sending a password through an E2EE tunnel.
+ */
+function openSendTunnelModal(item) {
+  sendTunnelModalState = {
     isOpen: true,
     item,
-    pin,
-    token,
-    expiresAt: exp,
-    timerId: null
+    peerPublicKey: '',
+    encryptedPacket: '',
+    status: 'awaiting_tunnel',
+    error: ''
   };
   render();
-
-  shareModalState.timerId = setInterval(() => {
-    const diff = Math.max(0, Math.floor((shareModalState.expiresAt - Date.now()) / 1000));
-    const countdownEl = document.getElementById('sp-share-countdown');
-    const timerChip = document.getElementById('sp-share-timer');
-    if (countdownEl) {
-      const mins = Math.floor(diff / 60);
-      const secs = diff % 60;
-      countdownEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-    if (diff <= 0) {
-      clearInterval(shareModalState.timerId);
-      if (timerChip) {
-        timerChip.classList.add('expired');
-        timerChip.innerHTML = '⚠️ Срок действия истек';
-      }
-      const copyPinBtn = document.getElementById('sp-share-copy-pin');
-      if (copyPinBtn) copyPinBtn.disabled = true;
-    }
-  }, 1000);
 }
 
-function closeShareModal() {
-  if (shareModalState.timerId) {
-    clearInterval(shareModalState.timerId);
-  }
-  shareModalState = {
+function closeSendTunnelModal() {
+  sendTunnelModalState = {
     isOpen: false,
     item: null,
-    pin: '',
-    token: '',
-    expiresAt: 0,
-    timerId: null
+    peerPublicKey: '',
+    encryptedPacket: '',
+    status: 'awaiting_tunnel',
+    error: ''
   };
   render();
 }
 
-function renderShareModal() {
-  if (!shareModalState.isOpen || !shareModalState.item) return '';
+/**
+ * Side B: Receiver creates an ephemeral E2EE tunnel and waits for transmission.
+ */
+async function openReceiveTunnelModal() {
+  try {
+    const keyPairInfo = await generateTunnelKeyPair();
+    // Tunnel token encodes Side B's ephemeral ECDH public key
+    const tunnelToken = `SPTUN_KEY:${keyPairInfo.publicKeyBase64}`;
+
+    receiveTunnelModalState = {
+      isOpen: true,
+      keyPair: keyPairInfo.keyPair,
+      tunnelToken,
+      status: 'waiting',
+      decryptedItem: null,
+      error: ''
+    };
+    render();
+  } catch (err) {
+    showToast('Ошибка создания туннеля: ' + err.message);
+  }
+}
+
+function closeReceiveTunnelModal() {
+  // Ephemeral keys are immediately garbage collected and destroyed
+  receiveTunnelModalState = {
+    isOpen: false,
+    keyPair: null,
+    tunnelToken: '',
+    status: 'waiting',
+    decryptedItem: null,
+    error: ''
+  };
+  render();
+}
+
+function renderSendTunnelModal() {
+  if (!sendTunnelModalState.isOpen || !sendTunnelModalState.item) return '';
+
+  const { item, status, encryptedPacket, error } = sendTunnelModalState;
 
   return `
-    <div class="sp-modal-overlay" id="sp-share-modal-overlay" style="z-index: 200;">
-      <div class="sp-modal-content" style="max-width:340px;">
+    <div class="sp-modal-overlay" id="sp-send-tunnel-overlay" style="z-index: 200;">
+      <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--accent);">${icons.iShare} Безопасный обмен паролем</span>
-          <button class="sp-btn-icon" id="sp-share-close">${icons.iX}</button>
-        </div>
-        <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-          Пароль для <b>${escapeHtml(shareModalState.item.title)}</b> зашифрован. Передайте получателю зашифрованный код/файл и отдельно PIN-код.
-        </div>
-
-        <div class="sp-pin-card">
-          <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; font-weight:700;">Одноразовый PIN-код</span>
-          <div class="sp-pin-digits" id="sp-share-pin-display">${shareModalState.pin}</div>
-          <div class="sp-timer-chip" id="sp-share-timer">
-            ⏱ Срок действия: <span id="sp-share-countdown">2:00</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="sp-modal-title" style="color:var(--accent);">${icons.iTunnel} Передача через E2EE туннель</span>
           </div>
+          <button class="sp-btn-icon" id="sp-send-tunnel-close">${icons.iX}</button>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <button class="sp-btn-primary" id="sp-share-copy-pin" style="justify-content:center; font-size:12px;">
-            ${icons.iCopy} Скопировать PIN-код (${shareModalState.pin})
-          </button>
-          <button class="sp-btn-secondary" id="sp-share-copy-token" style="justify-content:center; font-size:12px;">
-            ${icons.iCopy} Скопировать зашифрованный код
-          </button>
-          <button class="sp-btn-secondary" id="sp-share-download-file" style="justify-content:center; font-size:12px;">
-            ${icons.iDownload} Скачать файл .spass
-          </button>
+        <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+          Передача пароля <b>«${escapeHtml(item.title)}»</b> защищена сквозным шифрованием (ECDH + AES-256-GCM).
         </div>
 
-        <p style="font-size:10px; color:var(--text-dim); margin-top:8px; text-align:center;">
-          🔒 Шифрование AES-256-GCM. Срок жизни ключа строго 2 минуты.
-        </p>
+        ${status === 'awaiting_tunnel' ? `
+          <div class="sp-tunnel-box">
+            <div class="sp-tunnel-status-bar">
+              <span class="sp-tunnel-pulse-dot"></span>
+              <span>Шаг 1: Подключение к туннелю Стороны Б</span>
+            </div>
+            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; line-height:1.4;">
+              Запросите у принимающей стороны код/ссылку открытого туннеля и вставьте её ниже:
+            </p>
+            <textarea id="sp-send-peer-key-input" class="sp-tunnel-code-area" placeholder="Вставьте код туннеля (SPTUN_KEY:...)"></textarea>
+            ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
+          </div>
+
+          <button class="sp-btn-primary" id="sp-btn-connect-and-encrypt" style="justify-content:center; width:100%;">
+            ${icons.iZap} Установить защищенное соединение и зашифровать
+          </button>
+        ` : `
+          <div class="sp-tunnel-box">
+            <div class="sp-tunnel-status-bar" style="color:var(--success);">
+              <span class="sp-tunnel-pulse-dot success"></span>
+              <span>Туннель защищен • Пароль готов к передаче</span>
+            </div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+              Данные зашифрованы ключом принимающего браузера. Передайте зашифрованный пакет в туннель:
+            </p>
+            <textarea readonly class="sp-tunnel-code-area" style="user-select:all;">${encryptedPacket}</textarea>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="sp-btn-primary" id="sp-btn-copy-tunnel-packet" style="justify-content:center; font-size:12px;">
+              ${icons.iCopy} Скопировать зашифрованный пакет в туннель
+            </button>
+            <button class="sp-btn-secondary" id="sp-btn-close-send-tunnel" style="justify-content:center; font-size:12px;">
+              Закрыть туннель
+            </button>
+          </div>
+        `}
+
+        <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
+          <span class="sp-tunnel-badge">🔒 Zero-Knowledge RAM-to-RAM</span>
+        </div>
       </div>
     </div>
   `;
 }
 
-function renderReceiveModal() {
-  if (!receiveModalState.isOpen) return '';
+function renderReceiveTunnelModal() {
+  if (!receiveTunnelModalState.isOpen) return '';
+
+  const { tunnelToken, decryptedItem, error } = receiveTunnelModalState;
 
   return `
-    <div class="sp-modal-overlay" id="sp-receive-modal-overlay" style="z-index: 200;">
-      <div class="sp-modal-content" style="max-width:340px;">
+    <div class="sp-modal-overlay" id="sp-receive-tunnel-overlay" style="z-index: 200;">
+      <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--accent);">${icons.iUnlock} Открыть общий пароль</span>
-          <button class="sp-btn-icon" id="sp-receive-close">${icons.iX}</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="sp-modal-title" style="color:var(--accent);">${icons.iTunnel} E2EE туннель приема</span>
+          </div>
+          <button class="sp-btn-icon" id="sp-receive-tunnel-close">${icons.iX}</button>
         </div>
 
-        ${!receiveModalState.decryptedItem ? `
-          <div style="font-size:12px; color:var(--text-muted); line-height:1.4; margin-bottom:8px;">
-            Введите зашифрованный код (или выберите .spass файл) и 6-значный PIN-код, переданный отправителем.
+        ${!decryptedItem ? `
+          <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+            Безопасный туннель открыт. Скопируйте ссылку/код туннеля и передайте отправителю.
           </div>
 
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                <label class="sp-label" style="margin:0;">Зашифрованный код / Файл</label>
-                <label class="sp-btn-secondary" style="font-size:10px; padding:2px 6px; cursor:pointer;">
-                  ${icons.iUpload} Загрузить .spass
-                  <input type="file" id="sp-receive-file-input" accept=".spass,.txt,.json" style="display:none;" />
-                </label>
-              </div>
-              <textarea id="sp-receive-token" class="sp-input" rows="3" placeholder="Вставьте зашифрованный код SPASS1:..."></textarea>
+          <div class="sp-tunnel-box">
+            <div class="sp-tunnel-status-bar">
+              <span class="sp-tunnel-pulse-dot"></span>
+              <span>Ожидание передачи в туннель...</span>
             </div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.3;">
+              Ваш ключ туннеля (передайте отправителю):
+            </p>
+            <textarea readonly class="sp-tunnel-code-area" style="height:54px; user-select:all;">${tunnelToken}</textarea>
+            <button class="sp-btn-secondary" id="sp-btn-copy-tunnel-token" style="justify-content:center; font-size:11px; padding:5px 8px;">
+              ${icons.iCopy} Скопировать код туннеля
+            </button>
+          </div>
 
-            <div>
-              <label class="sp-label">6-значный PIN-код</label>
-              <input type="text" id="sp-receive-pin" class="sp-input" maxlength="6" placeholder="000000" style="letter-spacing:4px; font-weight:700; text-align:center; font-size:16px;" />
-            </div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+            <label class="sp-label" style="margin:0;">Полученный зашифрованный пакет из туннеля:</label>
+            <textarea id="sp-receive-packet-input" class="sp-tunnel-code-area" placeholder="Вставьте полученный пакет (SPTUN1:...)"></textarea>
+            ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
 
-            <div id="sp-receive-error" style="display:${receiveModalState.error ? 'block' : 'none'}; font-size:11px; color:var(--danger); padding:4px 0;">
-              ${receiveModalState.error}
-            </div>
-
-            <button class="sp-btn-primary" id="sp-receive-decrypt-btn" style="justify-content:center; margin-top:4px;">
-              ${icons.iUnlock} Расшифровать пароль
+            <button class="sp-btn-primary" id="sp-btn-decrypt-tunnel-packet" style="justify-content:center;">
+              ${icons.iUnlock} Принять и расшифровать
             </button>
           </div>
         ` : `
+          <div class="sp-tunnel-status-bar" style="color:var(--success); margin-bottom:8px;">
+            <span class="sp-tunnel-pulse-dot success"></span>
+            <span>Пароль успешно получен по E2EE туннелю!</span>
+          </div>
+
           <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:11px; color:var(--text-dim);">Название:</span>
-              <span style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(receiveModalState.decryptedItem.title)}</span>
+              <span style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(decryptedItem.title)}</span>
             </div>
-            ${receiveModalState.decryptedItem.username ? `
+            ${decryptedItem.username ? `
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:11px; color:var(--text-dim);">Логин:</span>
-              <span style="font-family:monospace; color:var(--text-muted); font-size:12px;">${escapeHtml(receiveModalState.decryptedItem.username)}</span>
+              <span style="font-family:monospace; color:var(--text-muted); font-size:12px;">${escapeHtml(decryptedItem.username)}</span>
             </div>` : ''}
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:11px; color:var(--text-dim);">Пароль:</span>
               <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-family:monospace; font-weight:700; color:var(--accent); font-size:13px;" id="sp-decrypted-pwd-val">${escapeHtml(receiveModalState.decryptedItem.password)}</span>
-                <button class="sp-btn-icon" id="sp-btn-copy-decrypted-pwd" title="Копировать">${icons.iCopy}</button>
+                <span style="font-family:monospace; font-weight:700; color:var(--accent); font-size:13px;" id="sp-tunnel-decrypted-pwd">${escapeHtml(decryptedItem.password)}</span>
+                <button class="sp-btn-icon" id="sp-btn-copy-tunnel-pwd" title="Копировать">${icons.iCopy}</button>
               </div>
             </div>
-            ${receiveModalState.decryptedItem.url ? `
+            ${decryptedItem.url ? `
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:11px; color:var(--text-dim);">URL:</span>
-              <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(receiveModalState.decryptedItem.url)}</span>
+              <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(decryptedItem.url)}</span>
             </div>` : ''}
-            ${receiveModalState.decryptedItem.notes ? `
+            ${decryptedItem.notes ? `
             <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
-              Заметки: <span style="color:var(--text-muted);">${escapeHtml(receiveModalState.decryptedItem.notes)}</span>
+              Заметки: <span style="color:var(--text-muted);">${escapeHtml(decryptedItem.notes)}</span>
             </div>` : ''}
           </div>
 
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="sp-btn-primary" id="sp-receive-save-btn" style="flex:1; justify-content:center; font-size:12px;">
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="sp-btn-primary" id="sp-btn-save-tunnel-item" style="flex:1; justify-content:center; font-size:12px;">
               ${icons.iPlus} Сохранить в профиль
             </button>
-            <button class="sp-btn-secondary" id="sp-receive-done-btn" style="padding:6px 12px; font-size:12px;">
-              Закрыть
+            <button class="sp-btn-secondary" id="sp-btn-finish-tunnel" style="padding:6px 12px; font-size:12px;">
+              Закрыть туннель
             </button>
           </div>
         `}
+
+        <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
+          <span class="sp-tunnel-badge">⚡ Туннель закрывается после завершения</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRecoveryBackupModal() {
+  if (!newlyCreatedRecoveryPhrase) return '';
+
+  const words = newlyCreatedRecoveryPhrase.split(' ');
+  const wordsGridHtml = words.map((w, idx) => `
+    <div class="sp-recovery-word-card">
+      <span class="sp-recovery-word-num">${idx + 1}.</span>
+      <span class="sp-recovery-word-val">${w}</span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="sp-modal-overlay" id="sp-recovery-backup-overlay" style="z-index: 300;">
+      <div class="sp-modal-content" style="max-width: 360px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--accent);">${icons.iKey} Секретный ключ (12 слов)</span>
+          <button class="sp-btn-icon" id="sp-recovery-modal-close">${icons.iX}</button>
+        </div>
+
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+          Сохраните этот ключ в надёжном месте! Он понадобится для восстановления доступа, если вы забудете мастер-пароль или база будет заблокирована после 3 неверных попыток.
+        </p>
+
+        <div class="sp-recovery-grid">
+          ${wordsGridHtml}
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="sp-btn-secondary" id="sp-btn-copy-recovery-phrase" style="flex:1; justify-content:center; font-size:12px;">
+            ${icons.iCopy} Скопировать 12 слов
+          </button>
+          <button class="sp-btn-secondary" id="sp-btn-download-recovery-phrase" style="flex:1; justify-content:center; font-size:12px;">
+            ${icons.iDownload} Скачать .txt
+          </button>
+        </div>
+
+        <button class="sp-btn-primary" id="sp-btn-confirm-recovery-saved" style="width:100%; justify-content:center; margin-top:12px;">
+          ${icons.iCheck} Я сохранил ключ восстановления
+        </button>
       </div>
     </div>
   `;
@@ -1735,13 +2057,69 @@ async function handleSyncPassProject(projectId) {
 // ─── EVENT ATTACHMENT ─────────────────────────────────────────────────────────
 
 function attachEventHandlers() {
-  // Navigation tabs
-  document.querySelectorAll('.sp-nav-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      updateState({ activeTab: target, selectedItem: null, isProjectSwitcherOpen: false });
+  // Burger & Drawer Navigation
+  const burgerBtn = document.getElementById('sp-burger-btn');
+  const closeDrawerBtn = document.getElementById('sp-close-drawer-btn');
+  const drawerOverlay = document.getElementById('sp-drawer-overlay');
+
+  if (burgerBtn) {
+    burgerBtn.addEventListener('click', () => {
+      isDrawerOpen = true;
+      render();
+    });
+  }
+
+  [closeDrawerBtn, drawerOverlay].forEach(el => {
+    if (el) {
+      el.addEventListener('click', () => {
+        isDrawerOpen = false;
+        render();
+      });
+    }
+  });
+
+  document.querySelectorAll('.sp-drawer-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetNav = btn.dataset.nav;
+      isDrawerOpen = false;
+      updateState({ activeTab: targetNav, selectedItem: null, isProjectSwitcherOpen: false });
     });
   });
+
+  // Recovery Phrase Backup Modal handlers
+  const recoveryCloseBtn = document.getElementById('sp-recovery-modal-close');
+  const recoveryConfirmBtn = document.getElementById('sp-btn-confirm-recovery-saved');
+  [recoveryCloseBtn, recoveryConfirmBtn].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        newlyCreatedRecoveryPhrase = null;
+        render();
+      });
+    }
+  });
+
+  const recoveryCopyBtn = document.getElementById('sp-btn-copy-recovery-phrase');
+  if (recoveryCopyBtn && newlyCreatedRecoveryPhrase) {
+    recoveryCopyBtn.addEventListener('click', () => {
+      copyToClipboard(newlyCreatedRecoveryPhrase);
+      showToast('12 слов скопированы в буфер');
+    });
+  }
+
+  const recoveryDownloadBtn = document.getElementById('sp-btn-download-recovery-phrase');
+  if (recoveryDownloadBtn && newlyCreatedRecoveryPhrase) {
+    recoveryDownloadBtn.addEventListener('click', () => {
+      const content = `SimplePass Recovery Key (12 Words)\nGenerated: ${new Date().toISOString()}\n\n${newlyCreatedRecoveryPhrase}\n\nВАЖНО: Храните этот файл в безопасном месте. Он восстановит доступ при утере мастер-пароля.`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `simplepass-recovery-key-${new Date().toISOString().slice(0, 10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Файл recovery-key.txt сохранён');
+    });
+  }
 
   // Top header actions
   const btnAdd = document.getElementById('sp-btn-add');
@@ -1911,7 +2289,7 @@ function attachEventHandlers() {
 
     card.querySelector('[data-action="share"]')?.addEventListener('click', e => {
       e.stopPropagation();
-      openShareModal(item);
+      openSendTunnelModal(item);
     });
 
     card.querySelector('[data-action="autofill"]')?.addEventListener('click', e => {
@@ -1932,12 +2310,11 @@ function attachEventHandlers() {
     });
   });
 
-  // Header receive share button
-  const btnReceiveShare = document.getElementById('sp-btn-receive-share');
-  if (btnReceiveShare) {
-    btnReceiveShare.addEventListener('click', () => {
-      receiveModalState = { isOpen: true, error: '', decryptedItem: null };
-      render();
+  // Header receive tunnel button
+  const btnReceiveTunnel = document.getElementById('sp-btn-open-tunnel-receive');
+  if (btnReceiveTunnel) {
+    btnReceiveTunnel.addEventListener('click', () => {
+      openReceiveTunnelModal();
     });
   }
 
@@ -1952,7 +2329,7 @@ function attachEventHandlers() {
   const btnFormShare = document.getElementById('sp-form-share');
   if (btnFormShare && state.selectedItem) {
     btnFormShare.addEventListener('click', () => {
-      openShareModal(state.selectedItem);
+      openSendTunnelModal(state.selectedItem);
     });
   }
 
@@ -2188,143 +2565,127 @@ function attachEventHandlers() {
     });
   });
 
-  // Ephemeral Share Modal Listeners
-  const shareCloseBtn = document.getElementById('sp-share-close');
-  if (shareCloseBtn) {
-    shareCloseBtn.addEventListener('click', () => {
-      closeShareModal();
-    });
-  }
+  // ─── E2EE Tunnel Send Modal Listeners (Side A) ───
+  const sendTunnelCloseBtn = document.getElementById('sp-send-tunnel-close');
+  const sendTunnelOverlay = document.getElementById('sp-send-tunnel-overlay');
+  const btnCloseSendTunnel = document.getElementById('sp-btn-close-send-tunnel');
 
-  const shareOverlay = document.getElementById('sp-share-modal-overlay');
-  if (shareOverlay) {
-    shareOverlay.addEventListener('click', e => {
-      if (e.target === shareOverlay) closeShareModal();
-    });
-  }
-
-  const btnCopyPin = document.getElementById('sp-share-copy-pin');
-  if (btnCopyPin) {
-    btnCopyPin.addEventListener('click', () => {
-      copyToClipboard(shareModalState.pin);
-      showToast(`PIN скопирован: ${shareModalState.pin}`);
-    });
-  }
-
-  const btnCopyToken = document.getElementById('sp-share-copy-token');
-  if (btnCopyToken) {
-    btnCopyToken.addEventListener('click', () => {
-      copyToClipboard(shareModalState.token);
-      showToast('Зашифрованный код скопирован');
-    });
-  }
-
-  const btnDownloadShare = document.getElementById('sp-share-download-file');
-  if (btnDownloadShare && shareModalState.item) {
-    btnDownloadShare.addEventListener('click', () => {
-      const blob = new Blob([shareModalState.token], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `share-${shareModalState.item.title || 'secret'}.spass`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Файл .spass сохранён');
-    });
-  }
-
-  // Receive Shared Password Modal Listeners
-  const receiveCloseBtn = document.getElementById('sp-receive-close');
-  const receiveDoneBtn = document.getElementById('sp-receive-done-btn');
-  [receiveCloseBtn, receiveDoneBtn].forEach(btn => {
-    if (btn) {
-      btn.addEventListener('click', () => {
-        receiveModalState = { isOpen: false, error: '', decryptedItem: null };
-        render();
+  [sendTunnelCloseBtn, sendTunnelOverlay, btnCloseSendTunnel].forEach(el => {
+    if (el) {
+      el.addEventListener('click', e => {
+        if (e.target === el) closeSendTunnelModal();
       });
     }
   });
 
-  const receiveOverlay = document.getElementById('sp-receive-modal-overlay');
-  if (receiveOverlay) {
-    receiveOverlay.addEventListener('click', e => {
-      if (e.target === receiveOverlay) {
-        receiveModalState = { isOpen: false, error: '', decryptedItem: null };
+  const btnConnectAndEncrypt = document.getElementById('sp-btn-connect-and-encrypt');
+  if (btnConnectAndEncrypt && sendTunnelModalState.item) {
+    btnConnectAndEncrypt.addEventListener('click', async () => {
+      const rawInput = document.getElementById('sp-send-peer-key-input')?.value.trim();
+      if (!rawInput) {
+        sendTunnelModalState.error = 'Вставьте код или ссылку туннеля принимающей стороны';
+        render();
+        return;
+      }
+
+      let peerPublicKey = rawInput;
+      if (rawInput.startsWith('SPTUN_KEY:')) {
+        peerPublicKey = rawInput.slice(10).trim();
+      }
+
+      try {
+        const { tunnelPacket } = await encryptTunnelPayload(sendTunnelModalState.item, peerPublicKey);
+        sendTunnelModalState.peerPublicKey = peerPublicKey;
+        sendTunnelModalState.encryptedPacket = tunnelPacket;
+        sendTunnelModalState.status = 'ready_to_send';
+        sendTunnelModalState.error = '';
+        render();
+      } catch (err) {
+        sendTunnelModalState.error = 'Не удалось подключиться к туннелю: ' + err.message;
         render();
       }
     });
   }
 
-  const receiveFileInput = document.getElementById('sp-receive-file-input');
-  if (receiveFileInput) {
-    receiveFileInput.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const text = await file.text();
-      const tokenInput = document.getElementById('sp-receive-token');
-      if (tokenInput) tokenInput.value = text.trim();
+  const btnCopyTunnelPacket = document.getElementById('sp-btn-copy-tunnel-packet');
+  if (btnCopyTunnelPacket && sendTunnelModalState.encryptedPacket) {
+    btnCopyTunnelPacket.addEventListener('click', () => {
+      copyToClipboard(sendTunnelModalState.encryptedPacket);
+      showToast('Зашифрованный пакет скопирован');
     });
   }
 
-  const receiveDecryptBtn = document.getElementById('sp-receive-decrypt-btn');
-  if (receiveDecryptBtn) {
-    receiveDecryptBtn.addEventListener('click', async () => {
-      const token = document.getElementById('sp-receive-token')?.value.trim();
-      const pin = document.getElementById('sp-receive-pin')?.value.trim();
-      const errBox = document.getElementById('sp-receive-error');
+  // ─── E2EE Tunnel Receive Modal Listeners (Side B) ───
+  const receiveTunnelCloseBtn = document.getElementById('sp-receive-tunnel-close');
+  const receiveTunnelOverlay = document.getElementById('sp-receive-tunnel-overlay');
+  const btnFinishTunnel = document.getElementById('sp-btn-finish-tunnel');
 
-      if (!token) {
-        if (errBox) { errBox.innerText = 'Вставьте зашифрованный код'; errBox.style.display = 'block'; }
-        return;
-      }
-      if (!pin || pin.length < 4) {
-        if (errBox) { errBox.innerText = 'Введите PIN-код'; errBox.style.display = 'block'; }
+  [receiveTunnelCloseBtn, receiveTunnelOverlay, btnFinishTunnel].forEach(el => {
+    if (el) {
+      el.addEventListener('click', e => {
+        if (e.target === el) closeReceiveTunnelModal();
+      });
+    }
+  });
+
+  const btnCopyTunnelToken = document.getElementById('sp-btn-copy-tunnel-token');
+  if (btnCopyTunnelToken && receiveTunnelModalState.tunnelToken) {
+    btnCopyTunnelToken.addEventListener('click', () => {
+      copyToClipboard(receiveTunnelModalState.tunnelToken);
+      showToast('Код туннеля скопирован в буфер');
+    });
+  }
+
+  const btnDecryptTunnelPacket = document.getElementById('sp-btn-decrypt-tunnel-packet');
+  if (btnDecryptTunnelPacket && receiveTunnelModalState.keyPair) {
+    btnDecryptTunnelPacket.addEventListener('click', async () => {
+      const rawPacket = document.getElementById('sp-receive-packet-input')?.value.trim();
+      if (!rawPacket) {
+        receiveTunnelModalState.error = 'Вставьте полученный зашифрованный пакет из туннеля';
+        render();
         return;
       }
 
       try {
-        const decrypted = await decryptSharePayload(token, pin);
-        receiveModalState.decryptedItem = decrypted;
-        receiveModalState.error = '';
+        const decrypted = await decryptTunnelPayload(rawPacket, receiveTunnelModalState.keyPair.privateKey);
+        receiveTunnelModalState.decryptedItem = decrypted;
+        receiveTunnelModalState.status = 'received';
+        receiveTunnelModalState.error = '';
         render();
       } catch (err) {
-        if (errBox) {
-          errBox.innerText = '⚠️ ' + err.message;
-          errBox.style.display = 'block';
-        }
+        receiveTunnelModalState.error = 'Ошибка расшифровки туннеля: ' + err.message;
+        render();
       }
     });
   }
 
-  const btnCopyDecrypted = document.getElementById('sp-btn-copy-decrypted-pwd');
-  if (btnCopyDecrypted && receiveModalState.decryptedItem) {
-    btnCopyDecrypted.addEventListener('click', () => {
-      copyToClipboard(receiveModalState.decryptedItem.password);
+  const btnCopyTunnelPwd = document.getElementById('sp-btn-copy-tunnel-pwd');
+  if (btnCopyTunnelPwd && receiveTunnelModalState.decryptedItem) {
+    btnCopyTunnelPwd.addEventListener('click', () => {
+      copyToClipboard(receiveTunnelModalState.decryptedItem.password);
       showToast('Пароль скопирован в буфер');
     });
   }
 
-  const btnSaveDecrypted = document.getElementById('sp-receive-save-btn');
-  if (btnSaveDecrypted && receiveModalState.decryptedItem) {
-    btnSaveDecrypted.addEventListener('click', async () => {
+  const btnSaveTunnelItem = document.getElementById('sp-btn-save-tunnel-item');
+  if (btnSaveTunnelItem && receiveTunnelModalState.decryptedItem) {
+    btnSaveTunnelItem.addEventListener('click', async () => {
       const activeProj = getActiveProject();
       const itemToSave = {
         id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
         projectId: activeProj ? activeProj.id : 'proj_default',
-        title: receiveModalState.decryptedItem.title || 'Полученный пароль',
-        username: receiveModalState.decryptedItem.username || '',
-        password: receiveModalState.decryptedItem.password || '',
-        url: receiveModalState.decryptedItem.url || '',
-        notes: receiveModalState.decryptedItem.notes || '',
+        title: receiveTunnelModalState.decryptedItem.title || 'Полученный пароль',
+        username: receiveTunnelModalState.decryptedItem.username || '',
+        password: receiveTunnelModalState.decryptedItem.password || '',
+        url: receiveTunnelModalState.decryptedItem.url || '',
+        notes: receiveTunnelModalState.decryptedItem.notes || '',
         category: 'Work',
         updatedAt: new Date().toISOString()
       };
       state.items.push(itemToSave);
       await persistVaultChanges();
-      notifyStateChange();
-      receiveModalState = { isOpen: false, error: '', decryptedItem: null };
+      closeReceiveTunnelModal();
       showToast(`Пароль сохранён в «${activeProj ? activeProj.name : 'базу'}»!`);
-      render();
     });
   }
 

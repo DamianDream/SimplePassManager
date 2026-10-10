@@ -2,10 +2,7 @@ import assert from 'assert';
 import {
   encryptVault,
   decryptVault,
-  validateMasterPassword,
-  generateSharePin,
-  encryptSharePayload,
-  decryptSharePayload
+  validateMasterPassword
 } from '../src/core/crypto.js';
 import { normalizeVaultData, passFormatToItem, itemToPassFormat } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
@@ -88,11 +85,17 @@ async function runTests() {
   assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Should pass: 11 chars + #');
   console.log('   ✓ Master password policy verified');
 
-  // Test 6: Secure Ephemeral Sharing (6-digit PIN + 2-min TTL)
-  console.log('6. Testing Secure Ephemeral Sharing (PIN + 2-minute TTL)...');
-  const pin = generateSharePin();
-  assert.strictEqual(pin.length, 6, 'PIN must be exactly 6 digits');
-  assert(/^\d{6}$/.test(pin), 'PIN must be purely digits');
+  // Test 6: Browser-to-Browser E2EE Tunnel (ECDH P-256 + AES-256-GCM)
+  console.log('6. Testing Browser-to-Browser E2EE Tunnel (ECDH P-256 + AES-256-GCM)...');
+  const {
+    generateTunnelKeyPair,
+    encryptTunnelPayload,
+    decryptTunnelPayload
+  } = await import('../src/core/crypto.js');
+
+  // Party B creates receiving tunnel keypair and exports public key
+  const receiverTunnel = await generateTunnelKeyPair();
+  assert(receiverTunnel.publicKeyBase64, 'Receiver must produce public key base64');
 
   const secretItem = {
     title: 'Secret Server Access',
@@ -102,36 +105,66 @@ async function runTests() {
     notes: 'Access token 999'
   };
 
-  const { token, envelope, exp } = await encryptSharePayload(secretItem, pin, 120000);
-  assert(token.startsWith('SPASS1:'), 'Token must have SPASS1 prefix');
-  assert(envelope.spShare === true, 'Envelope must flag spShare');
-  assert(exp > Date.now(), 'Expiration must be in future');
+  // Party A receives Party B's public key, derives shared secret, and encrypts payload
+  const { tunnelPacket, envelope, senderPublicKeyBase64 } = await encryptTunnelPayload(secretItem, receiverTunnel.publicKeyBase64);
+  assert(tunnelPacket.startsWith('SPTUN1:'), 'Tunnel packet must start with SPTUN1:');
+  assert(envelope.spTunnel === true, 'Envelope must flag spTunnel');
+  assert.strictEqual(envelope.senderPub, senderPublicKeyBase64);
 
-  // Successful decryption with token and correct PIN
-  const decryptedItem = await decryptSharePayload(token, pin);
+  // Party B receives packet and decrypts using its private key
+  const decryptedItem = await decryptTunnelPayload(tunnelPacket, receiverTunnel.keyPair.privateKey);
   assert.strictEqual(decryptedItem.title, secretItem.title);
   assert.strictEqual(decryptedItem.password, secretItem.password);
   assert.strictEqual(decryptedItem.username, secretItem.username);
 
-  // Failed decryption with wrong PIN
-  let wrongPinFailed = false;
+  // Party C (attacker or wrong private key) tries to decrypt packet
+  const fakeReceiver = await generateTunnelKeyPair();
+  let attackerFailed = false;
   try {
-    await decryptSharePayload(token, '000000');
-  } catch (err) {
-    wrongPinFailed = true;
+    await decryptTunnelPayload(tunnelPacket, fakeReceiver.keyPair.privateKey);
+  } catch (_) {
+    attackerFailed = true;
   }
-  assert(wrongPinFailed, 'Decryption with wrong PIN must fail');
+  assert(attackerFailed, 'Decryption with wrong private key must fail');
+  console.log('   ✓ E2EE browser-to-browser tunnel handshake verified');
 
-  // Expired TTL check: simulate an expired share (ttl = -1000)
-  const expiredShare = await encryptSharePayload(secretItem, pin, -1000);
-  let expiredFailed = false;
+  // Test 7: 12-Word Recovery Key & Dual-Key Envelope Encryption
+  console.log('7. Testing 12-word recovery key and Dual-Key envelope decryption/rekey...');
+  const { generateRecoveryPhrase, decryptVaultWithRecovery, rekeyVault } = await import('../src/core/crypto.js');
+  const phrase = generateRecoveryPhrase();
+  assert.strictEqual(phrase.split(' ').length, 12, 'Phrase must contain exactly 12 words');
+
+  const dualPayload = { secretData: 'important-vault-records', count: 42 };
+  const dualPassword = 'MasterPassword#2026';
+  const dualEnvelope = await encryptVault(dualPayload, dualPassword, phrase);
+
+  assert.strictEqual(dualEnvelope.version, 2, 'Envelope must be v2');
+  assert(dualEnvelope.keyByPassword && dualEnvelope.keyByRecovery, 'Must contain dual keys for password and recovery');
+
+  // Decrypt with master password
+  const decByPwd = await decryptVault(dualEnvelope, dualPassword);
+  assert.strictEqual(decByPwd.secretData, dualPayload.secretData, 'Decrypt by password must match original');
+
+  // Decrypt with 12-word recovery phrase
+  const { vaultData: decByRec } = await decryptVaultWithRecovery(dualEnvelope, phrase);
+  assert.strictEqual(decByRec.secretData, dualPayload.secretData, 'Decrypt by recovery phrase must match original');
+
+  // Fail on wrong 12-word recovery phrase
+  let wrongPhraseFailed = false;
   try {
-    await decryptSharePayload(expiredShare.token, pin);
-  } catch (err) {
-    expiredFailed = err.message.includes('истек');
+    const wrongPhrase = generateRecoveryPhrase();
+    await decryptVaultWithRecovery(dualEnvelope, wrongPhrase);
+  } catch (_) {
+    wrongPhraseFailed = true;
   }
-  assert(expiredFailed, 'Decryption of expired payload (>2 min) must fail with TTL expiration message');
-  console.log('   ✓ Ephemeral 2-minute PIN sharing verified');
+  assert(wrongPhraseFailed, 'Decryption with wrong recovery phrase must fail');
+
+  // Rekey vault with new password and new recovery phrase
+  const newPhrase = generateRecoveryPhrase();
+  const rekeyed = await rekeyVault(decByRec, 'NewSuperMasterKey!99', newPhrase);
+  const decNew = await decryptVault(rekeyed, 'NewSuperMasterKey!99');
+  assert.strictEqual(decNew.count, 42, 'Rekeyed vault must decrypt with new password');
+  console.log('   ✓ 12-word recovery key & Dual-Key envelope verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

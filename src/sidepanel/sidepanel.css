@@ -18,9 +18,9 @@
   --danger: #ef4444;
   --danger-hover: #dc2626;
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 * {
@@ -64,33 +64,29 @@ body.sp-body {
   background: var(--text-dim);
 }
 
-/* ─── HEADER ───────────────────────────────────── */
+/* ─── HEADER (mySmart style burger + title + actions) ──────────────── */
 .sp-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 20;
 }
 
-.sp-brand {
+.sp-header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.sp-header-title {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-main);
-}
-
-.sp-brand-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  letter-spacing: -0.2px;
 }
 
 .sp-header-actions {
@@ -99,7 +95,116 @@ body.sp-body {
   gap: 6px;
 }
 
-/* ─── BUTTONS ──────────────────────────────────── */
+/* ─── DRAWER NAVIGATION (mySmart style) ────────────────────────── */
+.sp-drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sp-drawer-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sp-drawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 250px;
+  background: #181920;
+  border-right: 1px solid var(--border-subtle);
+  z-index: 101;
+  transform: translateX(-100%);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+}
+
+.sp-drawer.open {
+  transform: translateX(0);
+}
+
+.sp-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sp-drawer-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.sp-drawer-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+  gap: 4px;
+  flex: 1;
+}
+
+.sp-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+
+.sp-drawer-item:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+.sp-drawer-item.active {
+  background: var(--bg-card);
+  color: var(--accent);
+  border-color: rgba(244, 230, 73, 0.3);
+}
+
+.sp-drawer-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.sp-drawer-item-badge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-weight: 700;
+  border: 1px solid var(--border-subtle);
+}
+
+/* ─── BUTTONS (Minimal 4px Rounded Corners) ────────────────────── */
 .sp-btn-icon {
   background: transparent;
   border: 1px solid transparent;
@@ -137,6 +242,12 @@ body.sp-body {
 
 .sp-btn-primary:hover {
   background: var(--accent-hover);
+}
+
+.sp-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
 }
 
 .sp-btn-secondary {
@@ -179,37 +290,20 @@ body.sp-body {
   color: #fff;
 }
 
-/* ─── NAVIGATION TABS ──────────────────────────── */
-.sp-nav {
-  display: flex;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 4px 12px 0;
-  gap: 6px;
-}
-
-.sp-nav-tab {
+.sp-link-btn {
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.15s ease;
+  padding: 4px 6px;
+  transition: color 0.15s ease;
 }
 
-.sp-nav-tab:hover {
-  color: var(--text-main);
-}
-
-.sp-nav-tab.active {
+.sp-link-btn:hover {
   color: var(--accent);
-  border-bottom-color: var(--accent);
 }
 
 /* ─── SEARCH & FILTER ──────────────────────────── */
@@ -277,7 +371,7 @@ body.sp-body {
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -295,6 +389,50 @@ body.sp-body {
   color: var(--accent-text, #121316);
   border-color: var(--accent);
   font-weight: 700;
+}
+
+/* ─── RECOVERY WORDS GRID & CARDS ──────────────── */
+.sp-recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.sp-recovery-word-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sp-recovery-word-num {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: monospace;
+  width: 16px;
+}
+
+.sp-recovery-word-val {
+  color: var(--text-main);
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.sp-lockout-alert {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #fca5a5;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  text-align: left;
 }
 
 /* ─── VAULT LIST ───────────────────────────────── */
@@ -1230,42 +1368,78 @@ body.sp-body {
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* ─── SECURE EPHEMERAL SHARING MODAL ─── */
-.sp-pin-card {
+/* ─── E2EE BROWSER-TO-BROWSER TUNNEL STYLES ─── */
+.sp-tunnel-box {
   background: #14161d;
-  border: 2px dashed var(--accent);
-  border-radius: var(--radius-md);
-  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin: 10px 0;
 }
 
-.sp-pin-digits {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 6px;
+.sp-tunnel-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--accent);
 }
 
-.sp-timer-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-  font-size: 11px;
-  font-weight: 700;
+.sp-tunnel-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: spPulse 1.8s infinite;
+  flex-shrink: 0;
 }
 
-.sp-timer-chip.expired {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+.sp-tunnel-pulse-dot.success {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+@keyframes spPulse {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+.sp-tunnel-code-area {
+  width: 100%;
+  height: 68px;
+  resize: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  outline: none;
+}
+
+.sp-tunnel-code-area:focus {
+  border-color: var(--accent);
+}
+
+.sp-tunnel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(244, 230, 73, 0.12);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(244, 230, 73, 0.25);
 }
 
 
