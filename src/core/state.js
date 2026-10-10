@@ -20,6 +20,7 @@ export const state = {
   selectedItem: null,
   isEditing: false,
   lockInterval: '3days',
+  theme: 'light',
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,

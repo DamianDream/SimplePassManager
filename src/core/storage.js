@@ -13,7 +13,7 @@ export const DEFAULT_CONFIG = {
   latestProjectId: 'proj_default',
   lockInterval: '3days',
   clipboardClearSeconds: 30,
-  theme: 'dark',
+  theme: 'light',
   defaultCategory: 'Work',
   categories: ['Work', 'Personal']
 };

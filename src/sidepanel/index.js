@@ -78,9 +78,17 @@ let isPasswordVisible = false;
 
 // Settings view state
 let settingsSearchQuery = '';
-let openAccordions = new Set(['security']);
+let openAccordions = new Set(['appearance', 'security']);
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
+
+// ─── THEME MANAGER ──────────────────────────────────────────────────────────
+
+function applyTheme(theme) {
+  const currentTheme = theme === 'dark' ? 'dark' : 'light';
+  document.body.classList.remove('theme-light', 'theme-dark');
+  document.body.classList.add(`theme-${currentTheme}`);
+}
 
 // ─── E2EE BROWSER-TO-BROWSER TUNNEL STATE ───
 // Side A: Sending party (holds secret item, connects to Side B's tunnel)
@@ -120,6 +128,10 @@ async function init() {
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
 
+  // Apply saved theme (defaults to light: Cloud Dancer #F1F0EC)
+  const currentTheme = storedConfig.theme || 'light';
+  applyTheme(currentTheme);
+
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get('sp_failed_attempts', res => {
       failedAttempts = res.sp_failed_attempts || 0;
@@ -133,6 +145,7 @@ async function init() {
   updateState({
     isInitialized: storedVault !== null,
     lockInterval: storedConfig.lockInterval || '3days',
+    theme: currentTheme,
     categories: fullCategories
   });
 
@@ -482,8 +495,9 @@ function showToast(text) {
     toast.id = 'sp-toast';
     toast.style.cssText = `
       position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
-      background: var(--accent); color: var(--accent-text, #121316); font-size: 12px; font-weight: 700;
-      padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      background: var(--text-main); color: var(--bg-main); font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
       z-index: 9999; transition: opacity 0.2s ease;
     `;
     document.body.appendChild(toast);
@@ -846,8 +860,8 @@ function renderVaultView() {
     );
     if (domainMatches.length > 0) {
       activeDomainNotice = `
-        <div style="background: rgba(244, 230, 73, 0.12); border: 1px solid var(--accent); padding: 6px 12px; margin: 8px 14px 0; border-radius: 8px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="color: var(--accent); font-weight: 600;">Найдено для ${activeTabDomain}: ${domainMatches.length}</span>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 6px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="color: var(--text-main); font-weight: 600;">Найдено для ${activeTabDomain}: ${domainMatches.length}</span>
           <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="Показать">${icons.iGlobe}</button>
         </div>
       `;
@@ -975,11 +989,11 @@ function renderProjectSwitcherPanel() {
           </div>
           <div style="display:flex; align-items:center; gap:12px; margin-top:2px;">
             <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;">
-              <input type="radio" name="sp-new-project-type" value="browser" checked style="accent-color:var(--accent);" />
+              <input type="radio" name="sp-new-project-type" value="browser" checked style="accent-color:var(--text-main);" />
               <span>Браузер (AES-256)</span>
             </label>
             <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;" title="Синхронизация с локальным ~/.password-store через Native Messaging">
-              <input type="radio" name="sp-new-project-type" value="pass_cli" style="accent-color:var(--accent);" />
+              <input type="radio" name="sp-new-project-type" value="pass_cli" style="accent-color:var(--text-main);" />
               <span>Локальный PASS CLI</span>
             </label>
           </div>
@@ -1046,7 +1060,7 @@ function renderPassInstructionsModal() {
     <div class="sp-modal-overlay" id="sp-pass-instructions-overlay">
       <div class="sp-modal-content" style="max-width: 360px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--accent);">${icons.iFolder} Подключение UNIX PASS CLI</span>
+          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iFolder} Подключение UNIX PASS CLI</span>
           <button class="sp-btn-icon" id="sp-btn-close-pass-instructions">${icons.iX}</button>
         </div>
 
@@ -1248,7 +1262,7 @@ function renderSendTunnelModal() {
       <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--accent);">${icons.iTunnel} Передача через E2EE туннель</span>
+            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} Передача через E2EE туннель</span>
           </div>
           <button class="sp-btn-icon" id="sp-send-tunnel-close">${icons.iX}</button>
         </div>
@@ -1313,7 +1327,7 @@ function renderReceiveTunnelModal() {
       <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--accent);">${icons.iTunnel} E2EE туннель приема</span>
+            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} E2EE туннель приема</span>
           </div>
           <button class="sp-btn-icon" id="sp-receive-tunnel-close">${icons.iX}</button>
         </div>
@@ -1365,7 +1379,7 @@ function renderReceiveTunnelModal() {
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-size:11px; color:var(--text-dim);">Пароль:</span>
               <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-family:monospace; font-weight:700; color:var(--accent); font-size:13px;" id="sp-tunnel-decrypted-pwd">${escapeHtml(decryptedItem.password)}</span>
+                <span style="font-family:monospace; font-weight:700; color:var(--text-main); font-size:13px;" id="sp-tunnel-decrypted-pwd">${escapeHtml(decryptedItem.password)}</span>
                 <button class="sp-btn-icon" id="sp-btn-copy-tunnel-pwd" title="Копировать">${icons.iCopy}</button>
               </div>
             </div>
@@ -1413,7 +1427,7 @@ function renderRecoveryBackupModal() {
     <div class="sp-modal-overlay" id="sp-recovery-backup-overlay" style="z-index: 300;">
       <div class="sp-modal-content" style="max-width: 360px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--accent);">${icons.iKey} Секретный ключ (12 слов)</span>
+          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iKey} Секретный ключ (12 слов)</span>
           <button class="sp-btn-icon" id="sp-recovery-modal-close">${icons.iX}</button>
         </div>
 
@@ -1585,9 +1599,9 @@ function renderGeneratorView() {
         <div class="sp-form-group">
           <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
             <label class="sp-label" style="margin:0;">Длина пароля</label>
-            <span style="font-size:13px; font-weight:700; color:var(--accent);" id="sp-length-val">${genOptions.length}</span>
+            <span style="font-size:13px; font-weight:700; color:var(--text-main);" id="sp-length-val">${genOptions.length}</span>
           </div>
-          <input type="range" id="sp-slider-len" min="8" max="64" value="${genOptions.length}" style="width:100%; accent-color:var(--accent); cursor:pointer;" />
+          <input type="range" id="sp-slider-len" min="8" max="64" value="${genOptions.length}" style="width:100%; accent-color:var(--text-main); cursor:pointer;" />
         </div>
 
         <div class="sp-toggle-row">
@@ -1667,6 +1681,23 @@ function renderSettingsView() {
   };
   const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['3days'];
 
+  // 0. Accordion: Appearance & Theme
+  const isDark = state.theme === 'dark';
+  const appearanceHtml = `
+    <div class="sp-setting-row" data-search="тема оформления темная светлая cloud dancer darkest hour вид интерфейс переключатель">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iMoon} Тёмная тема</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-theme-toggle" ${isDark ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${isDark ? 'Активна тема: Darkest Hour (#1F1F21)' : 'Активна тема: Cloud Dancer (#F1F0EC)'}
+      </p>
+    </div>
+  `;
+
   // 1. Accordion: Security & Session
   const secHtml = `
     <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность">
@@ -1684,23 +1715,23 @@ function renderSettingsView() {
           <div class="sp-custom-select-dropdown">
             <div class="sp-custom-select-option ${state.lockInterval === 'session' ? 'selected' : ''}" data-val="session">
               <span>Каждый раз при новой сессии браузера</span>
-              ${state.lockInterval === 'session' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+              ${state.lockInterval === 'session' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1day' ? 'selected' : ''}" data-val="1day">
               <span>Раз в день (24 часа)</span>
-              ${state.lockInterval === '1day' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+              ${state.lockInterval === '1day' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '3days' ? 'selected' : ''}" data-val="3days">
               <span>Раз в три дня (по умолчанию, 72 часа)</span>
-              ${state.lockInterval === '3days' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+              ${state.lockInterval === '3days' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1week' ? 'selected' : ''}" data-val="1week">
               <span>Раз в неделю (7 дней)</span>
-              ${state.lockInterval === '1week' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+              ${state.lockInterval === '1week' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1month' ? 'selected' : ''}" data-val="1month">
               <span>Раз в месяц (30 дней)</span>
-              ${state.lockInterval === '1month' ? `<span style="color:var(--accent);">${icons.iCheck}</span>` : ''}
+              ${state.lockInterval === '1month' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
           </div>
         </div>
@@ -1939,6 +1970,13 @@ function renderSettingsView() {
   `;
 
   const sections = [
+    {
+      id: 'appearance',
+      title: 'Оформление и тема',
+      icon: icons.iMoon,
+      content: appearanceHtml,
+      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour'
+    },
     {
       id: 'security',
       title: 'Безопасность и Сессия',
@@ -2473,6 +2511,19 @@ function attachEventHandlers() {
     settingsSearchClear.addEventListener('click', () => {
       settingsSearchQuery = '';
       render();
+    });
+  }
+
+  // Theme Toggle Handler in Settings
+  const themeToggle = document.getElementById('sp-theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('change', async e => {
+      const newTheme = e.target.checked ? 'dark' : 'light';
+      applyTheme(newTheme);
+      updateState({ theme: newTheme });
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({ ...cfg, theme: newTheme });
+      showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
     });
   }
 
