@@ -644,7 +644,7 @@ function renderAuthScreen() {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
         <div class="sp-auth-box">
-          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;display:block;object-fit:contain;" alt="Logo" /></div>
           <h2 class="sp-auth-title">Создание профиля</h2>
           <p class="sp-auth-desc">Задайте имя первого профиля и мастер-пароль для шифрования AES-256-GCM.</p>
           <form class="sp-auth-form" id="sp-init-form" novalidate>
@@ -697,7 +697,7 @@ function renderAuthScreen() {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
         <div class="sp-auth-box" style="max-width: 360px;">
-          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;border-radius:10px;display:block;" alt="Logo" /></div>
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;display:block;object-fit:contain;" alt="Logo" /></div>
           <h2 class="sp-auth-title">Восстановление доступа</h2>
           <p class="sp-auth-desc">Введите ваш секретный ключ из 12 слов и задайте новый мастер-пароль.</p>
 
@@ -760,7 +760,7 @@ function renderAuthScreen() {
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
       <div class="sp-auth-box">
-        <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;border-radius:12px;display:block;" alt="Logo" /></div>
+        <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;display:block;object-fit:contain;" alt="Logo" /></div>
         <h2 class="sp-auth-title">SimplePass заблокирован</h2>
         <p class="sp-auth-desc">Введите мастер-пароль для разблокировки записей</p>
 
