@@ -955,8 +955,6 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
-            <button class="sp-btn-icon" data-action="share" title="${t('vault.share_action')}">${icons.iLink}</button>
-            <button class="sp-btn-icon" data-action="autofill" title="${t('vault.autofill_action')}">${icons.iZap}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="${t('vault.copy_user')}">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="${t('vault.copy_pwd')}">${icons.iKey}</button>
           </div>
@@ -2408,16 +2406,6 @@ function attachEventHandlers() {
 
     card.querySelector('[data-action="view"]')?.addEventListener('click', () => {
       updateState({ activeTab: 'item-details', selectedItem: item });
-    });
-
-    card.querySelector('[data-action="share"]')?.addEventListener('click', e => {
-      e.stopPropagation();
-      openSendTunnelModal(item);
-    });
-
-    card.querySelector('[data-action="autofill"]')?.addEventListener('click', e => {
-      e.stopPropagation();
-      triggerAutofill(item);
     });
 
     card.querySelector('[data-action="copy-user"]')?.addEventListener('click', e => {
