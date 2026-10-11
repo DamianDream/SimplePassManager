@@ -52,6 +52,7 @@ import {
   isItemMatchingDomain,
   sortItemsByDomainMatch
 } from '../core/domain.js';
+import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } from '../core/i18n.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -180,6 +181,10 @@ async function init() {
   const currentTheme = storedConfig.theme || 'light';
   applyTheme(currentTheme);
 
+  // Apply saved language (defaults to ru)
+  const currentLang = storedConfig.language || 'ru';
+  setLanguage(currentLang);
+
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get('sp_failed_attempts', res => {
       failedAttempts = res.sp_failed_attempts || 0;
@@ -194,6 +199,7 @@ async function init() {
     isInitialized: storedVault !== null,
     lockInterval: storedConfig.lockInterval || '3days',
     theme: currentTheme,
+    language: currentLang,
     categories: fullCategories
   });
 
@@ -573,13 +579,13 @@ function render() {
   const activeItems = getActiveProjectItems();
 
   // Section title mapping
-  let sectionTitle = 'Пароли';
+  let sectionTitle = t('nav.passwords');
   if (state.activeTab === 'generator') {
-    sectionTitle = 'Генератор пароля';
+    sectionTitle = t('nav.generator');
   } else if (state.activeTab === 'settings') {
-    sectionTitle = 'Настройки';
+    sectionTitle = t('nav.settings');
   } else if (state.activeTab === 'item-details') {
-    sectionTitle = state.selectedItem ? 'Редактирование' : 'Новый пароль';
+    sectionTitle = state.selectedItem ? t('form.edit_title') : t('form.new_title');
   }
 
   rootEl.innerHTML = `
@@ -587,13 +593,13 @@ function render() {
       <!-- Top Bar (mySmart style: Burger + Current Section Title + Action Icons) -->
       <header class="sp-header">
         <div class="sp-header-left">
-          <button class="sp-btn-icon" id="sp-burger-btn" title="Меню">${icons.iMenu}</button>
+          <button class="sp-btn-icon" id="sp-burger-btn" title="${t('nav.menu')}">${icons.iMenu}</button>
           <span class="sp-header-title" id="sp-header-title">${sectionTitle}</span>
         </div>
         <div class="sp-header-actions">
-          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="Поделиться паролем (E2EE туннель)">${icons.iLink}</button>
-          <button class="sp-btn-icon" id="sp-btn-add" title="Добавить пароль">${icons.iPlus}</button>
-          <button class="sp-btn-icon" id="sp-btn-lock" title="Заблокировать">${icons.iLock}</button>
+          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="${t('nav.share_tunnel')}">${icons.iLink}</button>
+          <button class="sp-btn-icon" id="sp-btn-add" title="${t('nav.add_password')}">${icons.iPlus}</button>
+          <button class="sp-btn-icon" id="sp-btn-lock" title="${t('nav.lock_vault')}">${icons.iLock}</button>
         </div>
       </header>
 
@@ -601,22 +607,22 @@ function render() {
       <div class="sp-drawer-overlay ${isDrawerOpen ? 'open' : ''}" id="sp-drawer-overlay"></div>
       <aside class="sp-drawer ${isDrawerOpen ? 'open' : ''}" id="sp-drawer">
         <div class="sp-drawer-header">
-          <span class="sp-drawer-heading">Меню</span>
-          <button class="sp-btn-icon" id="sp-close-drawer-btn" title="Закрыть">${icons.iX}</button>
+          <span class="sp-drawer-heading">${t('nav.menu')}</span>
+          <button class="sp-btn-icon" id="sp-close-drawer-btn" title="${t('nav.close')}">${icons.iX}</button>
         </div>
         <nav class="sp-drawer-menu">
           <button class="sp-drawer-item ${state.activeTab === 'vault' ? 'active' : ''}" data-nav="vault">
             <span class="sp-drawer-item-icon">${icons.iKey}</span>
-            <span>Пароли</span>
+            <span>${t('nav.passwords')}</span>
             <span class="sp-drawer-item-badge">${activeItems.length}</span>
           </button>
           <button class="sp-drawer-item ${state.activeTab === 'generator' ? 'active' : ''}" data-nav="generator">
             <span class="sp-drawer-item-icon">${icons.iDice}</span>
-            <span>Генератор пароля</span>
+            <span>${t('nav.generator')}</span>
           </button>
           <button class="sp-drawer-item ${state.activeTab === 'settings' ? 'active' : ''}" data-nav="settings">
             <span class="sp-drawer-item-icon">${icons.iSettings}</span>
-            <span>Настройки</span>
+            <span>${t('nav.settings')}</span>
           </button>
         </nav>
       </aside>
@@ -629,10 +635,10 @@ function render() {
       <!-- Footer (mySmart style Project Switcher Trigger) -->
       <footer class="sp-footer">
         <div class="sp-footer-left">
-          <span>${activeItems.length} паролей в базе</span>
+          <span>${t('footer.items_count', { count: activeItems.length })}</span>
         </div>
         <div class="sp-footer-right">
-          <div class="sp-project-badge ${state.isProjectSwitcherOpen ? 'active' : ''}" id="sp-project-container" title="База данных (Проект)">
+          <div class="sp-project-badge ${state.isProjectSwitcherOpen ? 'active' : ''}" id="sp-project-container" title="${t('footer.db_project')}">
             <span class="sp-project-dot"></span>
             <span id="sp-project-display">${activeProj ? activeProj.name : '—'}</span>
           </div>
@@ -693,23 +699,23 @@ function renderAuthScreen() {
       <div class="sp-auth-screen">
         <div class="sp-auth-box">
           <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;display:block;object-fit:contain;" alt="Logo" /></div>
-          <h2 class="sp-auth-title">Создание профиля</h2>
-          <p class="sp-auth-desc">Задайте имя первого профиля и мастер-пароль для шифрования AES-256-GCM.</p>
+          <h2 class="sp-auth-title">${t('auth.create_profile_title')}</h2>
+          <p class="sp-auth-desc">${t('auth.create_profile_desc')}</p>
           <form class="sp-auth-form" id="sp-init-form" novalidate>
             <div>
-              <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="Название профиля" />
+              <input type="text" id="sp-init-proj-name" class="sp-input" placeholder="${t('auth.profile_name_placeholder')}" />
               <div class="sp-field-error" id="sp-err-proj-name"></div>
             </div>
             <div>
-              <input type="password" id="sp-init-pwd" class="sp-input" placeholder="Мастер-пароль (более 8 симв. + спецсимвол)" />
+              <input type="password" id="sp-init-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-pwd"></div>
             </div>
             <div>
-              <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="Повторите мастер-пароль" />
+              <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-pwd2"></div>
             </div>
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-              Создать профиль
+              ${t('auth.create_profile_btn')}
             </button>
           </form>
         </div>
@@ -746,27 +752,27 @@ function renderAuthScreen() {
       <div class="sp-auth-screen">
         <div class="sp-auth-box" style="max-width: 360px;">
           <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;display:block;object-fit:contain;" alt="Logo" /></div>
-          <h2 class="sp-auth-title">Восстановление доступа</h2>
-          <p class="sp-auth-desc">Введите ваш секретный ключ из 12 слов и задайте новый мастер-пароль.</p>
+          <h2 class="sp-auth-title">${t('auth.recovery_title')}</h2>
+          <p class="sp-auth-desc">${t('auth.recovery_desc')}</p>
 
           <form class="sp-auth-form" id="sp-recovery-form" novalidate>
             <div>
-              <textarea id="sp-recover-phrase" class="sp-input" style="height: 72px; resize:none; font-family:monospace; font-size:12px; line-height:1.4;" placeholder="12 слов через пробел (например: abandon ability able ...)"></textarea>
+              <textarea id="sp-recover-phrase" class="sp-input" style="height: 72px; resize:none; font-family:monospace; font-size:12px; line-height:1.4;" placeholder="${t('auth.recovery_phrase_placeholder')}"></textarea>
               <div class="sp-field-error" id="sp-err-recover-phrase"></div>
             </div>
             <div>
-              <input type="password" id="sp-recover-new-pwd" class="sp-input" placeholder="Новый мастер-пароль (>8 симв. + спецсимвол)" />
+              <input type="password" id="sp-recover-new-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-recover-pwd"></div>
             </div>
             <div>
-              <input type="password" id="sp-recover-new-pwd2" class="sp-input" placeholder="Повторите новый мастер-пароль" />
+              <input type="password" id="sp-recover-new-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-recover-pwd2"></div>
             </div>
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-              ${icons.iUnlock} Восстановить доступ
+              ${icons.iUnlock} ${t('auth.restore_access_btn')}
             </button>
             <div style="text-align:center; margin-top: 6px;">
-              <button type="button" class="sp-link-btn" id="sp-btn-cancel-recovery">Вернуться ко входу</button>
+              <button type="button" class="sp-link-btn" id="sp-btn-cancel-recovery">${t('auth.return_to_login_btn')}</button>
             </div>
           </form>
         </div>
@@ -809,33 +815,32 @@ function renderAuthScreen() {
     <div class="sp-auth-screen">
       <div class="sp-auth-box">
         <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:52px;height:52px;display:block;object-fit:contain;" alt="Logo" /></div>
-        <h2 class="sp-auth-title">SimplePass заблокирован</h2>
-        <p class="sp-auth-desc">Введите мастер-пароль для разблокировки записей</p>
+        <h2 class="sp-auth-title">${t('auth.locked_title')}</h2>
+        <p class="sp-auth-desc">${t('auth.locked_desc')}</p>
 
         ${isLockedOut ? `
           <div class="sp-lockout-alert">
-            <strong>🔒 Ввод пароля заблокирован!</strong><br>
-            Превышен лимит 3 неудачных попыток ввода. Доступ к хранилищу возможен только по секретному ключу восстановления (12 слов).
+            ${t('auth.lockout_warning')}
           </div>
         ` : ''}
 
         <form class="sp-auth-form" id="sp-unlock-form" novalidate>
           <div>
-            <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="Мастер-пароль" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
-            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? `Неверный мастер-пароль. Попытка ${failedAttempts} из 3.` : ''}</div>
+            <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
+            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? t('auth.lockout_attempt_error', { current: failedAttempts, max: 3 }) : ''}</div>
           </div>
 
           <div id="sp-forgot-pwd-wrap" style="text-align:center; margin-top:-4px; margin-bottom:4px; display:${failedAttempts > 0 || isLockedOut ? 'block' : 'none'};">
-            <button type="button" class="sp-link-btn" id="sp-forgot-pwd">Забыли пароль?</button>
+            <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
           </div>
 
           ${isLockedOut ? `
             <button type="button" class="sp-btn-primary" id="sp-btn-goto-recovery" style="justify-content:center; margin-top: 6px;">
-              ${icons.iKey} Восстановить по ключу (12 слов)
+              ${icons.iKey} ${t('auth.restore_by_key_btn')}
             </button>
           ` : `
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-              ${icons.iUnlock} Разблокировать
+              ${icons.iUnlock} ${t('auth.unlock_btn')}
             </button>
           `}
         </form>
@@ -909,16 +914,19 @@ function renderVaultView() {
       activeDomainNotice = `
         <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 6px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
           <span style="color: var(--text-main); font-weight: 600; display:flex; align-items:center; gap:6px;">
-            <span style="color:var(--accent);">${icons.iGlobe}</span> Текущий сайт: <b>${escapeHtml(activeTabDomain)}</b> (${domainMatches.length})
+            <span style="color:var(--accent);">${icons.iGlobe}</span> ${t('vault.current_site')}: <b>${escapeHtml(activeTabDomain)}</b> (${domainMatches.length})
           </span>
-          <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="Оставить только этот сайт">${icons.iSearch}</button>
+          <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="${t('vault.filter_domain_title')}">${icons.iSearch}</button>
         </div>
       `;
     }
   }
 
   const pillsHtml = state.categories
-    .map(c => `<button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${c}</button>`)
+    .map(c => {
+      const label = c === 'All' ? t('categories.All') : (c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c));
+      return `<button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${label}</button>`;
+    })
     .join('');
 
   const cardsHtml =
@@ -926,8 +934,8 @@ function renderVaultView() {
       ? `
       <div class="sp-empty-state">
         <div class="sp-empty-icon">${icons.iKey}</div>
-        <p style="font-size: 13px; font-weight: 600;">Нет паролей в этой базе</p>
-        <p style="font-size: 11px;">Нажмите «+» вверху, чтобы добавить запись</p>
+        <p style="font-size: 13px; font-weight: 600;">${t('vault.empty_title')}</p>
+        <p style="font-size: 11px;">${t('vault.empty_desc')}</p>
       </div>
     `
       : sortedItems
@@ -941,16 +949,16 @@ function renderVaultView() {
             <div class="sp-card-meta">
               <div style="display:flex; align-items:center; gap:6px;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
-                ${isMatched ? `<span class="sp-matched-pill" title="Текущий сайт">${icons.iGlobe} сайт</span>` : ''}
+                ${isMatched ? `<span class="sp-matched-pill" title="${t('vault.current_site')}">${icons.iGlobe} ${t('vault.site_pill')}</span>` : ''}
               </div>
-              <span class="sp-card-sub">${escapeHtml(item.username || item.url || 'Нет логина')}</span>
+              <span class="sp-card-sub">${escapeHtml(item.username || item.url || t('vault.no_login'))}</span>
             </div>
           </div>
           <div class="sp-card-actions">
-            <button class="sp-btn-icon" data-action="share" title="Поделиться через E2EE туннель">${icons.iLink}</button>
-            <button class="sp-btn-icon" data-action="autofill" title="Заполнить на сайте">${icons.iZap}</button>
-            <button class="sp-btn-icon" data-action="copy-user" title="Копировать логин">${icons.iCopy}</button>
-            <button class="sp-btn-icon" data-action="copy-pwd" title="Копировать пароль">${icons.iKey}</button>
+            <button class="sp-btn-icon" data-action="share" title="${t('vault.share_action')}">${icons.iLink}</button>
+            <button class="sp-btn-icon" data-action="autofill" title="${t('vault.autofill_action')}">${icons.iZap}</button>
+            <button class="sp-btn-icon" data-action="copy-user" title="${t('vault.copy_user')}">${icons.iCopy}</button>
+            <button class="sp-btn-icon" data-action="copy-pwd" title="${t('vault.copy_pwd')}">${icons.iKey}</button>
           </div>
         </div>
       `;
@@ -961,7 +969,7 @@ function renderVaultView() {
     <div class="sp-search-bar">
       <div class="sp-search-input-wrap">
         <span class="sp-search-icon">${icons.iSearch}</span>
-        <input type="text" id="sp-search-input" class="sp-search-input" placeholder="Поиск паролей..." value="${state.searchQuery}" />
+        <input type="text" id="sp-search-input" class="sp-search-input" placeholder="${t('vault.search_placeholder')}" value="${state.searchQuery}" />
         ${state.searchQuery ? `<button class="sp-search-clear" id="sp-search-clear">${icons.iX}</button>` : ''}
       </div>
       <div class="sp-category-pills">
@@ -985,8 +993,8 @@ function renderProjectSwitcherPanel() {
       const isActive = activeProj && activeProj.id === p.id;
       const count = state.items.filter(item => item.projectId === p.id).length;
       const typeBadge = p.type === 'pass_cli'
-        ? `<span class="sp-badge-pass">PASS CLI</span>`
-        : `<span class="sp-badge-browser">Браузер</span>`;
+        ? `<span class="sp-badge-pass">${t('settings.badge_pass_cli')}</span>`
+        : `<span class="sp-badge-browser">${t('settings.badge_browser')}</span>`;
 
       return `
       <div class="sp-project-item ${isActive ? 'active' : ''}" data-project-id="${p.id}">
@@ -997,19 +1005,19 @@ function renderProjectSwitcherPanel() {
               <span class="sp-project-name">${p.name}</span>
               ${typeBadge}
             </div>
-            <span class="sp-project-meta">${count} паролей</span>
+            <span class="sp-project-meta">${count} ${t('nav.passwords').toLowerCase()}</span>
           </div>
         </div>
         <div class="sp-project-item-actions">
           ${
             p.type === 'pass_cli'
-              ? `<button class="sp-btn-icon" data-action="sync-pass-project" data-project-id="${p.id}" title="Синхронизировать с ~/.password-store">${icons.iRefresh}</button>`
+              ? `<button class="sp-btn-icon" data-action="sync-pass-project" data-project-id="${p.id}" title="${t('settings.sync_pass_btn')}">${icons.iRefresh}</button>`
               : ''
           }
-          <button class="sp-btn-icon" data-action="rename-project" data-project-id="${p.id}" title="Переименовать">${icons.iEdit}</button>
+          <button class="sp-btn-icon" data-action="rename-project" data-project-id="${p.id}" title="${t('settings.change_pwd_btn')}">${icons.iEdit}</button>
           ${
             state.projects.length > 1
-              ? `<button class="sp-btn-icon" data-action="delete-project" data-project-id="${p.id}" title="Удалить проект">${icons.iTrash}</button>`
+              ? `<button class="sp-btn-icon" data-action="delete-project" data-project-id="${p.id}" title="${t('form.delete_btn')}">${icons.iTrash}</button>`
               : ''
           }
         </div>
@@ -1021,8 +1029,8 @@ function renderProjectSwitcherPanel() {
   return `
     <div class="sp-project-switcher-panel ${state.isProjectSwitcherOpen ? 'open' : ''}" id="sp-project-panel">
       <div class="sp-panel-header">
-        <span class="sp-panel-title">${icons.iFolder} Базы данных (Проекты)</span>
-        <button class="sp-btn-icon" id="sp-close-project-panel">${icons.iX}</button>
+        <span class="sp-panel-title">${icons.iFolder} ${t('project_switcher.title')}</span>
+        <button class="sp-btn-icon" id="sp-close-project-panel" title="${t('nav.close')}">${icons.iX}</button>
       </div>
 
       <div class="sp-project-list">
@@ -1031,23 +1039,23 @@ function renderProjectSwitcherPanel() {
 
       <div class="sp-new-project-card">
         <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:8px;">
-          Создать новую базу
+          ${t('project_switcher.create_new')}
         </span>
         <form id="sp-create-project-form" style="display:flex; flex-direction:column; gap:8px;">
           <div style="display:flex; gap:8px;">
-            <input type="text" id="sp-new-project-name" class="sp-input" placeholder="Название базы (напр. Work)" required style="flex:1;" />
+            <input type="text" id="sp-new-project-name" class="sp-input" placeholder="${t('project_switcher.name_placeholder')}" required style="flex:1;" />
             <button type="submit" class="sp-btn-primary" style="padding:8px 12px; white-space:nowrap;">
-              ${icons.iPlus} Создать
+              ${icons.iPlus} ${t('project_switcher.create_btn')}
             </button>
           </div>
           <div style="display:flex; align-items:center; gap:12px; margin-top:2px;">
             <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;">
               <input type="radio" name="sp-new-project-type" value="browser" checked style="accent-color:var(--text-main);" />
-              <span>Браузер (AES-256)</span>
+              <span>${t('project_switcher.browser_type')}</span>
             </label>
-            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;" title="Синхронизация с локальным ~/.password-store через Native Messaging">
+            <label style="font-size:11px; color:var(--text-dim); display:flex; align-items:center; gap:4px; cursor:pointer;" title="${t('project_switcher.pass_type_title')}">
               <input type="radio" name="sp-new-project-type" value="pass_cli" style="accent-color:var(--text-main);" />
-              <span>Локальный PASS CLI</span>
+              <span>${t('project_switcher.pass_type')}</span>
             </label>
           </div>
         </form>
@@ -1068,34 +1076,34 @@ function renderDeleteModal() {
     <div class="sp-modal-overlay" id="sp-delete-modal-overlay">
       <div class="sp-modal-content">
         <div class="sp-modal-header">
-          <span class="sp-modal-title">${icons.iTrash} Удаление базы</span>
-          <button class="sp-btn-icon" id="sp-modal-cancel-btn">${icons.iX}</button>
+          <span class="sp-modal-title">${icons.iTrash} ${t('delete_modal.title')}</span>
+          <button class="sp-btn-icon" id="sp-modal-cancel-btn" title="${t('nav.close')}">${icons.iX}</button>
         </div>
 
         <div class="sp-modal-danger-box">
-          <strong>Внимание: Каскадное удаление!</strong><br>
-          База «<strong>${proj.name}</strong>» и все привязанные к ней пароли (<strong>${count} шт.</strong>) будут удалены безвозвратно.
+          <strong>${t('delete_modal.warning_title')}</strong><br>
+          ${t('delete_modal.desc', { name: proj.name, count })}
         </div>
 
         <form id="sp-delete-project-form" style="display:flex; flex-direction:column; gap:10px;">
           <div class="sp-form-group">
-            <label class="sp-label">Введите «<strong>${proj.name}</strong>» для подтверждения:</label>
+            <label class="sp-label">${t('form.title_label')}: «<strong>${proj.name}</strong>»:</label>
             <input type="text" id="sp-delete-confirm-name" class="sp-input" placeholder="${proj.name}" required />
           </div>
 
           <div class="sp-form-group">
-            <label class="sp-label">Введите мастер-пароль:</label>
-            <input type="password" id="sp-delete-confirm-pwd" class="sp-input" placeholder="Мастер-пароль" required />
+            <label class="sp-label">${t('settings.master_pwd_label')}:</label>
+            <input type="password" id="sp-delete-confirm-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" required />
           </div>
 
           <div id="sp-delete-modal-error" style="display:none; font-size:11px; color:var(--danger);"></div>
 
           <div style="display:flex; gap:8px; margin-top:4px;">
             <button type="button" class="sp-btn-secondary" id="sp-modal-close-btn" style="flex:1; justify-content:center;">
-              Отмена
+              ${t('delete_modal.cancel_btn')}
             </button>
             <button type="submit" class="sp-btn-danger" style="flex:1; justify-content:center;">
-              Удалить всё
+              ${t('delete_modal.confirm_btn')}
             </button>
           </div>
         </form>
@@ -1315,55 +1323,55 @@ function renderSendTunnelModal() {
       <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} Передача через E2EE туннель</span>
+            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} ${t('tunnel.send_title')}</span>
           </div>
-          <button class="sp-btn-icon" id="sp-send-tunnel-close">${icons.iX}</button>
+          <button class="sp-btn-icon" id="sp-send-tunnel-close" title="${t('nav.close')}">${icons.iX}</button>
         </div>
 
         <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-          Передача пароля <b>«${escapeHtml(item.title)}»</b> защищена сквозным шифрованием (ECDH + AES-256-GCM).
+          ${t('tunnel.send_desc', { title: escapeHtml(item.title) })}
         </div>
 
         ${status === 'awaiting_tunnel' ? `
           <div class="sp-tunnel-box">
             <div class="sp-tunnel-status-bar">
               <span class="sp-tunnel-pulse-dot"></span>
-              <span>Шаг 1: Подключение к туннелю Стороны Б</span>
+              <span>${t('tunnel.step1_title')}</span>
             </div>
             <p style="font-size:11px; color:var(--text-muted); margin-top:2px; line-height:1.4;">
-              Запросите у принимающей стороны код/ссылку открытого туннеля и вставьте её ниже:
+              ${t('tunnel.step1_sub')}
             </p>
-            <textarea id="sp-send-peer-key-input" class="sp-tunnel-code-area" placeholder="Вставьте код туннеля (SPTUN_KEY:...)"></textarea>
+            <textarea id="sp-send-peer-key-input" class="sp-tunnel-code-area" placeholder="${t('tunnel.tunnel_code_placeholder')}"></textarea>
             ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
           </div>
 
           <button class="sp-btn-primary" id="sp-btn-connect-and-encrypt" style="justify-content:center; width:100%;">
-            ${icons.iZap} Установить защищенное соединение и зашифровать
+            ${icons.iZap} ${t('tunnel.connect_encrypt_btn')}
           </button>
         ` : `
           <div class="sp-tunnel-box">
             <div class="sp-tunnel-status-bar" style="color:var(--success);">
               <span class="sp-tunnel-pulse-dot success"></span>
-              <span>Туннель защищен • Пароль готов к передаче</span>
+              <span>${t('tunnel.tunnel_ready')}</span>
             </div>
             <p style="font-size:11px; color:var(--text-muted); line-height:1.4;">
-              Данные зашифрованы ключом принимающего браузера. Передайте зашифрованный пакет в туннель:
+              ${t('tunnel.payload_ready_desc')}
             </p>
             <textarea readonly class="sp-tunnel-code-area" style="user-select:all;">${encryptedPacket}</textarea>
           </div>
 
           <div style="display:flex; flex-direction:column; gap:8px;">
             <button class="sp-btn-primary" id="sp-btn-copy-tunnel-packet" style="justify-content:center; font-size:12px;">
-              ${icons.iCopy} Скопировать зашифрованный пакет в туннель
+              ${icons.iCopy} ${t('tunnel.copy_payload_btn')}
             </button>
             <button class="sp-btn-secondary" id="sp-btn-close-send-tunnel" style="justify-content:center; font-size:12px;">
-              Закрыть туннель
+              ${t('tunnel.close_tunnel_btn')}
             </button>
           </div>
         `}
 
         <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
-          <span class="sp-tunnel-badge">🔒 Zero-Knowledge RAM-to-RAM</span>
+          <span class="sp-tunnel-badge">${t('tunnel.zero_knowledge_badge')}</span>
         </div>
       </div>
     </div>
@@ -1380,85 +1388,85 @@ function renderReceiveTunnelModal() {
       <div class="sp-modal-content" style="max-width:350px;">
         <div class="sp-modal-header">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} E2EE туннель приема</span>
+            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} ${t('tunnel.receive_title')}</span>
           </div>
-          <button class="sp-btn-icon" id="sp-receive-tunnel-close">${icons.iX}</button>
+          <button class="sp-btn-icon" id="sp-receive-tunnel-close" title="${t('nav.close')}">${icons.iX}</button>
         </div>
 
         ${!decryptedItem ? `
           <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-            Безопасный туннель открыт. Скопируйте ссылку/код туннеля и передайте отправителю.
+            ${t('tunnel.receive_desc')}
           </div>
 
           <div class="sp-tunnel-box">
             <div class="sp-tunnel-status-bar">
               <span class="sp-tunnel-pulse-dot"></span>
-              <span>Ожидание передачи в туннель...</span>
+              <span>${t('tunnel.waiting_status')}</span>
             </div>
             <p style="font-size:11px; color:var(--text-muted); line-height:1.3;">
-              Ваш ключ туннеля (передайте отправителю):
+              ${t('tunnel.your_key_label')}
             </p>
             <textarea readonly class="sp-tunnel-code-area" style="height:54px; user-select:all;">${tunnelToken}</textarea>
             <button class="sp-btn-secondary" id="sp-btn-copy-tunnel-token" style="justify-content:center; font-size:11px; padding:5px 8px;">
-              ${icons.iCopy} Скопировать код туннеля
+              ${icons.iCopy} ${t('tunnel.copy_code_btn')}
             </button>
           </div>
 
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
-            <label class="sp-label" style="margin:0;">Полученный зашифрованный пакет из туннеля:</label>
-            <textarea id="sp-receive-packet-input" class="sp-tunnel-code-area" placeholder="Вставьте полученный пакет (SPTUN1:...)"></textarea>
+            <label class="sp-label" style="margin:0;">${t('tunnel.received_payload_label')}</label>
+            <textarea id="sp-receive-packet-input" class="sp-tunnel-code-area" placeholder="${t('tunnel.received_payload_placeholder')}"></textarea>
             ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
 
             <button class="sp-btn-primary" id="sp-btn-decrypt-tunnel-packet" style="justify-content:center;">
-              ${icons.iUnlock} Принять и расшифровать
+              ${icons.iUnlock} ${t('tunnel.decrypt_btn')}
             </button>
           </div>
         ` : `
           <div class="sp-tunnel-status-bar" style="color:var(--success); margin-bottom:8px;">
             <span class="sp-tunnel-pulse-dot success"></span>
-            <span>Пароль успешно получен по E2EE туннелю!</span>
+            <span>${t('tunnel.received_success')}</span>
           </div>
 
           <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:8px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">Название:</span>
+              <span style="font-size:11px; color:var(--text-dim);">${t('form.title_label')}:</span>
               <span style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(decryptedItem.title)}</span>
             </div>
             ${decryptedItem.username ? `
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">Логин:</span>
+              <span style="font-size:11px; color:var(--text-dim);">${t('form.login_label')}:</span>
               <span style="font-family:monospace; color:var(--text-muted); font-size:12px;">${escapeHtml(decryptedItem.username)}</span>
             </div>` : ''}
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">Пароль:</span>
+              <span style="font-size:11px; color:var(--text-dim);">${t('form.password_label')}:</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="font-family:monospace; font-weight:700; color:var(--text-main); font-size:13px;" id="sp-tunnel-decrypted-pwd">${escapeHtml(decryptedItem.password)}</span>
-                <button class="sp-btn-icon" id="sp-btn-copy-tunnel-pwd" title="Копировать">${icons.iCopy}</button>
+                <button class="sp-btn-icon" id="sp-btn-copy-tunnel-pwd" title="${t('generator.copy_title')}">${icons.iCopy}</button>
               </div>
             </div>
             ${decryptedItem.url ? `
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">URL:</span>
+              <span style="font-size:11px; color:var(--text-dim);">${t('form.url_label')}:</span>
               <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(decryptedItem.url)}</span>
             </div>` : ''}
             ${decryptedItem.notes ? `
             <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
-              Заметки: <span style="color:var(--text-muted);">${escapeHtml(decryptedItem.notes)}</span>
+              ${t('form.notes_label')}: <span style="color:var(--text-muted);">${escapeHtml(decryptedItem.notes)}</span>
             </div>` : ''}
           </div>
 
           <div style="display:flex; gap:8px; margin-top:12px;">
             <button class="sp-btn-primary" id="sp-btn-save-tunnel-item" style="flex:1; justify-content:center; font-size:12px;">
-              ${icons.iPlus} Сохранить в профиль
+              ${icons.iPlus} ${t('tunnel.save_profile_btn')}
             </button>
             <button class="sp-btn-secondary" id="sp-btn-finish-tunnel" style="padding:6px 12px; font-size:12px;">
-              Закрыть туннель
+              ${t('tunnel.close_tunnel_btn')}
             </button>
           </div>
         `}
 
         <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
-          <span class="sp-tunnel-badge">⚡ Туннель закрывается после завершения</span>
+          <span class="sp-tunnel-badge">${t('tunnel.closes_notice')}</span>
         </div>
       </div>
     </div>
@@ -1480,12 +1488,12 @@ function renderRecoveryBackupModal() {
     <div class="sp-modal-overlay" id="sp-recovery-backup-overlay" style="z-index: 300;">
       <div class="sp-modal-content" style="max-width: 360px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iKey} Секретный ключ (12 слов)</span>
-          <button class="sp-btn-icon" id="sp-recovery-modal-close">${icons.iX}</button>
+          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iKey} ${t('recovery_modal.title')}</span>
+          <button class="sp-btn-icon" id="sp-recovery-modal-close" title="${t('nav.close')}">${icons.iX}</button>
         </div>
 
         <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-          Сохраните этот ключ в надёжном месте! Он понадобится для восстановления доступа, если вы забудете мастер-пароль или база будет заблокирована после 3 неверных попыток.
+          ${t('recovery_modal.desc')}
         </p>
 
         <div class="sp-recovery-grid">
@@ -1494,15 +1502,15 @@ function renderRecoveryBackupModal() {
 
         <div style="display:flex; gap:8px; margin-top:12px;">
           <button class="sp-btn-secondary" id="sp-btn-copy-recovery-phrase" style="flex:1; justify-content:center; font-size:12px;">
-            ${icons.iCopy} Скопировать 12 слов
+            ${icons.iCopy} ${t('recovery_modal.copy_btn')}
           </button>
           <button class="sp-btn-secondary" id="sp-btn-download-recovery-phrase" style="flex:1; justify-content:center; font-size:12px;">
-            ${icons.iDownload} Скачать .txt
+            ${icons.iDownload} ${t('recovery_modal.download_btn')}
           </button>
         </div>
 
         <button class="sp-btn-primary" id="sp-btn-confirm-recovery-saved" style="width:100%; justify-content:center; margin-top:12px;">
-          ${icons.iCheck} Я сохранил ключ восстановления
+          ${icons.iCheck} ${t('recovery_modal.confirm_btn')}
         </button>
       </div>
     </div>
@@ -1530,12 +1538,12 @@ function renderItemFormView() {
     <div class="sp-view-container">
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <button class="sp-btn-secondary" id="sp-form-back" style="padding:6px 10px;">
-          ${icons.iX} Назад
+          ${icons.iX} ${t('form.back')}
         </button>
-        <h3 style="font-size:14px; font-weight:700;">${isNew ? 'Новая запись' : 'Редактирование'}</h3>
+        <h3 style="font-size:14px; font-weight:700;">${isNew ? t('form.new_title') : t('form.edit_title')}</h3>
         <div style="display:flex; gap:6px;">
-          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="Поделиться через E2EE туннель">${icons.iLink}</button>` : ''}
-          ${!isNew ? `<button type="button" class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;" title="Удалить">${icons.iTrash}</button>` : '<div></div>'}
+          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="${t('vault.share_action')}">${icons.iLink}</button>` : ''}
+          ${!isNew ? `<button type="button" class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : '<div></div>'}
         </div>
       </div>
 
@@ -1544,11 +1552,11 @@ function renderItemFormView() {
           ? `
         <div style="background:var(--bg-surface); border:1px dashed var(--border-subtle); border-radius:var(--radius-sm); padding:10px 12px; display:flex; align-items:center; justify-content:space-between;">
           <div>
-            <div style="font-size:12px; font-weight:600; color:var(--text-main);">Импорт паролей из CSV</div>
-            <div style="font-size:11px; color:var(--text-dim);">Chrome, Bitwarden, 1Password...</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-main);">${t('form.csv_title')}</div>
+            <div style="font-size:11px; color:var(--text-dim);">${t('form.csv_sub')}</div>
           </div>
           <label class="sp-btn-secondary" style="padding:5px 10px; font-size:11px; cursor:pointer;">
-            ${icons.iDownload} Выбрать CSV
+            ${icons.iDownload} ${t('form.csv_choose_file')}
             <input type="file" id="sp-csv-file-input" accept=".csv,text/csv" style="display:none;" />
           </label>
         </div>
@@ -1560,7 +1568,7 @@ function renderItemFormView() {
         <input type="hidden" id="sp-item-id" value="${item.id}" />
 
         <div class="sp-form-group">
-          <label class="sp-label">База данных (Проект)</label>
+          <label class="sp-label">${t('footer.db_project')}</label>
           <select id="sp-item-project" class="sp-input">
             ${state.projects
               .map(p => `<option value="${p.id}" ${p.id === item.projectId ? 'selected' : ''}>${p.name}</option>`)
@@ -1569,25 +1577,25 @@ function renderItemFormView() {
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">Название *</label>
-          <input type="text" id="sp-item-title" class="sp-input" value="${item.title}" placeholder="Например: GitHub, Pipedrive" required />
+          <label class="sp-label">${t('form.title_label')} *</label>
+          <input type="text" id="sp-item-title" class="sp-input" value="${item.title}" placeholder="${t('form.title_placeholder')}" required />
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">Веб-сайт / URL</label>
-          <input type="text" id="sp-item-url" class="sp-input" value="${item.url}" placeholder="https://..." />
+          <label class="sp-label">${t('form.url_label')}</label>
+          <input type="text" id="sp-item-url" class="sp-input" value="${item.url}" placeholder="${t('form.url_placeholder')}" />
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">Логин / Email</label>
-          <input type="text" id="sp-item-username" class="sp-input" value="${item.username}" placeholder="user@example.com" />
+          <label class="sp-label">${t('form.login_label')}</label>
+          <input type="text" id="sp-item-username" class="sp-input" value="${item.username}" placeholder="${t('form.login_placeholder')}" />
         </div>
 
         <div class="sp-form-group">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label class="sp-label">Пароль *</label>
-            <button type="button" class="sp-btn-icon" id="sp-btn-gen-inline" style="width:auto; height:20px; font-size:11px; gap:4px;" title="Сгенерировать случайный пароль">
-              ${icons.iDice} Сгенерировать
+            <label class="sp-label">${t('form.password_label')} *</label>
+            <button type="button" class="sp-btn-icon" id="sp-btn-gen-inline" style="width:auto; height:20px; font-size:11px; gap:4px;" title="${t('generator.refresh_title')}">
+              ${icons.iDice} ${t('form.generate_btn')}
             </button>
           </div>
           <div class="sp-input-with-action">
@@ -1599,22 +1607,25 @@ function renderItemFormView() {
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">Категория</label>
+          <label class="sp-label">${t('form.category_label')}</label>
           <select id="sp-item-category" class="sp-input">
             ${state.categories
               .filter(c => c !== 'All')
-              .map(c => `<option value="${c}" ${(item.category === c || (!item.category && c === 'Work')) ? 'selected' : ''}>${c}</option>`)
+              .map(c => {
+                const label = c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c);
+                return `<option value="${c}" ${(item.category === c || (!item.category && c === 'Work')) ? 'selected' : ''}>${label}</option>`;
+              })
               .join('')}
           </select>
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">Заметки / Доп. инфо</label>
-          <textarea id="sp-item-notes" class="sp-input" rows="3" placeholder="OTP-секрет, кодовые фразы...">${item.notes || ''}</textarea>
+          <label class="sp-label">${t('form.notes_label')}</label>
+          <textarea id="sp-item-notes" class="sp-input" rows="3" placeholder="${t('form.notes_placeholder')}">${item.notes || ''}</textarea>
         </div>
 
         <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top:8px;">
-          Сохранить
+          ${t('form.save_btn')}
         </button>
       </form>
     </div>
@@ -1633,8 +1644,8 @@ function renderGeneratorView() {
       <div class="sp-gen-result-card">
         <div style="display:flex; justify-content:flex-end; align-items:center;">
           <div style="display:flex; gap:4px;">
-            <button class="sp-btn-icon" id="sp-gen-refresh" title="Сгенерировать новый">${icons.iRefresh}</button>
-            <button class="sp-btn-icon" id="sp-gen-copy" title="Копировать">${icons.iCopy}</button>
+            <button class="sp-btn-icon" id="sp-gen-refresh" title="${t('generator.refresh_title')}">${icons.iRefresh}</button>
+            <button class="sp-btn-icon" id="sp-gen-copy" title="${t('generator.copy_title')}">${icons.iCopy}</button>
           </div>
         </div>
         <div class="sp-gen-password-display" id="sp-gen-display">${currentGeneratedPassword}</div>
@@ -1643,42 +1654,42 @@ function renderGeneratorView() {
       <div style="display:flex; flex-direction:column; gap:8px;">
         <div class="sp-form-group">
           <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <label class="sp-label" style="margin:0;">Длина пароля</label>
+            <label class="sp-label" style="margin:0;">${t('generator.length_label')}</label>
             <span style="font-size:13px; font-weight:700; color:var(--text-main);" id="sp-length-val">${genOptions.length}</span>
           </div>
           <input type="range" id="sp-slider-len" min="8" max="64" value="${genOptions.length}" style="width:100%; accent-color:var(--text-main); cursor:pointer;" />
         </div>
 
         <div class="sp-toggle-row">
-          <span class="sp-toggle-label">Прописные буквы (A-Z)</span>
+          <span class="sp-toggle-label">${t('generator.uppercase')}</span>
           <label class="sp-liquid-switch">
             <input type="checkbox" id="sp-chk-upper" ${genOptions.useUpper ? 'checked' : ''} />
             <span class="sp-liquid-slider"></span>
           </label>
         </div>
         <div class="sp-toggle-row">
-          <span class="sp-toggle-label">Строчные буквы (a-z)</span>
+          <span class="sp-toggle-label">${t('generator.lowercase')}</span>
           <label class="sp-liquid-switch">
             <input type="checkbox" id="sp-chk-lower" ${genOptions.useLower ? 'checked' : ''} />
             <span class="sp-liquid-slider"></span>
           </label>
         </div>
         <div class="sp-toggle-row">
-          <span class="sp-toggle-label">Цифры (0-9)</span>
+          <span class="sp-toggle-label">${t('generator.numbers')}</span>
           <label class="sp-liquid-switch">
             <input type="checkbox" id="sp-chk-digits" ${genOptions.useDigits ? 'checked' : ''} />
             <span class="sp-liquid-slider"></span>
           </label>
         </div>
         <div class="sp-toggle-row">
-          <span class="sp-toggle-label">Спецсимволы (!@#$%^&*)</span>
+          <span class="sp-toggle-label">${t('generator.symbols')}</span>
           <label class="sp-liquid-switch">
             <input type="checkbox" id="sp-chk-symbols" ${genOptions.useSymbols ? 'checked' : ''} />
             <span class="sp-liquid-slider"></span>
           </label>
         </div>
         <div class="sp-toggle-row">
-          <span class="sp-toggle-label">Исключить неоднозначные (0, O, 1, l)</span>
+          <span class="sp-toggle-label">${t('generator.avoid_ambiguous')}</span>
           <label class="sp-liquid-switch">
             <input type="checkbox" id="sp-chk-ambig" ${genOptions.avoidAmbiguous ? 'checked' : ''} />
             <span class="sp-liquid-slider"></span>
@@ -1695,58 +1706,72 @@ function renderSettingsView() {
   const query = settingsSearchQuery.toLowerCase().trim();
 
   // Calculate session status text
-  let sessionStatusText = 'Активна';
+  let sessionStatusText = t('settings.session_active');
   if (state.lockInterval === 'session') {
-    sessionStatusText = 'Активна (до закрытия браузера)';
+    sessionStatusText = t('settings.session_active_browser');
   } else if (state.sessionExpiresAt) {
     const diffMs = state.sessionExpiresAt - Date.now();
     if (diffMs > 0) {
       const hours = Math.round(diffMs / (3600 * 1000));
       if (hours >= 24) {
         const days = Math.round(hours / 24);
-        sessionStatusText = `Активна (~${days} дн.)`;
+        sessionStatusText = t('settings.session_active_days', { days });
       } else {
-        sessionStatusText = `Активна (~${hours} ч.)`;
+        sessionStatusText = t('settings.session_active_hours', { hours });
       }
     } else {
-      sessionStatusText = 'Истекла';
+      sessionStatusText = t('settings.session_expired');
     }
   }
 
   const intervalLabels = {
-    session: 'Каждый раз при новой сессии браузера',
-    '1day': 'Раз в день (24 часа)',
-    '3days': 'Раз в три дня (по умолчанию, 72 часа)',
-    '1week': 'Раз в неделю (7 дней)',
-    '1month': 'Раз в месяц (30 дней)'
+    session: t('settings.interval_session'),
+    '1day': t('settings.interval_1day'),
+    '3days': t('settings.interval_3days'),
+    '1week': t('settings.interval_1week'),
+    '1month': t('settings.interval_1month')
   };
   const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['3days'];
 
   // 0. Accordion: Appearance & Theme
   const isDark = state.theme === 'dark';
   const appearanceHtml = `
-    <div class="sp-setting-row" data-search="тема оформления темная светлая cloud dancer darkest hour вид интерфейс переключатель">
+    <div class="sp-setting-row" data-search="language язык мова en ru ua switch интерфейс">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iMoon} Тёмная тема</span>
+        <span class="sp-setting-label">${icons.iGlobe} ${t('settings.language_label')}</span>
+        <div class="sp-lang-selector">
+          <button type="button" class="sp-lang-btn ${getLanguage() === 'en' ? 'active' : ''}" data-lang="en">EN</button>
+          <button type="button" class="sp-lang-btn ${getLanguage() === 'ru' ? 'active' : ''}" data-lang="ru">RU</button>
+          <button type="button" class="sp-lang-btn ${getLanguage() === 'ua' ? 'active' : ''}" data-lang="ua">UA</button>
+        </div>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.language_desc')}
+      </p>
+    </div>
+
+    <div class="sp-setting-row" data-search="тема оформления темная светлая cloud dancer darkest hour вид интерфейс переключатель theme dark light">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iMoon} ${t('settings.theme_label')}</span>
         <label class="sp-liquid-switch">
           <input type="checkbox" id="sp-theme-toggle" ${isDark ? 'checked' : ''} />
           <span class="sp-liquid-slider"></span>
         </label>
       </div>
       <p class="sp-setting-desc">
-        ${isDark ? 'Активна тема: Darkest Hour (#1F1F21)' : 'Активна тема: Cloud Dancer (#F1F0EC)'}
+        ${isDark ? t('settings.theme_dark_desc') : t('settings.theme_light_desc')}
       </p>
     </div>
   `;
 
   // 1. Accordion: Security & Session
   const secHtml = `
-    <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность">
+    <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность security session">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iKey} Проверка мастер-пароля</span>
-        <span class="sp-badge-info">${LOCK_INTERVALS[state.lockInterval]?.id === '3days' ? 'Раз в 3 дня' : (state.lockInterval || '3days')}</span>
+        <span class="sp-setting-label">${icons.iKey} ${t('settings.master_pwd_check')}</span>
+        <span class="sp-badge-info">${LOCK_INTERVALS[state.lockInterval]?.id === '3days' ? '3d' : (state.lockInterval || '3days')}</span>
       </div>
-      <p class="sp-setting-desc">Периодичность, с которой расширение запрашивает мастер-пароль.</p>
+      <p class="sp-setting-desc">${t('settings.master_pwd_check_desc')}</p>
       <div class="sp-setting-control">
         <div class="sp-custom-select ${isCustomSelectOpen ? 'open' : ''}" id="sp-setting-lock-interval-dropdown">
           <button type="button" class="sp-custom-select-trigger" id="sp-custom-lock-trigger">
@@ -1755,23 +1780,23 @@ function renderSettingsView() {
           </button>
           <div class="sp-custom-select-dropdown">
             <div class="sp-custom-select-option ${state.lockInterval === 'session' ? 'selected' : ''}" data-val="session">
-              <span>Каждый раз при новой сессии браузера</span>
+              <span>${t('settings.interval_session')}</span>
               ${state.lockInterval === 'session' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1day' ? 'selected' : ''}" data-val="1day">
-              <span>Раз в день (24 часа)</span>
+              <span>${t('settings.interval_1day')}</span>
               ${state.lockInterval === '1day' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '3days' ? 'selected' : ''}" data-val="3days">
-              <span>Раз в три дня (по умолчанию, 72 часа)</span>
+              <span>${t('settings.interval_3days')}</span>
               ${state.lockInterval === '3days' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1week' ? 'selected' : ''}" data-val="1week">
-              <span>Раз в неделю (7 дней)</span>
+              <span>${t('settings.interval_1week')}</span>
               ${state.lockInterval === '1week' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1month' ? 'selected' : ''}" data-val="1month">
-              <span>Раз в месяц (30 дней)</span>
+              <span>${t('settings.interval_1month')}</span>
               ${state.lockInterval === '1month' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
           </div>
@@ -1779,33 +1804,33 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="статус сессия время активности">
+    <div class="sp-setting-row" data-search="статус сессия время активности status session active">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} Статус текущей сессии</span>
+        <span class="sp-setting-label">${icons.iShield} ${t('settings.session_status_label')}</span>
         <span style="font-size:11px; font-weight:600; color:var(--success);">${sessionStatusText}</span>
       </div>
-      <p class="sp-setting-desc">Пока сессия активна, секреты доступны без повторного ввода пароля.</p>
+      <p class="sp-setting-desc">${t('settings.session_status_desc')}</p>
     </div>
 
-    <div class="sp-setting-row" data-search="сменить мастер пароль ключ безопасность">
+    <div class="sp-setting-row" data-search="сменить мастер пароль ключ безопасность change password">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iEdit} Мастер-пароль</span>
+        <span class="sp-setting-label">${icons.iEdit} ${t('settings.master_pwd_label')}</span>
         <button class="sp-btn-secondary" id="sp-btn-toggle-change-pwd" style="padding:4px 8px; font-size:11px;">
-          ${isChangePwdOpen ? 'Отмена' : 'Сменить'}
+          ${isChangePwdOpen ? t('form.cancel_btn') : t('settings.change_pwd_btn')}
         </button>
       </div>
-      <p class="sp-setting-desc">Смена главного пароля с перешифрованием всех баз данных.</p>
+      <p class="sp-setting-desc">${t('settings.master_pwd_desc')}</p>
 
       ${
         isChangePwdOpen
           ? `
         <form id="sp-change-pwd-form" style="display:flex; flex-direction:column; gap:8px; margin-top:8px; padding:10px; background:var(--bg-surface); border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
-          <input type="password" id="sp-pwd-old" class="sp-input" placeholder="Текущий мастер-пароль" required />
-          <input type="password" id="sp-pwd-new" class="sp-input" placeholder="Новый пароль (более 8 симв. + спецсимвол)" required />
-          <input type="password" id="sp-pwd-new2" class="sp-input" placeholder="Повторите новый пароль" required />
+          <input type="password" id="sp-pwd-old" class="sp-input" placeholder="${t('settings.current_pwd_placeholder')}" required />
+          <input type="password" id="sp-pwd-new" class="sp-input" placeholder="${t('settings.new_pwd_placeholder')}" required />
+          <input type="password" id="sp-pwd-new2" class="sp-input" placeholder="${t('settings.repeat_new_pwd_placeholder')}" required />
           <div id="sp-change-pwd-err" style="display:none; font-size:11px; color:var(--danger);"></div>
           <button type="submit" class="sp-btn-primary" style="justify-content:center; padding:6px 12px; margin-top:4px;">
-            Сохранить новый пароль
+            ${t('settings.save_new_pwd_btn')}
           </button>
         </form>
       `
@@ -1813,14 +1838,14 @@ function renderSettingsView() {
       }
     </div>
 
-    <div class="sp-setting-row" data-search="заблокировать блокировка выйти заморозить">
+    <div class="sp-setting-row" data-search="заблокировать блокировка выйти заморозить lock vault">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iLock} Блокировка хранилища</span>
+        <span class="sp-setting-label">${icons.iLock} ${t('settings.lock_vault_label')}</span>
         <button class="sp-btn-danger" id="sp-btn-lock-now" style="padding:4px 10px; font-size:11px;">
-          Заблокировать сейчас
+          ${t('settings.lock_now_btn')}
         </button>
       </div>
-      <p class="sp-setting-desc">Мгновенный сброс активной сессии и возврат к экрану ввода пароля.</p>
+      <p class="sp-setting-desc">${t('settings.lock_vault_desc')}</p>
     </div>
   `;
 
@@ -1831,60 +1856,60 @@ function renderSettingsView() {
   const dbHtml = `
     <div class="sp-setting-row" data-search="база данных проект хранилище active project pass">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iFolder} Текущая база (Проект)</span>
+        <span class="sp-setting-label">${icons.iFolder} ${t('settings.current_db_label')}</span>
         <div style="display:flex; align-items:center; gap:6px;">
           <span class="sp-badge-info">${activeProj ? activeProj.name : '—'}</span>
-          ${activeProj && activeProj.type === 'pass_cli' ? '<span class="sp-badge-pass">PASS CLI</span>' : '<span class="sp-badge-browser">Браузер</span>'}
+          ${activeProj && activeProj.type === 'pass_cli' ? `<span class="sp-badge-pass">${t('settings.badge_pass_cli')}</span>` : `<span class="sp-badge-browser">${t('settings.badge_browser')}</span>`}
         </div>
       </div>
-      <p class="sp-setting-desc">Всего создано баз: ${state.projects.length} шт. Паролей в текущей: ${getActiveProjectItems().length} шт.</p>
+      <p class="sp-setting-desc">${t('settings.db_stats_desc', { projects: state.projects.length, items: getActiveProjectItems().length })}</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-open-switcher" style="width:100%; justify-content:center;">
-          ${icons.iFolder} Управление базами в футере
+          ${icons.iFolder} ${t('settings.manage_dbs_btn')}
         </button>
       </div>
     </div>
 
     <div class="sp-setting-row" data-search="хранилище тип локальное браузер pass cli синхронизация gpg native">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} Интеграция с UNIX PASS CLI</span>
+        <span class="sp-setting-label">${icons.iShield} ${t('settings.pass_cli_label')}</span>
         <span style="font-size:11px; font-weight:600; color:${hostConnected ? 'var(--success)' : '#f59e0b'};">
-          ${hostConnected ? `✓ Подключен (v${state.passHostStatus.version})` : '⚠ Native Host не обнаружен'}
+          ${hostConnected ? t('settings.pass_connected', { version: state.passHostStatus.version }) : t('settings.pass_not_connected')}
         </span>
       </div>
       <p class="sp-setting-desc">
-        Хранение паролей в локальной файловой системе (<code>~/.password-store</code>) с общим доступом из разных браузеров и консоли.
+        ${t('settings.pass_desc')}
       </p>
 
       <div class="sp-host-status-box">
         <div style="display:flex; justify-content:space-between;">
-          <span style="color:var(--text-dim);">Каталог хранилища:</span>
+          <span style="color:var(--text-dim);">${t('settings.store_path_label')}</span>
           <span><code>${state.passHostStatus?.storePath || '~/.password-store'}</code></span>
         </div>
         <div style="display:flex; justify-content:space-between;">
-          <span style="color:var(--text-dim);">Утилита pass:</span>
+          <span style="color:var(--text-dim);">${t('settings.pass_tool_label')}</span>
           <span style="color:${state.passHostStatus?.passInstalled ? 'var(--success)' : 'var(--danger)'};">
-            ${state.passHostStatus?.passInstalled ? '✓ Установлена' : '✗ Не найдена'}
+            ${state.passHostStatus?.passInstalled ? t('settings.tool_installed') : t('settings.tool_not_found')}
           </span>
         </div>
         <div style="display:flex; justify-content:space-between;">
-          <span style="color:var(--text-dim);">Утилита GPG:</span>
+          <span style="color:var(--text-dim);">${t('settings.gpg_tool_label')}</span>
           <span style="color:${state.passHostStatus?.gpgInstalled ? 'var(--success)' : 'var(--danger)'};">
-            ${state.passHostStatus?.gpgInstalled ? '✓ Установлена' : '✗ Не найдена'}
+            ${state.passHostStatus?.gpgInstalled ? t('settings.tool_installed') : t('settings.tool_not_found')}
           </span>
         </div>
         <div style="display:flex; justify-content:space-between;">
-          <span style="color:var(--text-dim);">Записей в PASS:</span>
-          <span style="font-weight:600;">${state.passHostStatus?.entriesCount ?? 0} шт.</span>
+          <span style="color:var(--text-dim);">${t('settings.pass_entries_label')}</span>
+          <span style="font-weight:600;">${state.passHostStatus?.entriesCount ?? 0}</span>
         </div>
       </div>
 
       <div style="display:flex; gap:8px; margin-top:4px;">
         <button class="sp-btn-secondary" id="sp-btn-check-pass-host" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
-          ${icons.iRefresh} Проверить статус
+          ${icons.iRefresh} ${t('settings.check_status_btn')}
         </button>
         <button class="sp-btn-secondary" id="sp-btn-show-pass-instructions" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
-          Инструкция
+          ${t('settings.instructions_btn')}
         </button>
       </div>
 
@@ -1892,7 +1917,7 @@ function renderSettingsView() {
         activeProj && activeProj.type === 'pass_cli'
           ? `
         <button class="sp-btn-primary" id="sp-btn-sync-active-pass" style="width:100%; justify-content:center; font-size:11px; padding:7px 10px; margin-top:4px;">
-          ${icons.iRefresh} Синхронизировать активную базу с ~/.password-store
+          ${icons.iRefresh} ${t('settings.sync_pass_btn')}
         </button>
       `
           : ''
@@ -1904,30 +1929,31 @@ function renderSettingsView() {
   const catItems = state.categories.filter(c => c !== 'All');
   const catListHtml = catItems.map(c => {
     const isDefault = c === 'Work' || c === 'Personal';
+    const label = c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c);
     return `
       <div class="sp-cat-item ${isDefault ? 'default' : ''}">
-        <span>${c} ${isDefault ? '<span style="font-size:10px; color:var(--text-dim);">(базовая)</span>' : ''}</span>
-        ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="Удалить категорию">${icons.iTrash}</button>` : ''}
+        <span>${label} ${isDefault ? `<span style="font-size:10px; color:var(--text-dim);">${t('settings.default_cat_badge')}</span>` : ''}</span>
+        ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : ''}
       </div>
     `;
   }).join('');
 
   const catHtml = `
-    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal">
+    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal categories">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iFolder} Категории записей</span>
-        <span class="sp-badge-info">${catItems.length} шт.</span>
+        <span class="sp-setting-label">${icons.iFolder} ${t('settings.categories_section')}</span>
+        <span class="sp-badge-info">${catItems.length}</span>
       </div>
-      <p class="sp-setting-desc">По умолчанию создаются только «Work» и «Personal». Вы можете добавить любые свои категории.</p>
+      <p class="sp-setting-desc">${t('settings.categories_desc')}</p>
 
       <div class="sp-cat-list">
         ${catListHtml}
       </div>
 
       <div style="display:flex; gap:6px; margin-top:10px;">
-        <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="Название новой категории..." style="flex:1;" />
+        <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" style="flex:1;" />
         <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
-          ${icons.iPlus} Добавить
+          ${icons.iPlus} ${t('settings.add_cat_btn')}
         </button>
       </div>
       <div id="sp-cat-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
@@ -1936,75 +1962,87 @@ function renderSettingsView() {
 
   // 4. Accordion: Backup & Data Transfer
   const backupHtml = `
-    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать">
+    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать backup export">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iDownload} Зашифрованный JSON бэкап</span>
+        <span class="sp-setting-label">${icons.iDownload} ${t('settings.export_json_label')}</span>
       </div>
-      <p class="sp-setting-desc">Полный снимок всех ваших баз и паролей в зашифрованном виде (AES-256-GCM).</p>
+      <p class="sp-setting-desc">${t('settings.export_json_desc')}</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-export-json" style="width:100%; justify-content:center;">
-          ${icons.iDownload} Экспортировать JSON
+          ${icons.iDownload} ${t('settings.export_json_btn')}
         </button>
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="экспорт pass unix password store txt текст">
+    <div class="sp-setting-row" data-search="экспорт pass unix password store txt текст export pass">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iDownload} Экспорт в формат UNIX pass</span>
+        <span class="sp-setting-label">${icons.iDownload} UNIX PASS (.txt)</span>
       </div>
-      <p class="sp-setting-desc">Выгрузка активной базы в стандартный текстовый формат менеджера PASS.</p>
+      <p class="sp-setting-desc">~/.password-store format</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-export-pass" style="width:100%; justify-content:center;">
-          ${icons.iDownload} Экспортировать формат PASS (.txt)
+          ${icons.iDownload} Export PASS (.txt)
         </button>
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="импорт восстановить загрузить файл backup">
+    <div class="sp-setting-row" data-search="импорт восстановить загрузить файл backup import">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iUpload} Импорт данных</span>
+        <span class="sp-setting-label">${icons.iUpload} ${t('settings.import_json_label')}</span>
       </div>
-      <p class="sp-setting-desc">Восстановление из ранее сохраненного зашифрованного файла JSON.</p>
+      <p class="sp-setting-desc">${t('settings.import_json_desc')}</p>
       <div class="sp-setting-control">
         <input type="file" id="sp-import-file-input" style="display:none;" accept=".json,.txt" />
         <button class="sp-btn-secondary" id="sp-btn-trigger-import" style="width:100%; justify-content:center;">
-          ${icons.iUpload} Выбрать файл для импорта
+          ${icons.iUpload} ${t('settings.import_choose_file')}
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="ключ восстановления 12 слов recovery key phrase">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${icons.iKey} ${t('settings.recovery_key_label')}</span>
+      </div>
+      <p class="sp-setting-desc">${t('settings.recovery_key_desc')}</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-secondary" id="sp-btn-show-recovery-key" style="width:100%; justify-content:center;">
+          ${icons.iKey} ${t('settings.show_recovery_btn')}
         </button>
       </div>
     </div>
   `;
 
-  // 4. Accordion: About & Reset
+  // 5. Accordion: About & Reset
   const aboutHtml = `
-    <div class="sp-setting-row" data-search="версия simplepass лицензия open source mit инфо">
+    <div class="sp-setting-row" data-search="версия simplepass лицензия open source mit инфо about">
       <div class="sp-setting-header">
         <span class="sp-setting-label">SimplePass Manager</span>
         <span class="sp-badge-info">v1.0.0</span>
       </div>
       <p class="sp-setting-desc">
-        Открытый менеджер паролей с нулевым разглашением (Zero-Knowledge). Пароли не отправляются на сторонние серверы.
+        ${t('settings.about_desc')}
       </p>
     </div>
 
-    <div class="sp-setting-row" data-search="шифрование криптография алгоритм aes pbkdf2">
+    <div class="sp-setting-row" data-search="шифрование криптография алгоритм aes pbkdf2 cryptography">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} Спецификация шифрования</span>
+        <span class="sp-setting-label">${icons.iShield} ${t('settings.crypto_spec_title')}</span>
       </div>
       <p class="sp-setting-desc" style="font-family:monospace; font-size:10px; line-height:1.5;">
-        Алгоритм: AES-256-GCM (12-byte random IV)<br>
-        Деривация: PBKDF2 (SHA-256, 600 000 раундов)<br>
-        Стандарт: W3C Web Cryptography API
+        Algorithm: AES-256-GCM (12-byte random IV)<br>
+        Derivation: PBKDF2 (SHA-256, 600,000 rounds)<br>
+        Standard: W3C Web Cryptography API
       </p>
     </div>
 
-    <div class="sp-setting-row" data-search="сброс удалить все данные стереть очистить">
+    <div class="sp-setting-row" data-search="сброс удалить все данные стереть очистить wipe danger reset">
       <div class="sp-setting-header">
-        <span class="sp-setting-label" style="color:var(--danger);">${icons.iTrash} Полный сброс хранилища</span>
+        <span class="sp-setting-label" style="color:var(--danger);">${icons.iTrash} ${t('settings.wipe_data_label')}</span>
       </div>
-      <p class="sp-setting-desc">Удалит все созданные базы, настройки и пароли из браузера.</p>
+      <p class="sp-setting-desc">${t('settings.wipe_data_desc')}</p>
       <div class="sp-setting-control">
         <button class="sp-btn-danger" id="sp-btn-reset-all" style="width:100%; justify-content:center;">
-          Удалить все данные
+          ${t('settings.wipe_all_btn')}
         </button>
       </div>
     </div>
@@ -2013,45 +2051,45 @@ function renderSettingsView() {
   const sections = [
     {
       id: 'appearance',
-      title: 'Оформление и тема',
+      title: t('settings.appearance_section'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour'
+      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour language язык мова'
     },
     {
       id: 'security',
-      title: 'Безопасность и Сессия',
+      title: t('settings.security_section'),
       icon: icons.iShield,
       content: secHtml,
       keywords: 'пароль сессия 3 дня тайм-аут блокировка безопасность смена'
     },
     {
       id: 'databases',
-      title: 'Базы данных и Проекты',
+      title: t('settings.db_section'),
       icon: icons.iFolder,
       content: dbHtml,
       keywords: 'база проект хранилище список pass'
     },
     {
       id: 'categories',
-      title: 'Управление категориями',
+      title: t('settings.categories_section'),
       icon: icons.iFolder,
       content: catHtml,
       keywords: 'категории папки work personal создать добавить'
     },
     {
       id: 'backup',
-      title: 'Резервное копирование и Экспорт',
+      title: t('settings.backup_section'),
       icon: icons.iDownload,
       content: backupHtml,
-      keywords: 'бэкап экспорт импорт json pass txt'
+      keywords: 'бэкап экспорт импорт json pass txt recovery key'
     },
     {
       id: 'about',
-      title: 'О программе и Лицензия',
+      title: t('settings.about_section'),
       icon: icons.iGlobe,
       content: aboutHtml,
-      keywords: 'версия лицензия шифрование сброс о программе mit'
+      keywords: 'версия лицензия шифрование сброс о программе mit about'
     }
   ];
 
@@ -2088,8 +2126,8 @@ function renderSettingsView() {
     : `
       <div class="sp-empty-state" style="height: 180px;">
         <div class="sp-empty-icon">${icons.iSearch}</div>
-        <p style="font-size: 13px; font-weight: 600;">Настройки не найдены</p>
-        <p style="font-size: 11px;">По запросу «${settingsSearchQuery}» ничего не найдено</p>
+        <p style="font-size: 13px; font-weight: 600;">${t('settings.settings_not_found')}</p>
+        <p style="font-size: 11px;">${t('settings.no_search_results', { query: settingsSearchQuery })}</p>
       </div>
     `;
 
@@ -2099,7 +2137,7 @@ function renderSettingsView() {
       <div class="sp-search-bar" style="padding: 10px 14px 6px;">
         <div class="sp-search-input-wrap">
           <span class="sp-search-icon">${icons.iSearch}</span>
-          <input type="text" id="sp-settings-search" class="sp-search-input" placeholder="Поиск настроек (безопасность, сессия, экспорт)..." value="${settingsSearchQuery}" />
+          <input type="text" id="sp-settings-search" class="sp-search-input" placeholder="${t('settings.search_placeholder')}" value="${settingsSearchQuery}" />
           ${settingsSearchQuery ? `<button class="sp-search-clear" id="sp-settings-search-clear">${icons.iX}</button>` : ''}
         </div>
       </div>
@@ -2181,7 +2219,7 @@ function attachEventHandlers() {
   if (recoveryCopyBtn && newlyCreatedRecoveryPhrase) {
     recoveryCopyBtn.addEventListener('click', () => {
       copyToClipboard(newlyCreatedRecoveryPhrase);
-      showToast('12 слов скопированы в буфер');
+      showToast(t('toasts.recovery_words_copied'));
     });
   }
 
@@ -2385,13 +2423,13 @@ function attachEventHandlers() {
     card.querySelector('[data-action="copy-user"]')?.addEventListener('click', e => {
       e.stopPropagation();
       copyToClipboard(item.username);
-      showToast('Логин скопирован');
+      showToast(t('toasts.login_copied'));
     });
 
     card.querySelector('[data-action="copy-pwd"]')?.addEventListener('click', e => {
       e.stopPropagation();
       copyToClipboard(item.password);
-      showToast('Пароль скопирован');
+      showToast(t('toasts.password_copied'));
     });
   });
 
@@ -2531,7 +2569,7 @@ function attachEventHandlers() {
   if (btnGenCopy) {
     btnGenCopy.addEventListener('click', () => {
       copyToClipboard(currentGeneratedPassword);
-      showToast('Пароль скопирован в буфер');
+      showToast(t('toasts.password_copied'));
     });
   }
 
@@ -2552,6 +2590,21 @@ function attachEventHandlers() {
     });
   }
 
+  // Language Selector Handler in Settings
+  document.querySelectorAll('.sp-lang-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const lang = btn.dataset.lang;
+      if (lang && SUPPORTED_LANGUAGES.includes(lang)) {
+        setLanguage(lang);
+        updateState({ language: lang });
+        const cfg = await getStoredConfig();
+        await saveStoredConfig({ ...cfg, language: lang });
+        showToast(t('toasts.language_changed'));
+        render();
+      }
+    });
+  });
+
   // Theme Toggle Handler in Settings
   const themeToggle = document.getElementById('sp-theme-toggle');
   if (themeToggle) {
@@ -2562,6 +2615,24 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, theme: newTheme });
       showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
+    });
+  }
+
+  // Show 12-Word Recovery Key in Settings
+  const btnShowRecoveryKey = document.getElementById('sp-btn-show-recovery-key');
+  if (btnShowRecoveryKey) {
+    btnShowRecoveryKey.addEventListener('click', () => {
+      if (newlyCreatedRecoveryPhrase) {
+        render();
+      } else {
+        alert(
+          getLanguage() === 'en'
+            ? 'The 12-word recovery key is generated once when creating a profile or changing master password and is not stored in plaintext (Zero-Knowledge).'
+            : (getLanguage() === 'ua'
+                ? 'Ключ із 12 слів генерується один раз під час створення профілю або зміни майстер-пароля і не зберігається у відкритому вигляді (Zero-Knowledge).'
+                : 'Ключ из 12 слов генерируется один раз при создании профиля или смене мастер-пароля и не хранится в открытом виде (Zero-Knowledge).')
+        );
+      }
     });
   }
 
@@ -2707,7 +2778,7 @@ function attachEventHandlers() {
   if (btnCopyTunnelPacket && sendTunnelModalState.encryptedPacket) {
     btnCopyTunnelPacket.addEventListener('click', () => {
       copyToClipboard(sendTunnelModalState.encryptedPacket);
-      showToast('Зашифрованный пакет скопирован');
+      showToast(t('toasts.tunnel_packet_copied'));
     });
   }
 
@@ -2735,7 +2806,7 @@ function attachEventHandlers() {
   if (btnCopyTunnelToken && receiveTunnelModalState.tunnelToken) {
     btnCopyTunnelToken.addEventListener('click', () => {
       copyToClipboard(receiveTunnelModalState.tunnelToken);
-      showToast('Код туннеля скопирован в буфер');
+      showToast(t('toasts.tunnel_token_copied'));
     });
   }
 
@@ -2766,7 +2837,7 @@ function attachEventHandlers() {
   if (btnCopyTunnelPwd && receiveTunnelModalState.decryptedItem) {
     btnCopyTunnelPwd.addEventListener('click', () => {
       copyToClipboard(receiveTunnelModalState.decryptedItem.password);
-      showToast('Пароль скопирован в буфер');
+      showToast(t('toasts.password_copied'));
     });
   }
 

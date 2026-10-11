@@ -21,6 +21,7 @@ export const state = {
   isEditing: false,
   lockInterval: '3days',
   theme: 'light',
+  language: 'ru',
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,

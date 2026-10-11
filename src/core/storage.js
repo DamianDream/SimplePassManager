@@ -14,6 +14,7 @@ export const DEFAULT_CONFIG = {
   lockInterval: '3days',
   clipboardClearSeconds: 30,
   theme: 'light',
+  language: 'ru',
   defaultCategory: 'Work',
   categories: ['Work', 'Personal']
 };

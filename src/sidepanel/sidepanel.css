@@ -1352,6 +1352,41 @@ button svg,
   font-weight: 500;
 }
 
+/* ─── LANGUAGE SELECTOR (Segmented Pill) ─── */
+.sp-lang-selector {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.sp-lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.sp-lang-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-card-hover);
+}
+
+.sp-lang-btn.active {
+  background: var(--text-main);
+  color: var(--bg-main);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
 .sp-liquid-switch {
   position: relative;
   display: inline-block;

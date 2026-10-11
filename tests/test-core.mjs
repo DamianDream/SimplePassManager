@@ -191,6 +191,32 @@ async function runTests() {
   assert.strictEqual(sortedByDomain[2].title, 'Google Mail', 'Unmatched item must follow');
   console.log('   ✓ Domain Auto-detection & Priority Sorting verified');
 
+  // Test 9: Multilingual Support (EN / RU / UA)
+  console.log('9. Testing Multilingual Translations (EN / RU / UA)...');
+  const { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } = await import('../src/core/i18n.js');
+
+  assert.deepStrictEqual(SUPPORTED_LANGUAGES, ['en', 'ru', 'ua']);
+
+  setLanguage('en');
+  assert.strictEqual(getLanguage(), 'en');
+  assert.strictEqual(t('nav.passwords'), 'Passwords');
+  assert.strictEqual(t('settings.language_label'), 'Interface Language');
+  assert.strictEqual(t('footer.items_count', { count: 10 }), '10 passwords in vault');
+
+  setLanguage('ru');
+  assert.strictEqual(getLanguage(), 'ru');
+  assert.strictEqual(t('nav.passwords'), 'Пароли');
+  assert.strictEqual(t('settings.language_label'), 'Язык интерфейса');
+  assert.strictEqual(t('footer.items_count', { count: 10 }), '10 паролей в базе');
+
+  setLanguage('ua');
+  assert.strictEqual(getLanguage(), 'ua');
+  assert.strictEqual(t('nav.passwords'), 'Паролі');
+  assert.strictEqual(t('settings.language_label'), 'Мова інтерфейсу');
+  assert.strictEqual(t('footer.items_count', { count: 10 }), '10 паролів у базі');
+
+  console.log('   ✓ Multilingual Translations (EN / RU / UA) verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

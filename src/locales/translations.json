@@ -1,0 +1,1005 @@
+{
+  "app": {
+    "name": {
+      "en": "SimplePass Manager",
+      "ru": "SimplePass Manager",
+      "ua": "SimplePass Manager"
+    }
+  },
+  "nav": {
+    "menu": {
+      "en": "Menu",
+      "ru": "Меню",
+      "ua": "Меню"
+    },
+    "close": {
+      "en": "Close",
+      "ru": "Закрыть",
+      "ua": "Закрити"
+    },
+    "passwords": {
+      "en": "Passwords",
+      "ru": "Пароли",
+      "ua": "Паролі"
+    },
+    "generator": {
+      "en": "Password Generator",
+      "ru": "Генератор пароля",
+      "ua": "Генератор паролів"
+    },
+    "settings": {
+      "en": "Settings",
+      "ru": "Настройки",
+      "ua": "Налаштування"
+    },
+    "add_password": {
+      "en": "Add password",
+      "ru": "Добавить пароль",
+      "ua": "Додати пароль"
+    },
+    "lock_vault": {
+      "en": "Lock vault",
+      "ru": "Заблокировать",
+      "ua": "Заблокувати"
+    },
+    "share_tunnel": {
+      "en": "Share password (E2EE tunnel)",
+      "ru": "Поделиться паролем (E2EE туннель)",
+      "ua": "Поділитися паролем (E2EE тунель)"
+    }
+  },
+  "footer": {
+    "items_count": {
+      "en": "{count} passwords in vault",
+      "ru": "{count} паролей в базе",
+      "ua": "{count} паролів у базі"
+    },
+    "db_project": {
+      "en": "Database (Project)",
+      "ru": "База данных (Проект)",
+      "ua": "База даних (Проєкт)"
+    }
+  },
+  "vault": {
+    "search_placeholder": {
+      "en": "Search passwords...",
+      "ru": "Поиск паролей...",
+      "ua": "Пошук паролів..."
+    },
+    "empty_title": {
+      "en": "No passwords in this database",
+      "ru": "Нет паролей в этой базе",
+      "ua": "Немає паролів у цій базі"
+    },
+    "empty_desc": {
+      "en": "Click «+» at the top to add a new entry",
+      "ru": "Нажмите «+» вверху, чтобы добавить запись",
+      "ua": "Натисніть «+» вгорі, щоб додати запис"
+    },
+    "current_site": {
+      "en": "Current site",
+      "ru": "Текущий сайт",
+      "ua": "Поточний сайт"
+    },
+    "filter_domain_title": {
+      "en": "Filter to this site only",
+      "ru": "Оставить только этот сайт",
+      "ua": "Залишити тільки цей сайт"
+    },
+    "site_pill": {
+      "en": "site",
+      "ru": "сайт",
+      "ua": "сайт"
+    },
+    "no_login": {
+      "en": "No username",
+      "ru": "Нет логина",
+      "ua": "Немає логіну"
+    },
+    "share_action": {
+      "en": "Share via E2EE tunnel",
+      "ru": "Поделиться через E2EE туннель",
+      "ua": "Поділитися через E2EE тунель"
+    },
+    "autofill_action": {
+      "en": "Autofill on website",
+      "ru": "Заполнить на сайте",
+      "ua": "Заповнити на сайті"
+    },
+    "copy_user": {
+      "en": "Copy username",
+      "ru": "Копировать логин",
+      "ua": "Копіювати логін"
+    },
+    "copy_pwd": {
+      "en": "Copy password",
+      "ru": "Копировать пароль",
+      "ua": "Копіювати пароль"
+    }
+  },
+  "generator": {
+    "length_label": {
+      "en": "Password length",
+      "ru": "Длина пароля",
+      "ua": "Довжина пароля"
+    },
+    "uppercase": {
+      "en": "Uppercase letters (A-Z)",
+      "ru": "Прописные буквы (A-Z)",
+      "ua": "Великі літери (A-Z)"
+    },
+    "lowercase": {
+      "en": "Lowercase letters (a-z)",
+      "ru": "Строчные буквы (a-z)",
+      "ua": "Малі літери (a-z)"
+    },
+    "numbers": {
+      "en": "Digits (0-9)",
+      "ru": "Цифры (0-9)",
+      "ua": "Цифри (0-9)"
+    },
+    "symbols": {
+      "en": "Special symbols (!@#$%^&*)",
+      "ru": "Спецсимволы (!@#$%^&*)",
+      "ua": "Спецсимволи (!@#$%^&*)"
+    },
+    "refresh_title": {
+      "en": "Generate new",
+      "ru": "Сгенерировать новый",
+      "ua": "Згенерувати новий"
+    },
+    "copy_title": {
+      "en": "Copy",
+      "ru": "Копировать",
+      "ua": "Копіювати"
+    },
+    "avoid_ambiguous": {
+      "en": "Exclude ambiguous (0, O, 1, l)",
+      "ru": "Исключить неоднозначные (0, O, 1, l)",
+      "ua": "Виключити неоднозначні (0, O, 1, l)"
+    }
+  },
+  "form": {
+    "back": {
+      "en": "Back",
+      "ru": "Назад",
+      "ua": "Назад"
+    },
+    "new_title": {
+      "en": "New Entry",
+      "ru": "Новая запись",
+      "ua": "Новий запис"
+    },
+    "edit_title": {
+      "en": "Edit Entry",
+      "ru": "Редактирование",
+      "ua": "Редагування"
+    },
+    "delete_btn": {
+      "en": "Delete",
+      "ru": "Удалить",
+      "ua": "Видалити"
+    },
+    "csv_title": {
+      "en": "Import passwords from CSV",
+      "ru": "Импорт паролей из CSV",
+      "ua": "Імпорт паролів з CSV"
+    },
+    "csv_sub": {
+      "en": "Chrome, Bitwarden, 1Password...",
+      "ru": "Chrome, Bitwarden, 1Password...",
+      "ua": "Chrome, Bitwarden, 1Password..."
+    },
+    "csv_choose_file": {
+      "en": "Choose file",
+      "ru": "Выбрать файл",
+      "ua": "Вибрати файл"
+    },
+    "title_label": {
+      "en": "Title",
+      "ru": "Название",
+      "ua": "Назва"
+    },
+    "title_placeholder": {
+      "en": "e.g. GitHub or Google",
+      "ru": "Напр. GitHub или Google",
+      "ua": "Напр. GitHub або Google"
+    },
+    "login_label": {
+      "en": "Username / Email",
+      "ru": "Логин / Email",
+      "ua": "Логін / Email"
+    },
+    "login_placeholder": {
+      "en": "username@example.com",
+      "ru": "username@example.com",
+      "ua": "username@example.com"
+    },
+    "password_label": {
+      "en": "Password",
+      "ru": "Пароль",
+      "ua": "Пароль"
+    },
+    "password_placeholder": {
+      "en": "Secret password",
+      "ru": "Секретный пароль",
+      "ua": "Секретний пароль"
+    },
+    "generate_btn": {
+      "en": "Generate",
+      "ru": "Сгенерировать",
+      "ua": "Згенерувати"
+    },
+    "url_label": {
+      "en": "Website URL",
+      "ru": "URL сайта",
+      "ua": "URL сайту"
+    },
+    "url_placeholder": {
+      "en": "https://example.com/login",
+      "ru": "https://example.com/login",
+      "ua": "https://example.com/login"
+    },
+    "category_label": {
+      "en": "Category",
+      "ru": "Категория",
+      "ua": "Категорія"
+    },
+    "notes_label": {
+      "en": "Notes",
+      "ru": "Заметки",
+      "ua": "Нотатки"
+    },
+    "notes_placeholder": {
+      "en": "Additional info (PIN, backup codes...)",
+      "ru": "Дополнительная информация (PIN, резервные коды...)",
+      "ua": "Додаткова інформація (PIN, резервні коди...)"
+    },
+    "save_btn": {
+      "en": "Save",
+      "ru": "Сохранить",
+      "ua": "Зберегти"
+    },
+    "cancel_btn": {
+      "en": "Cancel",
+      "ru": "Отмена",
+      "ua": "Скасувати"
+    },
+    "required_field": {
+      "en": "Required field",
+      "ru": "Обязательное поле",
+      "ua": "Обов'язкове поле"
+    }
+  },
+  "settings": {
+    "title": {
+      "en": "Settings",
+      "ru": "Настройки",
+      "ua": "Налаштування"
+    },
+    "search_placeholder": {
+      "en": "Search settings...",
+      "ru": "Поиск по настройкам...",
+      "ua": "Пошук за налаштуваннями..."
+    },
+    "appearance_section": {
+      "en": "Appearance & Theme",
+      "ru": "Оформление и тема",
+      "ua": "Зовнішній вигляд та тема"
+    },
+    "language_label": {
+      "en": "Interface Language",
+      "ru": "Язык интерфейса",
+      "ua": "Мова інтерфейсу"
+    },
+    "language_desc": {
+      "en": "Select application language (EN / RU / UA).",
+      "ru": "Выберите язык приложения (EN / RU / UA).",
+      "ua": "Оберіть мову додатку (EN / RU / UA)."
+    },
+    "theme_label": {
+      "en": "Dark Theme",
+      "ru": "Тёмная тема",
+      "ua": "Темна тема"
+    },
+    "theme_dark_desc": {
+      "en": "Active theme: Darkest Hour (#1F1F21)",
+      "ru": "Активна тема: Darkest Hour (#1F1F21)",
+      "ua": "Активна тема: Darkest Hour (#1F1F21)"
+    },
+    "theme_light_desc": {
+      "en": "Active theme: Cloud Dancer (#F1F0EC)",
+      "ru": "Активна тема: Cloud Dancer (#F1F0EC)",
+      "ua": "Активна тема: Cloud Dancer (#F1F0EC)"
+    },
+    "security_section": {
+      "en": "Security & Session",
+      "ru": "Безопасность и сессия",
+      "ua": "Безпека та сесія"
+    },
+    "master_pwd_check": {
+      "en": "Master Password Check",
+      "ru": "Проверка мастер-пароля",
+      "ua": "Перевірка майстер-пароля"
+    },
+    "master_pwd_check_desc": {
+      "en": "Frequency of requesting the master password.",
+      "ru": "Периодичность, с которой расширение запрашивает мастер-пароль.",
+      "ua": "Періодичність, з якою розширення запитує майстер-пароль."
+    },
+    "interval_session": {
+      "en": "Every new browser session",
+      "ru": "Каждый раз при новой сессии браузера",
+      "ua": "Щоразу під час нової сесії браузера"
+    },
+    "interval_1day": {
+      "en": "Once a day (24 hours)",
+      "ru": "Раз в день (24 часа)",
+      "ua": "Раз на день (24 години)"
+    },
+    "interval_3days": {
+      "en": "Every three days (default, 72 hours)",
+      "ru": "Раз в три дня (по умолчанию, 72 часа)",
+      "ua": "Раз на три дні (за замовчуванням, 72 години)"
+    },
+    "interval_1week": {
+      "en": "Once a week (7 days)",
+      "ru": "Раз в неделю (7 дней)",
+      "ua": "Раз на тиждень (7 днів)"
+    },
+    "interval_1month": {
+      "en": "Once a month (30 days)",
+      "ru": "Раз в месяц (30 дней)",
+      "ua": "Раз на місяць (30 днів)"
+    },
+    "session_status_label": {
+      "en": "Current Session Status",
+      "ru": "Статус текущей сессии",
+      "ua": "Статус поточної сесії"
+    },
+    "session_status_desc": {
+      "en": "While session is active, secrets are accessible without re-entering password.",
+      "ru": "Пока сессия активна, секреты доступны без повторного ввода пароля.",
+      "ua": "Поки сесія активна, секрети доступні без повторного введення пароля."
+    },
+    "session_active": {
+      "en": "Active",
+      "ru": "Активна",
+      "ua": "Активна"
+    },
+    "session_active_browser": {
+      "en": "Active (until browser closes)",
+      "ru": "Активна (до закрытия браузера)",
+      "ua": "Активна (до закриття браузера)"
+    },
+    "session_active_days": {
+      "en": "Active (~{days} d.)",
+      "ru": "Активна (~{days} дн.)",
+      "ua": "Активна (~{days} дн.)"
+    },
+    "session_active_hours": {
+      "en": "Active (~{hours} h.)",
+      "ru": "Активна (~{hours} ч.)",
+      "ua": "Активна (~{hours} год.)"
+    },
+    "session_expired": {
+      "en": "Expired",
+      "ru": "Истекла",
+      "ua": "Закінчилася"
+    },
+    "master_pwd_label": {
+      "en": "Master Password",
+      "ru": "Мастер-пароль",
+      "ua": "Майстер-пароль"
+    },
+    "master_pwd_desc": {
+      "en": "Change master password and re-encrypt all databases.",
+      "ru": "Смена главного пароля с перешифрованием всех баз данных.",
+      "ua": "Зміна головного пароля з перешифруванням усіх баз даних."
+    },
+    "change_pwd_btn": {
+      "en": "Change",
+      "ru": "Сменить",
+      "ua": "Змінити"
+    },
+    "current_pwd_placeholder": {
+      "en": "Current master password",
+      "ru": "Текущий мастер-пароль",
+      "ua": "Поточний майстер-пароль"
+    },
+    "new_pwd_placeholder": {
+      "en": "New password (>8 chars + special char)",
+      "ru": "Новый пароль (более 8 симв. + спецсимвол)",
+      "ua": "Новий пароль (>8 симв. + спецсимвол)"
+    },
+    "repeat_new_pwd_placeholder": {
+      "en": "Repeat new password",
+      "ru": "Повторите новый пароль",
+      "ua": "Повторіть новий пароль"
+    },
+    "save_new_pwd_btn": {
+      "en": "Save new password",
+      "ru": "Сохранить новый пароль",
+      "ua": "Зберегти новий пароль"
+    },
+    "lock_vault_label": {
+      "en": "Vault Lock",
+      "ru": "Блокировка хранилища",
+      "ua": "Блокування сховища"
+    },
+    "lock_now_btn": {
+      "en": "Lock now",
+      "ru": "Заблокировать сейчас",
+      "ua": "Заблокувати зараз"
+    },
+    "lock_vault_desc": {
+      "en": "Instantly clear active session and return to lock screen.",
+      "ru": "Мгновенный сброс активной сессии и возврат к экрану ввода пароля.",
+      "ua": "Миттєве скидання активної сесії та повернення до екрану входу."
+    },
+    "db_section": {
+      "en": "Databases & Storage",
+      "ru": "Базы данных и хранилище",
+      "ua": "Бази даних та сховище"
+    },
+    "current_db_label": {
+      "en": "Current Database (Project)",
+      "ru": "Текущая база (Проект)",
+      "ua": "Поточна база (Проєкт)"
+    },
+    "badge_pass_cli": {
+      "en": "PASS CLI",
+      "ru": "PASS CLI",
+      "ua": "PASS CLI"
+    },
+    "badge_browser": {
+      "en": "Browser",
+      "ru": "Браузер",
+      "ua": "Браузер"
+    },
+    "db_stats_desc": {
+      "en": "Total databases: {projects}. Passwords in current: {items}.",
+      "ru": "Всего создано баз: {projects} шт. Паролей в текущей: {items} шт.",
+      "ua": "Всього створено баз: {projects} шт. Паролів у поточній: {items} шт."
+    },
+    "manage_dbs_btn": {
+      "en": "Manage databases in footer",
+      "ru": "Управление базами в футере",
+      "ua": "Керування базами у футері"
+    },
+    "pass_cli_label": {
+      "en": "UNIX PASS CLI Integration",
+      "ru": "Интеграция с UNIX PASS CLI",
+      "ua": "Інтеграція з UNIX PASS CLI"
+    },
+    "pass_connected": {
+      "en": "✓ Connected (v{version})",
+      "ru": "✓ Подключен (v{version})",
+      "ua": "✓ Підключено (v{version})"
+    },
+    "pass_not_connected": {
+      "en": "⚠ Native Host not detected",
+      "ru": "⚠ Native Host не обнаружен",
+      "ua": "⚠ Native Host не знайдено"
+    },
+    "pass_desc": {
+      "en": "Password storage in local filesystem (~/.password-store) shared across browsers and CLI.",
+      "ru": "Хранение паролей в локальной файловой системе (~/.password-store) с общим доступом из разных браузеров и консоли.",
+      "ua": "Зберігання паролів у локальній файловій системі (~/.password-store) зі спільним доступом з різних браузерів і консолі."
+    },
+    "store_path_label": {
+      "en": "Storage directory:",
+      "ru": "Каталог хранилища:",
+      "ua": "Каталог сховища:"
+    },
+    "pass_tool_label": {
+      "en": "pass utility:",
+      "ru": "Утилита pass:",
+      "ua": "Утиліта pass:"
+    },
+    "gpg_tool_label": {
+      "en": "GPG utility:",
+      "ru": "Утилита GPG:",
+      "ua": "Утиліта GPG:"
+    },
+    "tool_installed": {
+      "en": "✓ Installed",
+      "ru": "✓ Установлена",
+      "ua": "✓ Встановлена"
+    },
+    "tool_not_found": {
+      "en": "✗ Not found",
+      "ru": "✗ Не найдена",
+      "ua": "✗ Не знайдена"
+    },
+    "pass_entries_label": {
+      "en": "PASS entries:",
+      "ru": "Записей в PASS:",
+      "ua": "Записів у PASS:"
+    },
+    "check_status_btn": {
+      "en": "Check status",
+      "ru": "Проверить статус",
+      "ua": "Перевірити статус"
+    },
+    "instructions_btn": {
+      "en": "Instructions",
+      "ru": "Инструкция",
+      "ua": "Інструкція"
+    },
+    "sync_pass_btn": {
+      "en": "Sync active database with ~/.password-store",
+      "ru": "Синхронизировать активную базу с ~/.password-store",
+      "ua": "Синхронізувати активну базу з ~/.password-store"
+    },
+    "categories_section": {
+      "en": "Entry Categories",
+      "ru": "Категории записей",
+      "ua": "Категорії записів"
+    },
+    "categories_desc": {
+      "en": "Default categories are «Work» and «Personal». You can add custom categories.",
+      "ru": "По умолчанию создаются только «Work» и «Personal». Вы можете добавить любые свои категории.",
+      "ua": "За замовчуванням створюються тільки «Work» та «Personal». Ви можете додати будь-які свої категорії."
+    },
+    "default_cat_badge": {
+      "en": "(default)",
+      "ru": "(базовая)",
+      "ua": "(базова)"
+    },
+    "new_cat_placeholder": {
+      "en": "New category name...",
+      "ru": "Название новой категории...",
+      "ua": "Назва нової категорії..."
+    },
+    "add_cat_btn": {
+      "en": "Add",
+      "ru": "Добавить",
+      "ua": "Додати"
+    },
+    "backup_section": {
+      "en": "Backup & Data Transfer",
+      "ru": "Резервное копирование и экспорт",
+      "ua": "Резервне копіювання та експорт"
+    },
+    "export_json_label": {
+      "en": "Encrypted JSON Backup",
+      "ru": "Зашифрованный JSON бэкап",
+      "ua": "Зашифрований JSON бекап"
+    },
+    "export_json_desc": {
+      "en": "Complete snapshot of all databases and passwords encrypted (AES-256-GCM).",
+      "ru": "Полный снимок всех ваших баз и паролей в зашифрованном виде (AES-256-GCM).",
+      "ua": "Повний знімок усіх ваших баз і паролів у зашифрованому вигляді (AES-256-GCM)."
+    },
+    "export_json_btn": {
+      "en": "Export JSON",
+      "ru": "Экспортировать JSON",
+      "ua": "Експортувати JSON"
+    },
+    "import_json_label": {
+      "en": "Import Vault from JSON",
+      "ru": "Импорт хранилища из JSON",
+      "ua": "Імпорт сховища з JSON"
+    },
+    "import_json_desc": {
+      "en": "Restore or merge passwords from an exported encrypted file.",
+      "ru": "Восстановление или объединение паролей из ранее экспортированного зашифрованного файла.",
+      "ua": "Відновлення або об'єднання паролів з раніше експортованого зашифрованого файлу."
+    },
+    "import_choose_file": {
+      "en": "Choose file to import",
+      "ru": "Выбрать файл для импорта",
+      "ua": "Вибрати файл для імпорту"
+    },
+    "recovery_key_label": {
+      "en": "Recovery Key (12 Words)",
+      "ru": "Ключ восстановления (12 слов)",
+      "ua": "Ключ відновлення (12 слів)"
+    },
+    "recovery_key_desc": {
+      "en": "Secret mnemonic phrase to recover master password if lost.",
+      "ru": "Секретная мнемоническая фраза для сброса мастер-пароля в случае его утери.",
+      "ua": "Секретна мнемонічна фраза для скидання майстер-пароля у разі його втрати."
+    },
+    "show_recovery_btn": {
+      "en": "Show 12 words",
+      "ru": "Показать 12 слов",
+      "ua": "Показати 12 слів"
+    },
+    "wipe_data_label": {
+      "en": "Danger Zone: Reset All Data",
+      "ru": "Опасная зона: Сброс всех данных",
+      "ua": "Небезпечна зона: Скидання всіх даних"
+    },
+    "wipe_data_desc": {
+      "en": "Permanently erase all databases, passwords, and settings from this browser.",
+      "ru": "Полное безвозвратное удаление всех баз, паролей и настроек из этого браузера.",
+      "ua": "Повне безповоротне видалення усіх баз, паролів та налаштувань з цього браузера."
+    },
+    "wipe_all_btn": {
+      "en": "Wipe all and reset",
+      "ru": "Стереть всё и сбросить",
+      "ua": "Стерти все та скинути"
+    },
+    "about_section": {
+      "en": "About & License",
+      "ru": "О программе и Лицензия",
+      "ua": "Про програму та Ліцензія"
+    },
+    "about_desc": {
+      "en": "Open-source zero-knowledge password manager. Passwords are never sent to third-party servers.",
+      "ru": "Открытый менеджер паролей с нулевым разглашением (Zero-Knowledge). Пароли не отправляются на сторонние серверы.",
+      "ua": "Відкритий менеджер паролів з нульовим розголошенням (Zero-Knowledge). Паролі не надсилаються на сторонні сервери."
+    },
+    "crypto_spec_title": {
+      "en": "Encryption Specification",
+      "ru": "Спецификация шифрования",
+      "ua": "Специфікація шифрування"
+    },
+    "settings_not_found": {
+      "en": "Settings not found",
+      "ru": "Настройки не найдены",
+      "ua": "Налаштування не знайдено"
+    },
+    "no_search_results": {
+      "en": "No settings found for «{query}»",
+      "ru": "По запросу «{query}» ничего не найдено",
+      "ua": "За запитом «{query}» нічого не знайдено"
+    }
+  },
+  "auth": {
+    "create_profile_title": {
+      "en": "Create Profile",
+      "ru": "Создание профиля",
+      "ua": "Створення профілю"
+    },
+    "create_profile_desc": {
+      "en": "Set profile name and master password for AES-256-GCM encryption.",
+      "ru": "Задайте имя первого профиля и мастер-пароль для шифрования AES-256-GCM.",
+      "ua": "Вкажіть назву першого профілю та майстер-пароль для шифрування AES-256-GCM."
+    },
+    "profile_name_placeholder": {
+      "en": "Profile name",
+      "ru": "Название профиля",
+      "ua": "Назва профілю"
+    },
+    "master_pwd_placeholder": {
+      "en": "Master password (>8 chars + special char)",
+      "ru": "Мастер-пароль (более 8 симв. + спецсимвол)",
+      "ua": "Майстер-пароль (>8 симв. + спецсимвол)"
+    },
+    "repeat_pwd_placeholder": {
+      "en": "Repeat master password",
+      "ru": "Повторите мастер-пароль",
+      "ua": "Повторіть майстер-пароль"
+    },
+    "create_profile_btn": {
+      "en": "Create Profile",
+      "ru": "Создать профиль",
+      "ua": "Створити профіль"
+    },
+    "locked_title": {
+      "en": "SimplePass Locked",
+      "ru": "SimplePass заблокирован",
+      "ua": "SimplePass заблоковано"
+    },
+    "locked_desc": {
+      "en": "Enter master password to unlock passwords",
+      "ru": "Введите мастер-пароль для разблокировки записей",
+      "ua": "Введіть майстер-пароль для розблокування записів"
+    },
+    "lockout_warning": {
+      "en": "🔒 Password entry locked! Exceeded limit of 3 failed attempts. Access is only possible via 12-word recovery key.",
+      "ru": "🔒 Ввод пароля заблокирован! Превышен лимит 3 неудачных попыток ввода. Доступ к хранилищу возможен только по секретному ключу восстановления (12 слов).",
+      "ua": "🔒 Введення пароля заблоковано! Перевищено ліміт 3 невдалих спроб. Доступ до сховища можливий лише за секретним ключем відновлення (12 слів)."
+    },
+    "unlock_btn": {
+      "en": "Unlock",
+      "ru": "Разблокировать",
+      "ua": "Розблокувати"
+    },
+    "forgot_pwd_btn": {
+      "en": "Forgot master password? Restore access",
+      "ru": "Забыли мастер-пароль? Восстановить доступ",
+      "ua": "Забули майстер-пароль? Відновити доступ"
+    },
+    "lockout_attempt_error": {
+      "en": "Incorrect master password. Attempt {current} of 3.",
+      "ru": "Неверный мастер-пароль. Попытка {current} из 3.",
+      "ua": "Невірний майстер-пароль. Спроба {current} з 3."
+    },
+    "restore_by_key_btn": {
+      "en": "Restore with 12-word key",
+      "ru": "Восстановить по ключу (12 слов)",
+      "ua": "Відновити за ключем (12 слів)"
+    },
+    "recovery_title": {
+      "en": "Access Recovery",
+      "ru": "Восстановление доступа",
+      "ua": "Відновлення доступу"
+    },
+    "recovery_desc": {
+      "en": "Enter your 12-word secret key and set a new master password.",
+      "ru": "Введите ваш секретный ключ из 12 слов и задайте новый мастер-пароль.",
+      "ua": "Введіть ваш секретний ключ з 12 слів та задайте новий майстер-пароль."
+    },
+    "recovery_phrase_placeholder": {
+      "en": "12 words separated by spaces (e.g. abandon ability able ...)",
+      "ru": "12 слов через пробел (например: abandon ability able ...)",
+      "ua": "12 слів через пробіл (наприклад: abandon ability able ...)"
+    },
+    "restore_access_btn": {
+      "en": "Restore Access",
+      "ru": "Восстановить доступ",
+      "ua": "Відновити доступ"
+    },
+    "return_to_login_btn": {
+      "en": "Back to login",
+      "ru": "Вернуться ко входу",
+      "ua": "Повернутися до входу"
+    }
+  },
+  "tunnel": {
+    "send_title": {
+      "en": "Transfer via E2EE Tunnel",
+      "ru": "Передача через E2EE туннель",
+      "ua": "Передача через E2EE тунель"
+    },
+    "send_desc": {
+      "en": "Transfer of password «{title}» is protected with end-to-end encryption (ECDH + AES-256-GCM).",
+      "ru": "Передача пароля «{title}» защищена сквозным шифрованием (ECDH + AES-256-GCM).",
+      "ua": "Передача пароля «{title}» захищена наскрізним шифруванням (ECDH + AES-256-GCM)."
+    },
+    "step1_title": {
+      "en": "Step 1: Connect to Party B's Tunnel",
+      "ru": "Шаг 1: Подключение к туннелю Стороны Б",
+      "ua": "Крок 1: Підключення до тунелю Сторони Б"
+    },
+    "step1_sub": {
+      "en": "Ask receiver for open tunnel code/link and paste below:",
+      "ru": "Запросите у принимающей стороны код/ссылку открытого туннеля и вставьте её ниже:",
+      "ua": "Запитайте у приймаючої сторони код/посилання відкритого тунелю та вставте його нижче:"
+    },
+    "tunnel_code_placeholder": {
+      "en": "Paste tunnel code (SPTUN_KEY:...)",
+      "ru": "Вставьте код туннеля (SPTUN_KEY:...)",
+      "ua": "Вставте код тунелю (SPTUN_KEY:...)"
+    },
+    "connect_encrypt_btn": {
+      "en": "Establish secure connection & encrypt",
+      "ru": "Установить защищенное соединение и зашифровать",
+      "ua": "Встановити захищене з'єднання та зашифрувати"
+    },
+    "tunnel_ready": {
+      "en": "Tunnel secured • Password ready to transfer",
+      "ru": "Туннель защищен • Пароль готов к передаче",
+      "ua": "Тунель захищений • Пароль готовий до передачі"
+    },
+    "payload_ready_desc": {
+      "en": "Data encrypted with receiver's browser key. Send the encrypted payload into tunnel:",
+      "ru": "Данные зашифрованы ключом принимающего браузера. Передайте зашифрованный пакет в туннель:",
+      "ua": "Дані зашифровані ключем приймаючого браузера. Передайте зашифрований пакет у тунель:"
+    },
+    "copy_payload_btn": {
+      "en": "Copy encrypted payload to tunnel",
+      "ru": "Скопировать зашифрованный пакет в туннель",
+      "ua": "Скопіювати зашифрований пакет у тунель"
+    },
+    "close_tunnel_btn": {
+      "en": "Close tunnel",
+      "ru": "Закрыть туннель",
+      "ua": "Закрити тунель"
+    },
+    "receive_title": {
+      "en": "E2EE Receive Tunnel",
+      "ru": "E2EE туннель приема",
+      "ua": "E2EE тунель прийому"
+    },
+    "receive_desc": {
+      "en": "Secure tunnel opened. Copy the tunnel code/link and send it to the sender.",
+      "ru": "Безопасный туннель открыт. Скопируйте ссылку/код туннеля и передайте отправителю.",
+      "ua": "Безпечний тунель відкрито. Скопіюйте посилання/код тунелю та передайте відправнику."
+    },
+    "waiting_status": {
+      "en": "Waiting for transfer in tunnel...",
+      "ru": "Ожидание передачи в туннель...",
+      "ua": "Очікування передачі в тунель..."
+    },
+    "your_key_label": {
+      "en": "Your tunnel key (give to sender):",
+      "ru": "Ваш ключ туннеля (передайте отправителю):",
+      "ua": "Ваш ключ тунелю (передайте відправнику):"
+    },
+    "copy_code_btn": {
+      "en": "Copy tunnel code",
+      "ru": "Скопировать код туннеля",
+      "ua": "Скопіювати код тунелю"
+    },
+    "received_payload_label": {
+      "en": "Received encrypted payload from tunnel:",
+      "ru": "Полученный зашифрованный пакет из туннеля:",
+      "ua": "Отриманий зашифрований пакет з тунелю:"
+    },
+    "received_payload_placeholder": {
+      "en": "Paste received payload (SPTUN1:...)",
+      "ru": "Вставьте полученный пакет (SPTUN1:...)",
+      "ua": "Вставте отриманий пакет (SPTUN1:...)"
+    },
+    "decrypt_btn": {
+      "en": "Receive and decrypt",
+      "ru": "Принять и расшифровать",
+      "ua": "Прийняти та розшифрувати"
+    },
+    "received_success": {
+      "en": "Password successfully received via E2EE tunnel!",
+      "ru": "Пароль успешно получен по E2EE туннелю!",
+      "ua": "Пароль успішно отримано по E2EE тунелю!"
+    },
+    "save_profile_btn": {
+      "en": "Save to profile",
+      "ru": "Сохранить в профиль",
+      "ua": "Зберегти в профіль"
+    },
+    "zero_knowledge_badge": {
+      "en": "🔒 Zero-Knowledge RAM-to-RAM",
+      "ru": "🔒 Zero-Knowledge RAM-to-RAM",
+      "ua": "🔒 Zero-Knowledge RAM-to-RAM"
+    },
+    "closes_notice": {
+      "en": "⚡ Tunnel closes after completion",
+      "ru": "⚡ Туннель закрывается после завершения",
+      "ua": "⚡ Тунель закривається після завершення"
+    }
+  },
+  "recovery_modal": {
+    "title": {
+      "en": "Your Secret Recovery Key",
+      "ru": "Ваш секретный ключ восстановления",
+      "ua": "Ваш секретний ключ відновлення"
+    },
+    "desc": {
+      "en": "Save these 12 words in a safe place! It is the only way to recover access if you lose your master password.",
+      "ru": "Сохраните эти 12 слов в безопасном месте! Это единственный способ восстановить доступ, если вы забудете мастер-пароль.",
+      "ua": "Збережіть ці 12 слів у безпечному місці! Це єдиний спосіб відновити доступ, якщо ви забудете майстер-пароль."
+    },
+    "copy_btn": {
+      "en": "Copy 12 words",
+      "ru": "Скопировать 12 слов",
+      "ua": "Скопіювати 12 слів"
+    },
+    "download_btn": {
+      "en": "Download .txt file",
+      "ru": "Скачать файл .txt",
+      "ua": "Завантажити файл .txt"
+    },
+    "confirm_btn": {
+      "en": "I saved the key, continue",
+      "ru": "Я сохранил ключ, продолжить",
+      "ua": "Я зберіг ключ, продовжити"
+    }
+  },
+  "delete_modal": {
+    "title": {
+      "en": "Delete Database",
+      "ru": "Удаление базы",
+      "ua": "Видалення бази"
+    },
+    "warning_title": {
+      "en": "Warning: Cascade deletion!",
+      "ru": "Внимание: Каскадное удаление!",
+      "ua": "Увага: Каскадне видалення!"
+    },
+    "desc": {
+      "en": "Database «{name}» and all associated passwords ({count} items) will be deleted permanently.",
+      "ru": "База «{name}» и все привязанные к ней пароли ({count} шт.) будут удалены безвозвратно.",
+      "ua": "База «{name}» та всі прив'язані до неї паролі ({count} шт.) будуть видалені назавжди."
+    },
+    "cancel_btn": {
+      "en": "Cancel",
+      "ru": "Отмена",
+      "ua": "Скасувати"
+    },
+    "confirm_btn": {
+      "en": "Delete permanently",
+      "ru": "Удалить навсегда",
+      "ua": "Видалити назавжди"
+    }
+  },
+  "project_switcher": {
+    "title": {
+      "en": "Databases (Projects)",
+      "ru": "Базы данных (Проекты)",
+      "ua": "Бази даних (Проєкти)"
+    },
+    "create_new": {
+      "en": "Create new database",
+      "ru": "Создать новую базу",
+      "ua": "Створити нову базу"
+    },
+    "name_placeholder": {
+      "en": "Database name (e.g. Work)",
+      "ru": "Название базы (напр. Work)",
+      "ua": "Назва бази (напр. Work)"
+    },
+    "create_btn": {
+      "en": "Create",
+      "ru": "Создать",
+      "ua": "Створити"
+    },
+    "browser_type": {
+      "en": "Browser (AES-256)",
+      "ru": "Браузер (AES-256)",
+      "ua": "Браузер (AES-256)"
+    },
+    "pass_type": {
+      "en": "Local PASS CLI",
+      "ru": "Локальный PASS CLI",
+      "ua": "Локальний PASS CLI"
+    },
+    "pass_type_title": {
+      "en": "Sync with local ~/.password-store via Native Messaging",
+      "ru": "Синхронизация с локальным ~/.password-store через Native Messaging",
+      "ua": "Синхронізація з локальним ~/.password-store через Native Messaging"
+    },
+    "rename_prompt": {
+      "en": "New database name:",
+      "ru": "Новое имя базы данных:",
+      "ua": "Нова назва бази даних:"
+    }
+  },
+  "categories": {
+    "All": {
+      "en": "All",
+      "ru": "Все",
+      "ua": "Всі"
+    },
+    "Work": {
+      "en": "Work",
+      "ru": "Work",
+      "ua": "Work"
+    },
+    "Personal": {
+      "en": "Personal",
+      "ru": "Personal",
+      "ua": "Personal"
+    }
+  },
+  "toasts": {
+    "copied": {
+      "en": "Copied to clipboard",
+      "ru": "Скопировано в буфер",
+      "ua": "Скопійовано в буфер"
+    },
+    "password_copied": {
+      "en": "Password copied to clipboard",
+      "ru": "Пароль скопирован в буфер",
+      "ua": "Пароль скопійовано в буфер"
+    },
+    "login_copied": {
+      "en": "Username copied to clipboard",
+      "ru": "Логин скопирован в буфер",
+      "ua": "Логін скопійовано в буфер"
+    },
+    "tunnel_token_copied": {
+      "en": "Tunnel code copied to clipboard",
+      "ru": "Код туннеля скопирован в буфер",
+      "ua": "Код тунелю скопійовано в буфер"
+    },
+    "tunnel_packet_copied": {
+      "en": "Encrypted payload copied",
+      "ru": "Зашифрованный пакет скопирован",
+      "ua": "Зашифрований пакет скопійовано"
+    },
+    "recovery_words_copied": {
+      "en": "12 words copied to clipboard",
+      "ru": "12 слов скопированы в буфер",
+      "ua": "12 слів скопійовано в буфер"
+    },
+    "language_changed": {
+      "en": "Language changed to English",
+      "ru": "Язык переключен на Русский",
+      "ua": "Мову змінено на Українську"
+    }
+  }
+}
