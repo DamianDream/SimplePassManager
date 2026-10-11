@@ -1035,17 +1035,21 @@ button svg,
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 12px 14px 32px 14px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  min-height: 0;
 }
 
 .sp-accordion {
+  flex-shrink: 0;
+  width: 100%;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  overflow: hidden;
   background: var(--bg-card);
   transition: border-color 0.15s ease;
+  overflow: hidden;
 }
 
 .sp-accordion:hover {
@@ -1054,6 +1058,7 @@ button svg,
 
 .sp-accordion.open {
   border-color: var(--border-subtle);
+  overflow: visible;
 }
 
 .sp-accordion-header {
@@ -1068,6 +1073,12 @@ button svg,
   gap: 8px;
   text-align: left;
   user-select: none;
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.sp-accordion:not(.open) .sp-accordion-header {
+  border-radius: var(--radius-md);
 }
 
 .sp-accordion-title-wrap {
@@ -1095,8 +1106,11 @@ button svg,
   padding: 14px;
   background: var(--bg-card);
   border-top: 1px solid var(--border-subtle);
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
   flex-direction: column;
   gap: 14px;
+  flex-shrink: 0;
 }
 
 .sp-accordion.open .sp-accordion-body {
@@ -1109,6 +1123,7 @@ button svg,
   gap: 6px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .sp-setting-row:last-child {

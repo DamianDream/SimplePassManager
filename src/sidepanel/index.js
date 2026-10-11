@@ -2132,7 +2132,7 @@ function renderSettingsView() {
     `;
 
   return `
-    <div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+    <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; flex:1;">
       <!-- Settings Header Search Bar (mySmart Style) -->
       <div class="sp-search-bar" style="padding: 10px 14px 6px;">
         <div class="sp-search-input-wrap">
@@ -2639,12 +2639,19 @@ function attachEventHandlers() {
   document.querySelectorAll('[data-action="toggle-accordion"]').forEach(header => {
     header.addEventListener('click', () => {
       const id = header.dataset.accordionId;
-      if (openAccordions.has(id)) {
-        openAccordions.delete(id);
-      } else {
+      const willOpen = !openAccordions.has(id);
+      if (willOpen) {
         openAccordions.add(id);
+      } else {
+        openAccordions.delete(id);
       }
       render();
+      if (willOpen) {
+        setTimeout(() => {
+          const el = document.querySelector(`[data-accordion-id="${id}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 30);
+      }
     });
   });
 
@@ -2868,6 +2875,12 @@ function attachEventHandlers() {
     btnToggleChangePwd.addEventListener('click', () => {
       isChangePwdOpen = !isChangePwdOpen;
       render();
+      if (isChangePwdOpen) {
+        setTimeout(() => {
+          const form = document.getElementById('sp-change-pwd-form');
+          if (form) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 30);
+      }
     });
   }
 
