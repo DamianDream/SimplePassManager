@@ -90,7 +90,7 @@ let isPasswordVisible = false;
 
 // Settings view state
 let settingsSearchQuery = '';
-let activeSettingsSection = null;
+let openSections = new Set();
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
 let selectedNewCatColor = 'amber';
@@ -2156,83 +2156,52 @@ function renderSettingsView() {
     }
   ];
 
-  let bodyContentHtml = '';
+  const filteredSections = sections.filter(s => {
+    if (!query) return true;
+    return (
+      s.title.toLowerCase().includes(query) ||
+      (s.desc && s.desc.toLowerCase().includes(query)) ||
+      s.keywords.toLowerCase().includes(query) ||
+      s.content.toLowerCase().includes(query)
+    );
+  });
 
-  if (query) {
-    const filteredSections = sections.filter(s => {
-      return (
-        s.title.toLowerCase().includes(query) ||
-        (s.desc && s.desc.toLowerCase().includes(query)) ||
-        s.keywords.toLowerCase().includes(query) ||
-        s.content.toLowerCase().includes(query)
-      );
-    });
-
-    if (filteredSections.length) {
-      bodyContentHtml = `
-        <div class="sp-settings-search-results">
-          ${filteredSections.map(s => `
-            <div class="sp-settings-search-group">
-              <div class="sp-settings-search-group-header">
-                <span class="sp-settings-search-group-icon">${s.icon}</span>
-                <span>${s.title}</span>
-              </div>
-              <div class="sp-settings-sub-body">
-                ${s.content}
-              </div>
+  const listHtml = filteredSections.length
+    ? `
+      <div class="sp-settings-list">
+        ${filteredSections.map(s => {
+          const isOpen = query ? true : openSections.has(s.id);
+          return `
+            <div class="sp-settings-item ${isOpen ? 'open' : ''}" data-section-id="${s.id}">
+              <button type="button" class="sp-settings-item-header" data-action="toggle-section" data-section-id="${s.id}">
+                <div class="sp-settings-item-left">
+                  <span class="sp-settings-item-icon">${s.icon}</span>
+                  <span class="sp-settings-item-title">${s.title}</span>
+                </div>
+                <span class="sp-settings-item-arrow">${icons.iChevronDown}</span>
+              </button>
+              ${isOpen ? `
+                <div class="sp-settings-item-body">
+                  ${s.content}
+                </div>
+              ` : ''}
             </div>
-          `).join('')}
-        </div>
-      `;
-    } else {
-      bodyContentHtml = `
-        <div class="sp-empty-state" style="height: 180px;">
-          <div class="sp-empty-icon">${icons.iSearch}</div>
-          <p style="font-size: 13px; font-weight: 600;">${t('settings.settings_not_found')}</p>
-          <p style="font-size: 11px;">${t('settings.no_search_results', { query: settingsSearchQuery })}</p>
-        </div>
-      `;
-    }
-  } else if (activeSettingsSection) {
-    const activeSec = sections.find(s => s.id === activeSettingsSection) || sections[0];
-    bodyContentHtml = `
-      <div class="sp-settings-subview">
-        <div class="sp-settings-sub-header">
-          <button type="button" class="sp-settings-back-btn" id="sp-settings-back">
-            ${icons.iChevronLeft}
-            <span>${t('settings.back_to_settings') || t('form.back')}</span>
-          </button>
-          <h3 class="sp-settings-sub-title">${activeSec.title}</h3>
-        </div>
-        <div class="sp-settings-sub-body">
-          ${activeSec.content}
-        </div>
+          `;
+        }).join('')}
+      </div>
+    `
+    : `
+      <div class="sp-empty-state" style="height: 180px;">
+        <div class="sp-empty-icon">${icons.iSearch}</div>
+        <p style="font-size: 13px; font-weight: 600;">${t('settings.settings_not_found')}</p>
+        <p style="font-size: 11px;">${t('settings.no_search_results', { query: settingsSearchQuery })}</p>
       </div>
     `;
-  } else {
-    // Clean, flat minimal list of settings sections
-    bodyContentHtml = `
-      <div class="sp-settings-menu-list">
-        ${sections.map(s => `
-          <button type="button" class="sp-settings-menu-item" data-action="open-settings-section" data-section-id="${s.id}">
-            <div class="sp-settings-menu-left">
-              <span class="sp-settings-menu-icon">${s.icon}</span>
-              <div class="sp-settings-menu-text">
-                <span class="sp-settings-menu-title">${s.title}</span>
-                ${s.desc ? `<span class="sp-settings-menu-subtitle">${s.desc}</span>` : ''}
-              </div>
-            </div>
-            <span class="sp-settings-menu-arrow">${icons.iChevronRight}</span>
-          </button>
-        `).join('')}
-      </div>
-    `;
-  }
 
   return `
     <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; flex:1;">
       <!-- Settings Header Search Bar -->
-      <div class="sp-search-bar" style="padding: 10px 14px 6px;">
+      <div class="sp-search-bar" style="padding: 10px 16px 6px;">
         <div class="sp-search-input-wrap">
           <span class="sp-search-icon">${icons.iSearch}</span>
           <input type="text" id="sp-settings-search" class="sp-search-input" placeholder="${t('settings.search_placeholder')}" value="${settingsSearchQuery}" />
@@ -2241,7 +2210,7 @@ function renderSettingsView() {
       </div>
 
       <div class="sp-settings-container">
-        ${bodyContentHtml}
+        ${listHtml}
       </div>
     </div>
   `;
@@ -2298,7 +2267,6 @@ function attachEventHandlers() {
       const targetNav = btn.dataset.nav;
       isDrawerOpen = false;
       if (targetNav === 'settings') {
-        activeSettingsSection = null;
         settingsSearchQuery = '';
       }
       updateState({ activeTab: targetNav, selectedItem: null, isProjectSwitcherOpen: false });
@@ -2724,23 +2692,18 @@ function attachEventHandlers() {
     });
   }
 
-  // Open settings section subview
-  document.querySelectorAll('[data-action="open-settings-section"]').forEach(item => {
-    item.addEventListener('click', () => {
-      const sectionId = item.dataset.sectionId;
-      activeSettingsSection = sectionId;
+  // Settings section toggle handler
+  document.querySelectorAll('[data-action="toggle-section"]').forEach(header => {
+    header.addEventListener('click', () => {
+      const sectionId = header.dataset.sectionId;
+      if (openSections.has(sectionId)) {
+        openSections.delete(sectionId);
+      } else {
+        openSections.add(sectionId);
+      }
       render();
     });
   });
-
-  // Back from settings section subview
-  const btnSettingsBack = document.getElementById('sp-settings-back');
-  if (btnSettingsBack) {
-    btnSettingsBack.addEventListener('click', () => {
-      activeSettingsSection = null;
-      render();
-    });
-  }
 
   // Custom Select Dropdown for Lock Interval
   const customLockSelect = document.getElementById('sp-setting-lock-interval-dropdown');
