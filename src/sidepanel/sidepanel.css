@@ -1301,74 +1301,100 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   font-size: 11px;
 }
 
-/* ─── CUSTOM SELECT DROPDOWN (Pixel-perfect replacement for native select) ─── */
-.sp-custom-select {
+/* ─── UNIFIED CUSTOM DROPDOWN STYLES (Single consistent look for all selects) ─── */
+.sp-custom-select,
+.sp-custom-select-wrap,
+.sp-tag-input-container {
   position: relative;
   width: 100%;
   user-select: none;
 }
 
-.sp-custom-select-trigger {
+.sp-custom-select-trigger,
+.sp-select-trigger {
   width: 100%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
+  padding: 8px 12px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-main);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+  min-height: 38px;
   outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .sp-custom-select-trigger:hover,
-.sp-custom-select.open .sp-custom-select-trigger {
-  border-color: var(--text-dim);
-  background: var(--bg-surface);
+.sp-select-trigger:hover,
+.sp-custom-select-trigger:focus,
+.sp-select-trigger:focus,
+.sp-custom-select.open .sp-custom-select-trigger,
+.sp-custom-select-wrap.open .sp-select-trigger {
+  border-color: var(--border-focus);
 }
 
-.sp-custom-select-value {
+.sp-custom-select-value,
+.sp-select-trigger-text {
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 8px;
+  padding-right: 28px;
+  color: var(--text-main);
+  font-size: 13px;
+  text-align: left;
 }
 
-.sp-custom-select-arrow {
+.sp-custom-select-arrow,
+.sp-custom-select-wrap .sp-input-action-btn,
+.sp-tag-input-container .sp-input-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--text-dim);
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.15s ease;
   flex-shrink: 0;
 }
 
-.sp-custom-select.open .sp-custom-select-arrow {
+.sp-custom-select-trigger:hover .sp-custom-select-arrow,
+.sp-select-trigger:hover .sp-input-action-btn {
+  color: var(--text-main);
+}
+
+.sp-custom-select.open .sp-custom-select-arrow,
+.sp-custom-select-wrap.open .sp-input-action-btn,
+.sp-tag-input-container.open .sp-input-action-btn {
   transform: rotate(180deg);
   color: var(--text-main);
 }
 
-.sp-custom-select-dropdown {
+.sp-custom-select-dropdown,
+.sp-select-dropdown,
+.sp-tags-dropdown {
   display: none;
   position: absolute;
-  top: calc(100% + 5px);
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 120;
   overflow: hidden;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
+  padding: 4px 0;
 }
 
-.sp-custom-select.open .sp-custom-select-dropdown {
+.sp-custom-select.open .sp-custom-select-dropdown,
+.sp-custom-select-wrap.open .sp-select-dropdown {
   display: flex;
   flex-direction: column;
   animation: spSelectPop 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -1385,26 +1411,33 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   }
 }
 
-.sp-custom-select-option {
-  padding: 9px 12px;
+.sp-custom-select-option,
+.sp-select-option,
+.sp-tag-drop-item {
+  padding: 8px 12px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-main);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
   transition: background 0.12s ease, color 0.12s ease;
+  user-select: none;
 }
 
-.sp-custom-select-option:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-main);
-}
-
-.sp-custom-select-option.selected {
+.sp-custom-select-option:hover,
+.sp-select-option:hover,
+.sp-tag-drop-item:hover {
   background: var(--bg-surface);
   color: var(--text-main);
-  font-weight: 700;
+}
+
+.sp-custom-select-option.selected,
+.sp-select-option.selected,
+.sp-tag-drop-item.selected {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-weight: 600;
 }
 
 /* ─── LIQUID / SMOOTH TOGGLE SWITCH (mySmart style) ─── */
@@ -1640,48 +1673,6 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
 
 .sp-tag-remove-btn:hover {
   opacity: 1;
-}
-
-.sp-tag-input-container {
-  position: relative;
-  width: 100%;
-}
-
-.sp-tags-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-  max-height: 160px;
-  overflow-y: auto;
-  z-index: 100;
-  margin-top: 3px;
-  display: flex;
-  flex-direction: column;
-}
-
-.sp-tag-drop-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 10px;
-  font-size: 12px;
-  color: var(--text-main);
-  cursor: pointer;
-  transition: background 0.12s;
-  user-select: none;
-}
-
-.sp-tag-drop-item:hover {
-  background: var(--bg-surface);
-}
-
-.sp-tag-drop-item.selected {
-  font-weight: 600;
 }
 
 .sp-tag-drop-create {

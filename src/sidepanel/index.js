@@ -1588,6 +1588,9 @@ function renderItemFormView() {
       : getItemTags(item);
   }
 
+  const currentProjId = item.projectId || (activeProj ? activeProj.id : (state.projects[0] ? state.projects[0].id : 'proj_default'));
+  const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
+
   return `
     <div class="sp-view-container">
       <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -1623,11 +1626,29 @@ function renderItemFormView() {
 
         <div class="sp-form-group">
           <label class="sp-label">${t('footer.db_project')}</label>
-          <select id="sp-item-project" class="sp-input">
-            ${state.projects
-              .map(p => `<option value="${p.id}" ${p.id === item.projectId ? 'selected' : ''}>${p.name}</option>`)
-              .join('')}
-          </select>
+          <div class="sp-custom-select-wrap" id="sp-project-select-wrap">
+            <input type="hidden" id="sp-item-project" value="${currentProject.id}" />
+            <div class="sp-select-trigger" id="sp-project-select-trigger" tabindex="0" role="combobox" aria-expanded="false">
+              <span class="sp-select-trigger-text" id="sp-project-select-label">${escapeHtml(currentProject.name)}</span>
+              <button type="button" class="sp-input-action-btn" id="sp-project-dropdown-toggle" title="${t('footer.db_project')}" tabindex="-1">
+                ${icons.iChevronDown}
+              </button>
+            </div>
+            <div class="sp-select-dropdown" id="sp-project-dropdown" style="display:none;">
+              ${state.projects.map(p => {
+                const isSelected = p.id === currentProject.id;
+                return `
+                  <div class="sp-select-option ${isSelected ? 'selected' : ''}" data-action="select-form-project" data-project-id="${p.id}" data-project-name="${escapeHtml(p.name)}">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span style="color:var(--text-dim); display:flex; align-items:center;">${p.type === 'pass_cli' ? icons.iTerminal : icons.iFolder}</span>
+                      <span>${escapeHtml(p.name)}</span>
+                    </div>
+                    ${isSelected ? `<span style="color:var(--text-main); font-size:12px; display:flex; align-items:center;">${icons.iCheck}</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
         </div>
 
         <div class="sp-form-group">
@@ -2618,6 +2639,68 @@ function attachEventHandlers() {
     });
   }
 
+  // Project custom dropdown in Item Form
+  const projectSelectWrap = document.getElementById('sp-project-select-wrap');
+  const projectSelectTrigger = document.getElementById('sp-project-select-trigger');
+  const projectDropdown = document.getElementById('sp-project-dropdown');
+  const projectHiddenInput = document.getElementById('sp-item-project');
+  const projectSelectLabel = document.getElementById('sp-project-select-label');
+
+  if (projectSelectWrap && projectSelectTrigger && projectDropdown) {
+    const toggleProjectDropdown = (e) => {
+      e?.stopPropagation();
+      const isOpen = projectDropdown.style.display === 'flex' || projectSelectWrap.classList.contains('open');
+      if (isOpen) {
+        projectDropdown.style.display = 'none';
+        projectSelectWrap.classList.remove('open');
+      } else {
+        projectDropdown.style.display = 'flex';
+        projectSelectWrap.classList.add('open');
+        // close tag dropdown if open
+        const tagDrop = document.getElementById('sp-tags-dropdown');
+        if (tagDrop) {
+          tagDrop.style.display = 'none';
+          document.querySelector('.sp-tag-input-container')?.classList.remove('open');
+        }
+      }
+    };
+
+    projectSelectTrigger.addEventListener('click', toggleProjectDropdown);
+    projectSelectTrigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleProjectDropdown();
+      } else if (e.key === 'Escape') {
+        projectDropdown.style.display = 'none';
+        projectSelectWrap.classList.remove('open');
+      }
+    });
+
+    projectDropdown.querySelectorAll('[data-action="select-form-project"]').forEach(optEl => {
+      optEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pId = optEl.dataset.projectId;
+        const pName = optEl.dataset.projectName;
+        if (projectHiddenInput) projectHiddenInput.value = pId;
+        if (projectSelectLabel) projectSelectLabel.textContent = pName;
+
+        projectDropdown.querySelectorAll('[data-action="select-form-project"]').forEach(el => {
+          const isCurrent = el.dataset.projectId === pId;
+          el.classList.toggle('selected', isCurrent);
+          const hasCheck = el.querySelector('.sp-opt-check');
+          if (isCurrent && !hasCheck) {
+            el.insertAdjacentHTML('beforeend', `<span class="sp-opt-check" style="color:var(--text-main); font-size:12px; display:flex; align-items:center;">${icons.iCheck}</span>`);
+          } else if (!isCurrent && hasCheck) {
+            hasCheck.remove();
+          }
+        });
+
+        projectDropdown.style.display = 'none';
+        projectSelectWrap.classList.remove('open');
+      });
+    });
+  }
+
   // Multi-Tag handlers in Item Form
   document.querySelectorAll('[data-action="remove-form-tag"]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -2675,6 +2758,12 @@ function attachEventHandlers() {
 
     tagDropdown.innerHTML = html;
     tagDropdown.style.display = 'block';
+    const tagWrap = document.querySelector('.sp-tag-input-container');
+    if (tagWrap) tagWrap.classList.add('open');
+    if (projectDropdown) {
+      projectDropdown.style.display = 'none';
+      projectSelectWrap?.classList.remove('open');
+    }
 
     tagDropdown.querySelectorAll('[data-action="select-dropdown-tag"]').forEach(itemEl => {
       itemEl.addEventListener('click', e => {
@@ -2686,6 +2775,7 @@ function attachEventHandlers() {
           formSelectedTags = formSelectedTags.filter(t => t !== selTag);
         }
         tagDropdown.style.display = 'none';
+        tagWrap?.classList.remove('open');
         if (tagInputErr) tagInputErr.style.display = 'none';
         render();
       });
@@ -2719,6 +2809,7 @@ function attachEventHandlers() {
           formSelectedTags.push(newTag);
         }
         tagDropdown.style.display = 'none';
+        tagWrap?.classList.remove('open');
         if (tagInputErr) tagInputErr.style.display = 'none';
         render();
       });
@@ -2748,6 +2839,7 @@ function attachEventHandlers() {
           }
           tagSearchInput.value = '';
           tagDropdown.style.display = 'none';
+          document.querySelector('.sp-tag-input-container')?.classList.remove('open');
           render();
         } else {
           const validRes = validateTagName(val);
@@ -2770,10 +2862,12 @@ function attachEventHandlers() {
           formSelectedTags.push(val);
           tagSearchInput.value = '';
           tagDropdown.style.display = 'none';
+          document.querySelector('.sp-tag-input-container')?.classList.remove('open');
           render();
         }
       } else if (e.key === 'Escape') {
         if (tagDropdown) tagDropdown.style.display = 'none';
+        document.querySelector('.sp-tag-input-container')?.classList.remove('open');
       }
     });
   }
@@ -2781,19 +2875,28 @@ function attachEventHandlers() {
   if (tagDropdownToggle && tagDropdown) {
     tagDropdownToggle.addEventListener('click', e => {
       e.stopPropagation();
+      const tagWrap = document.querySelector('.sp-tag-input-container');
       if (tagDropdown.style.display === 'block') {
         tagDropdown.style.display = 'none';
+        tagWrap?.classList.remove('open');
       } else {
         updateTagDropdown(tagSearchInput ? tagSearchInput.value : '');
       }
     });
   }
 
-  // Close tag dropdown on outside click
+  // Close custom dropdowns on outside click
   document.addEventListener('click', e => {
+    if (projectDropdown && (projectDropdown.style.display === 'flex' || projectSelectWrap?.classList.contains('open'))) {
+      if (!e.target.closest('#sp-project-select-wrap')) {
+        projectDropdown.style.display = 'none';
+        projectSelectWrap?.classList.remove('open');
+      }
+    }
     if (tagDropdown && tagDropdown.style.display === 'block') {
       if (!e.target.closest('.sp-tag-input-container')) {
         tagDropdown.style.display = 'none';
+        document.querySelector('.sp-tag-input-container')?.classList.remove('open');
       }
     }
   });
