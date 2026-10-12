@@ -2067,18 +2067,6 @@ function renderSettingsView() {
         </button>
       </div>
     </div>
-
-    <div class="sp-setting-row" data-search="ключ восстановления 12 слов recovery key phrase">
-      <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iKey} ${t('settings.recovery_key_label')}</span>
-      </div>
-      <p class="sp-setting-desc">${t('settings.recovery_key_desc')}</p>
-      <div class="sp-setting-control">
-        <button class="sp-btn-secondary" id="sp-btn-show-recovery-key" style="width:100%; justify-content:center;">
-          ${icons.iKey} ${t('settings.show_recovery_btn')}
-        </button>
-      </div>
-    </div>
   `;
 
   // 5. Accordion: About & Reset
@@ -2151,7 +2139,7 @@ function renderSettingsView() {
       title: t('settings.backup_section'),
       icon: icons.iDownload,
       content: backupHtml,
-      keywords: 'бэкап экспорт импорт json pass txt recovery key'
+      keywords: 'бэкап экспорт импорт json pass txt export backup'
     },
     {
       id: 'about',
@@ -2688,24 +2676,6 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, theme: newTheme });
       showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
-    });
-  }
-
-  // Show 12-Word Recovery Key in Settings
-  const btnShowRecoveryKey = document.getElementById('sp-btn-show-recovery-key');
-  if (btnShowRecoveryKey) {
-    btnShowRecoveryKey.addEventListener('click', () => {
-      if (newlyCreatedRecoveryPhrase) {
-        render();
-      } else {
-        alert(
-          getLanguage() === 'en'
-            ? 'The 12-word recovery key is generated once when creating a profile or changing master password and is not stored in plaintext (Zero-Knowledge).'
-            : (getLanguage() === 'ua'
-                ? 'Ключ із 12 слів генерується один раз під час створення профілю або зміни майстер-пароля і не зберігається у відкритому вигляді (Zero-Knowledge).'
-                : 'Ключ из 12 слов генерируется один раз при создании профиля или смене мастер-пароля и не хранится в открытом виде (Zero-Knowledge).')
-        );
-      }
     });
   }
 
