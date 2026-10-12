@@ -1585,6 +1585,132 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   background: rgba(239, 68, 68, 0.1);
 }
 
+.sp-cat-edit-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sp-cat-edit-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-card-hover);
+}
+
+/* ─── MULTI-TAGS FORM & DROPDOWN ───────────────── */
+.sp-form-tags-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 26px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.sp-form-tag-pill {
+  padding: 3px 8px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+  border-radius: var(--radius-sm);
+}
+
+.sp-tag-remove-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.sp-tag-remove-btn:hover {
+  opacity: 1;
+}
+
+.sp-tag-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.sp-tags-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-tag-drop-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.12s;
+  user-select: none;
+}
+
+.sp-tag-drop-item:hover {
+  background: var(--bg-surface);
+}
+
+.sp-tag-drop-item.selected {
+  font-weight: 600;
+}
+
+.sp-tag-drop-create {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  border-top: 1px dashed var(--border-subtle);
+  background: var(--bg-surface);
+  transition: background 0.12s;
+  user-select: none;
+}
+
+.sp-tag-drop-create:hover {
+  background: var(--bg-card-hover);
+}
+
+.sp-pill-tag-card {
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 3px;
+  gap: 4px;
+  line-height: 1.3;
+}
+
 .sp-cat-edit-palette {
   display: flex;
   align-items: center;

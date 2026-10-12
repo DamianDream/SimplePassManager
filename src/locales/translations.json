@@ -241,9 +241,24 @@
       "ua": "https://example.com/login"
     },
     "category_label": {
-      "en": "Category",
-      "ru": "Категория",
-      "ua": "Категорія"
+      "en": "Tags",
+      "ru": "Метки",
+      "ua": "Мітки"
+    },
+    "tags_placeholder": {
+      "en": "Search or add tag...",
+      "ru": "Поиск или новая метка...",
+      "ua": "Пошук або нова мітка..."
+    },
+    "tags_create_option": {
+      "en": "+ Create tag «{name}»",
+      "ru": "+ Создать метку «{name}»",
+      "ua": "+ Створити мітку «{name}»"
+    },
+    "tags_no_tags": {
+      "en": "No tags assigned",
+      "ru": "Нет меток",
+      "ua": "Немає міток"
     },
     "notes_label": {
       "en": "Notes",
@@ -553,19 +568,19 @@
       "ua": "Синхронізувати активну базу з ~/.password-store"
     },
     "categories_section": {
-      "en": "Entry Categories",
-      "ru": "Категории записей",
-      "ua": "Категорії записів"
+      "en": "Tags",
+      "ru": "Метки",
+      "ua": "Мітки"
     },
     "categories_desc_short": {
-      "en": "Manage categories and color tones",
-      "ru": "Управление категориями и цветами",
-      "ua": "Керування категоріями та кольорами"
+      "en": "Manage tags and color tones",
+      "ru": "Управление метками и цветами",
+      "ua": "Керування мітками та кольорами"
     },
     "categories_desc": {
-      "en": "Default categories are «Work» and «Personal». You can add custom categories.",
-      "ru": "По умолчанию создаются только «Work» и «Personal». Вы можете добавить любые свои категории.",
-      "ua": "За замовчуванням створюються тільки «Work» та «Personal». Ви можете додати будь-які свої категорії."
+      "en": "Manage saved tags and their color tones. You can rename tags and assign multiple tags to each entry.",
+      "ru": "Управление сохранёнными метками и их цветовыми тонами. Вы можете переименовывать метки и присваивать несколько меток одной записи.",
+      "ua": "Керування збереженими мітками та їх кольоровими тонами. Ви можете перейменовувати мітки та призначати кілька міток одному запису."
     },
     "default_cat_badge": {
       "en": "(default)",
@@ -573,19 +588,24 @@
       "ua": "(базова)"
     },
     "new_cat_placeholder": {
-      "en": "New category name...",
-      "ru": "Название новой категории...",
-      "ua": "Назва нової категорії..."
+      "en": "New tag name (letters & digits only)...",
+      "ru": "Название новой метки (буквы и цифры)...",
+      "ua": "Назва нової мітки (букви та цифри)..."
     },
     "add_cat_btn": {
       "en": "Add",
       "ru": "Добавить",
       "ua": "Додати"
     },
+    "rename_cat_title": {
+      "en": "Rename tag",
+      "ru": "Переименовать метку",
+      "ua": "Перейменувати мітку"
+    },
     "new_cat_color_label": {
-      "en": "Category color tone:",
-      "ru": "Цветовой тон категории:",
-      "ua": "Колірний тон категорії:"
+      "en": "Tag color tone:",
+      "ru": "Цветовой тон метки:",
+      "ua": "Колірний тон мітки:"
     },
     "change_color_title": {
       "en": "Change color tone",
@@ -593,9 +613,14 @@
       "ua": "Змінити колірний тон"
     },
     "cat_color_updated": {
-      "en": "Category color updated",
-      "ru": "Цвет категории обновлен",
-      "ua": "Колір категорії оновлено"
+      "en": "Tag color updated",
+      "ru": "Цвет метки обновлен",
+      "ua": "Колір мітки оновлено"
+    },
+    "cat_renamed": {
+      "en": "Tag renamed",
+      "ru": "Метка переименована",
+      "ua": "Мітку перейменовано"
     },
     "backup_section": {
       "en": "Backup & Data Transfer",

@@ -57,7 +57,9 @@ import {
   CATEGORY_COLORS,
   DEFAULT_CATEGORY_COLORS,
   getCategoryColorDef,
-  getCategoryCssVars
+  getCategoryCssVars,
+  validateTagName,
+  getItemTags
 } from '../core/categories.js';
 
 const rootEl = document.getElementById('sp-app-root');
@@ -95,6 +97,11 @@ let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
 let selectedNewCatColor = 'amber';
 let activeColorPickerCat = null;
+let editingTagId = null;
+
+// Form multi-tags state
+let formSelectedTags = [];
+let currentFormItemId = null;
 
 // ─── THEME MANAGER ──────────────────────────────────────────────────────────
 
@@ -908,12 +915,14 @@ function renderVaultView() {
   const projectItems = getActiveProjectItems();
 
   const filteredItems = projectItems.filter(item => {
-    const matchesCat = cat === 'All' || item.category === cat;
+    const itemTags = getItemTags(item);
+    const matchesCat = cat === 'All' || itemTags.includes(cat) || item.category === cat;
     const matchesQuery =
       !query ||
       item.title.toLowerCase().includes(query) ||
       (item.username && item.username.toLowerCase().includes(query)) ||
-      (item.url && item.url.toLowerCase().includes(query));
+      (item.url && item.url.toLowerCase().includes(query)) ||
+      itemTags.some(t => t.toLowerCase().includes(query));
     return matchesCat && matchesQuery;
   });
 
@@ -966,14 +975,30 @@ function renderVaultView() {
           .map(item => {
             const letter = item.title ? item.title[0] : '?';
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
+            const itemTags = getItemTags(item);
+            const tagsHtml = itemTags
+              .map(tName => {
+                const colorDef = getCategoryColorDef(tName, state.categoryColors);
+                const cssVars = getCategoryCssVars(colorDef);
+                const label = tName === 'Work' ? t('categories.Work') : (tName === 'Personal' ? t('categories.Personal') : tName);
+                return `
+                  <span class="sp-pill sp-pill-tag-card" data-color-pill="true" style="${cssVars}; pointer-events:none;">
+                    <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+                    <span>${escapeHtml(label)}</span>
+                  </span>
+                `;
+              })
+              .join('');
+
             return `
         <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
           <div class="sp-card-left" data-action="view">
             <div class="sp-card-avatar ${isMatched ? 'matched' : ''}">${letter}</div>
             <div class="sp-card-meta">
-              <div style="display:flex; align-items:center; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
                 ${isMatched ? `<span class="sp-matched-pill" title="${t('vault.current_site')}">${icons.iGlobe} ${t('vault.site_pill')}</span>` : ''}
+                ${tagsHtml}
               </div>
               <span class="sp-card-sub">${escapeHtml(item.username || item.url || t('vault.no_login'))}</span>
             </div>
@@ -1555,6 +1580,13 @@ function renderItemFormView() {
   };
 
   const isNew = !item.id;
+  const targetFormId = item.id || '__new__';
+  if (currentFormItemId !== targetFormId) {
+    currentFormItemId = targetFormId;
+    formSelectedTags = isNew
+      ? [state.activeCategory !== 'All' ? state.activeCategory : 'Work']
+      : getItemTags(item);
+  }
 
   return `
     <div class="sp-view-container">
@@ -1630,21 +1662,37 @@ function renderItemFormView() {
 
         <div class="sp-form-group">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <label class="sp-label">${t('form.category_label')}</label>
-            <span id="sp-form-cat-preview" class="sp-pill" data-color-pill="true" style="${getCategoryCssVars(getCategoryColorDef(item.category || 'Work', state.categoryColors))}; padding:2px 7px; font-size:10px; pointer-events:none;">
-              <span class="sp-pill-dot" style="background-color:${getCategoryColorDef(item.category || 'Work', state.categoryColors).color};"></span>
-              <span>${(item.category || 'Work') === 'Work' ? t('categories.Work') : ((item.category || 'Work') === 'Personal' ? t('categories.Personal') : (item.category || 'Work'))}</span>
-            </span>
+            <label class="sp-label" style="margin:0;">${t('form.category_label')}</label>
+            <span style="font-size:11px; color:var(--text-dim);">${formSelectedTags.length} ${t('form.category_label').toLowerCase()}</span>
           </div>
-          <select id="sp-item-category" class="sp-input">
-            ${state.categories
-              .filter(c => c !== 'All')
-              .map(c => {
-                const label = c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c);
-                return `<option value="${c}" ${(item.category === c || (!item.category && c === 'Work')) ? 'selected' : ''}>${label}</option>`;
-              })
-              .join('')}
-          </select>
+
+          <!-- Selected tags badges with remove button -->
+          <div class="sp-form-tags-selected" id="sp-form-tags-selected">
+            ${formSelectedTags.length > 0 ? formSelectedTags.map(tagName => {
+              const colorDef = getCategoryColorDef(tagName, state.categoryColors);
+              const cssVars = getCategoryCssVars(colorDef);
+              const label = tagName === 'Work' ? t('categories.Work') : (tagName === 'Personal' ? t('categories.Personal') : tagName);
+              return `
+                <span class="sp-pill sp-form-tag-pill" data-color-pill="true" style="${cssVars}">
+                  <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+                  <span>${escapeHtml(label)}</span>
+                  <button type="button" class="sp-tag-remove-btn" data-action="remove-form-tag" data-tag="${escapeHtml(tagName)}" title="${t('form.delete_btn')}">×</button>
+                </span>
+              `;
+            }).join('') : `<span style="font-size:11px; color:var(--text-dim);">${t('form.tags_no_tags')}</span>`}
+          </div>
+
+          <!-- Tag search & dropdown -->
+          <div class="sp-tag-input-container" style="margin-top:6px;">
+            <div class="sp-input-with-action">
+              <input type="text" id="sp-tag-search-input" class="sp-input" placeholder="${t('form.tags_placeholder')}" autocomplete="off" maxlength="30" />
+              <button type="button" class="sp-input-action-btn" id="sp-tag-dropdown-toggle" title="${t('form.category_label')}">
+                ${icons.iChevronDown}
+              </button>
+            </div>
+            <div class="sp-tags-dropdown" id="sp-tags-dropdown" style="display:none;"></div>
+          </div>
+          <div id="sp-tag-input-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
         </div>
 
         <div class="sp-form-group">
@@ -1953,7 +2001,7 @@ function renderSettingsView() {
     </div>
   `;
 
-  // 3. Accordion: Categories Management
+  // 3. Section: Tags Management (formerly Categories)
   const catItems = state.categories.filter(c => c !== 'All');
   const catListHtml = catItems.map(c => {
     const isDefault = c === 'Work' || c === 'Personal';
@@ -1961,6 +2009,26 @@ function renderSettingsView() {
     const colorDef = getCategoryColorDef(c, state.categoryColors);
     const cssVars = getCategoryCssVars(colorDef);
     const isPickerOpen = activeColorPickerCat === c;
+    const isEditing = editingTagId === c;
+
+    if (isEditing) {
+      return `
+        <div class="sp-cat-item-wrap">
+          <div class="sp-cat-item">
+            <div style="display:flex; align-items:center; gap:6px; flex:1;">
+              <input type="text" class="sp-input" id="sp-rename-tag-input" value="${escapeHtml(c)}" maxlength="30" style="padding:4px 8px; font-size:12px; height:28px; flex:1;" />
+              <button type="button" class="sp-btn-primary" id="sp-btn-save-tag-rename" data-old-name="${escapeHtml(c)}" style="padding:4px 8px; font-size:11px; height:28px;" title="${t('form.save_btn')}">
+                ${icons.iCheck}
+              </button>
+              <button type="button" class="sp-btn-secondary" id="sp-btn-cancel-tag-rename" style="padding:4px 8px; font-size:11px; height:28px;" title="${t('nav.close')}">
+                ${icons.iX}
+              </button>
+            </div>
+          </div>
+          <div id="sp-rename-tag-err" style="display:none; font-size:11px; color:var(--danger); padding:0 4px; margin-top:2px;"></div>
+        </div>
+      `;
+    }
 
     return `
       <div class="sp-cat-item-wrap">
@@ -1968,13 +2036,14 @@ function renderSettingsView() {
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="sp-pill" data-color-pill="true" style="${cssVars}; pointer-events:none; padding:3px 8px; font-size:11px;">
               <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
-              <span>${label}</span>
+              <span>${escapeHtml(label)}</span>
             </span>
             ${isDefault ? `<span style="font-size:10px; color:var(--text-dim);">${t('settings.default_cat_badge')}</span>` : ''}
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <button type="button" class="sp-cat-color-btn" data-action="toggle-cat-color-picker" data-cat="${c}" style="background-color:${colorDef.color};" title="${t('settings.change_color_title')}"></button>
-            ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : ''}
+          <div style="display:flex; align-items:center; gap:4px;">
+            <button type="button" class="sp-cat-color-btn" data-action="toggle-cat-color-picker" data-cat="${escapeHtml(c)}" style="background-color:${colorDef.color};" title="${t('settings.change_color_title')}"></button>
+            <button type="button" class="sp-cat-edit-btn" data-action="start-tag-rename" data-cat="${escapeHtml(c)}" title="${t('settings.rename_cat_title')}">${icons.iEdit}</button>
+            ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${escapeHtml(c)}" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : ''}
           </div>
         </div>
         ${isPickerOpen ? `
@@ -1982,8 +2051,8 @@ function renderSettingsView() {
             <span style="font-size:11px; color:var(--text-dim); margin-right:4px;">${t('settings.new_cat_color_label')}</span>
             <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
               ${Object.values(CATEGORY_COLORS).map(color => `
-                <button type="button" class="sp-color-swatch-sm ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'amber') ? 'selected' : ''}" data-action="set-cat-color" data-cat="${c}" data-color-id="${color.id}" style="background-color:${color.color};" title="${color.name}">
-                  ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'amber') ? icons.iCheck : ''}
+                <button type="button" class="sp-color-swatch-sm ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'slate') ? 'selected' : ''}" data-action="set-cat-color" data-cat="${escapeHtml(c)}" data-color-id="${color.id}" style="background-color:${color.color};" title="${color.name}">
+                  ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'slate') ? icons.iCheck : ''}
                 </button>
               `).join('')}
             </div>
@@ -1994,9 +2063,9 @@ function renderSettingsView() {
   }).join('');
 
   const catHtml = `
-    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal categories цвет tone">
+    <div class="sp-setting-row" data-search="метки теги tags categories папки work personal создать добавить цвет tone переименовать">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iFolder} ${t('settings.categories_section')}</span>
+        <span class="sp-setting-label">${icons.iTag} ${t('settings.categories_section')}</span>
         <span class="sp-badge-info">${catItems.length}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.categories_desc')}</p>
@@ -2019,7 +2088,7 @@ function renderSettingsView() {
         </div>
 
         <div style="display:flex; gap:6px; margin-top:2px;">
-          <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" style="flex:1;" />
+          <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" maxlength="30" style="flex:1;" />
           <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
             ${icons.iPlus} ${t('settings.add_cat_btn')}
           </button>
@@ -2312,6 +2381,7 @@ function attachEventHandlers() {
   const btnAdd = document.getElementById('sp-btn-add');
   if (btnAdd) {
     btnAdd.addEventListener('click', () => {
+      currentFormItemId = null;
       updateState({ activeTab: 'item-details', selectedItem: null, isProjectSwitcherOpen: false });
     });
   }
@@ -2505,6 +2575,7 @@ function attachEventHandlers() {
   const btnBack = document.getElementById('sp-form-back');
   if (btnBack) {
     btnBack.addEventListener('click', () => {
+      currentFormItemId = null;
       updateState({ activeTab: 'vault', selectedItem: null });
     });
   }
@@ -2519,6 +2590,7 @@ function attachEventHandlers() {
   const btnDelete = document.getElementById('sp-form-delete');
   if (btnDelete && state.selectedItem) {
     btnDelete.addEventListener('click', () => {
+      currentFormItemId = null;
       deleteItem(state.selectedItem.id);
     });
   }
@@ -2546,6 +2618,186 @@ function attachEventHandlers() {
     });
   }
 
+  // Multi-Tag handlers in Item Form
+  document.querySelectorAll('[data-action="remove-form-tag"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const tagToRemove = btn.dataset.tag;
+      formSelectedTags = formSelectedTags.filter(t => t !== tagToRemove);
+      render();
+    });
+  });
+
+  const tagSearchInput = document.getElementById('sp-tag-search-input');
+  const tagDropdownToggle = document.getElementById('sp-tag-dropdown-toggle');
+  const tagDropdown = document.getElementById('sp-tags-dropdown');
+  const tagInputErr = document.getElementById('sp-tag-input-err');
+
+  function updateTagDropdown(filterText = '') {
+    if (!tagDropdown) return;
+    const query = filterText.trim().toLowerCase();
+    const allTags = state.categories.filter(c => c !== 'All');
+    const matchedTags = allTags.filter(t => !query || t.toLowerCase().includes(query));
+
+    let html = '';
+    if (matchedTags.length > 0) {
+      html += matchedTags.map(tName => {
+        const isSelected = formSelectedTags.includes(tName);
+        const colorDef = getCategoryColorDef(tName, state.categoryColors);
+        const cssVars = getCategoryCssVars(colorDef);
+        const label = tName === 'Work' ? t('categories.Work') : (tName === 'Personal' ? t('categories.Personal') : tName);
+        return `
+          <div class="sp-tag-drop-item ${isSelected ? 'selected' : ''}" data-action="select-dropdown-tag" data-tag="${escapeHtml(tName)}">
+            <span class="sp-pill sp-pill-tag-card" data-color-pill="true" style="${cssVars}; pointer-events:none;">
+              <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+              <span>${escapeHtml(label)}</span>
+            </span>
+            ${isSelected ? `<span style="color:var(--text-main); font-size:12px;">${icons.iCheck}</span>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    const trimmed = filterText.trim();
+    const exactExists = allTags.some(t => t.toLowerCase() === trimmed.toLowerCase());
+    if (trimmed && !exactExists) {
+      html += `
+        <div class="sp-tag-drop-create" data-action="create-dropdown-tag" data-tag="${escapeHtml(trimmed)}">
+          <span>${icons.iPlus}</span>
+          <span>${t('form.tags_create_option', { name: escapeHtml(trimmed) })}</span>
+        </div>
+      `;
+    }
+
+    if (!html) {
+      html = `<div style="padding:8px 10px; font-size:11px; color:var(--text-dim);">${t('form.tags_no_tags')}</div>`;
+    }
+
+    tagDropdown.innerHTML = html;
+    tagDropdown.style.display = 'block';
+
+    tagDropdown.querySelectorAll('[data-action="select-dropdown-tag"]').forEach(itemEl => {
+      itemEl.addEventListener('click', e => {
+        e.stopPropagation();
+        const selTag = itemEl.dataset.tag;
+        if (!formSelectedTags.includes(selTag)) {
+          formSelectedTags.push(selTag);
+        } else {
+          formSelectedTags = formSelectedTags.filter(t => t !== selTag);
+        }
+        tagDropdown.style.display = 'none';
+        if (tagInputErr) tagInputErr.style.display = 'none';
+        render();
+      });
+    });
+
+    tagDropdown.querySelectorAll('[data-action="create-dropdown-tag"]').forEach(createEl => {
+      createEl.addEventListener('click', async e => {
+        e.stopPropagation();
+        const newTag = createEl.dataset.tag;
+        const validRes = validateTagName(newTag);
+        if (!validRes.valid) {
+          if (tagInputErr) {
+            tagInputErr.innerText = validRes.error;
+            tagInputErr.style.display = 'block';
+          }
+          return;
+        }
+
+        if (!state.categories.includes(newTag)) {
+          state.categories.push(newTag);
+          if (!state.categoryColors) state.categoryColors = {};
+          state.categoryColors[newTag] = 'slate';
+          const cfg = await getStoredConfig();
+          await saveStoredConfig({
+            ...cfg,
+            categories: state.categories.filter(c => c !== 'All'),
+            categoryColors: state.categoryColors
+          });
+        }
+        if (!formSelectedTags.includes(newTag)) {
+          formSelectedTags.push(newTag);
+        }
+        tagDropdown.style.display = 'none';
+        if (tagInputErr) tagInputErr.style.display = 'none';
+        render();
+      });
+    });
+  }
+
+  if (tagSearchInput) {
+    tagSearchInput.addEventListener('input', e => {
+      if (tagInputErr) tagInputErr.style.display = 'none';
+      updateTagDropdown(e.target.value);
+    });
+
+    tagSearchInput.addEventListener('focus', () => {
+      updateTagDropdown(tagSearchInput.value);
+    });
+
+    tagSearchInput.addEventListener('keydown', async e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = tagSearchInput.value.trim();
+        if (!val) return;
+        const allTags = state.categories.filter(c => c !== 'All');
+        const matched = allTags.find(t => t.toLowerCase() === val.toLowerCase());
+        if (matched) {
+          if (!formSelectedTags.includes(matched)) {
+            formSelectedTags.push(matched);
+          }
+          tagSearchInput.value = '';
+          tagDropdown.style.display = 'none';
+          render();
+        } else {
+          const validRes = validateTagName(val);
+          if (!validRes.valid) {
+            if (tagInputErr) {
+              tagInputErr.innerText = validRes.error;
+              tagInputErr.style.display = 'block';
+            }
+            return;
+          }
+          state.categories.push(val);
+          if (!state.categoryColors) state.categoryColors = {};
+          state.categoryColors[val] = 'slate';
+          const cfg = await getStoredConfig();
+          await saveStoredConfig({
+            ...cfg,
+            categories: state.categories.filter(c => c !== 'All'),
+            categoryColors: state.categoryColors
+          });
+          formSelectedTags.push(val);
+          tagSearchInput.value = '';
+          tagDropdown.style.display = 'none';
+          render();
+        }
+      } else if (e.key === 'Escape') {
+        if (tagDropdown) tagDropdown.style.display = 'none';
+      }
+    });
+  }
+
+  if (tagDropdownToggle && tagDropdown) {
+    tagDropdownToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      if (tagDropdown.style.display === 'block') {
+        tagDropdown.style.display = 'none';
+      } else {
+        updateTagDropdown(tagSearchInput ? tagSearchInput.value : '');
+      }
+    });
+  }
+
+  // Close tag dropdown on outside click
+  document.addEventListener('click', e => {
+    if (tagDropdown && tagDropdown.style.display === 'block') {
+      if (!e.target.closest('.sp-tag-input-container')) {
+        tagDropdown.style.display = 'none';
+      }
+    }
+  });
+
   // CSV Import in Item Form
   const csvFileInput = document.getElementById('sp-csv-file-input');
   if (csvFileInput) {
@@ -2563,6 +2815,7 @@ function attachEventHandlers() {
         await persistVaultChanges();
         notifyStateChange();
         showToast(`Импортировано ${imported.length} паролей в «${activeProj ? activeProj.name : 'базу'}»`);
+        currentFormItemId = null;
         updateState({ activeTab: 'vault', selectedItem: null });
       } catch (err) {
         alert('Ошибка импорта CSV: ' + err.message);
@@ -2574,6 +2827,7 @@ function attachEventHandlers() {
   if (itemForm) {
     itemForm.addEventListener('submit', e => {
       e.preventDefault();
+      const tags = formSelectedTags.length > 0 ? [...formSelectedTags] : ['Work'];
       saveItem({
         id: document.getElementById('sp-item-id').value,
         projectId: document.getElementById('sp-item-project').value,
@@ -2581,23 +2835,11 @@ function attachEventHandlers() {
         url: document.getElementById('sp-item-url').value.trim(),
         username: document.getElementById('sp-item-username').value.trim(),
         password: document.getElementById('sp-item-password').value,
-        category: document.getElementById('sp-item-category').value,
+        category: tags[0] || 'Work',
+        tags,
         notes: document.getElementById('sp-item-notes').value.trim()
       });
-    });
-  }
-
-  const itemCatSelect = document.getElementById('sp-item-category');
-  if (itemCatSelect) {
-    itemCatSelect.addEventListener('change', e => {
-      const val = e.target.value;
-      const previewEl = document.getElementById('sp-form-cat-preview');
-      if (previewEl) {
-        const cDef = getCategoryColorDef(val, state.categoryColors);
-        const cLabel = val === 'Work' ? t('categories.Work') : (val === 'Personal' ? t('categories.Personal') : val);
-        previewEl.setAttribute('style', `${getCategoryCssVars(cDef)}; padding:2px 7px; font-size:10px; pointer-events:none;`);
-        previewEl.innerHTML = `<span class="sp-pill-dot" style="background-color:${cDef.color};"></span><span>${cLabel}</span>`;
-      }
+      currentFormItemId = null;
     });
   }
 
@@ -2733,17 +2975,150 @@ function attachEventHandlers() {
     });
   }
 
-  // Category Management Handlers in Settings
+  // Tag Management Handlers in Settings
+  // Inline Rename Handlers
+  document.querySelectorAll('[data-action="start-tag-rename"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      editingTagId = btn.dataset.cat;
+      render();
+      setTimeout(() => {
+        const inp = document.getElementById('sp-rename-tag-input');
+        if (inp) {
+          inp.focus();
+          inp.select();
+        }
+      }, 30);
+    });
+  });
+
+  const btnCancelTagRename = document.getElementById('sp-btn-cancel-tag-rename');
+  if (btnCancelTagRename) {
+    btnCancelTagRename.addEventListener('click', e => {
+      e.stopPropagation();
+      editingTagId = null;
+      render();
+    });
+  }
+
+  async function handleSaveTagRename(oldName) {
+    const inp = document.getElementById('sp-rename-tag-input');
+    const errBox = document.getElementById('sp-rename-tag-err');
+    if (!inp) return;
+    const newName = inp.value.trim();
+
+    if (!newName) {
+      if (errBox) {
+        errBox.innerText = 'Название не может быть пустым';
+        errBox.style.display = 'block';
+      }
+      return;
+    }
+
+    if (newName === oldName) {
+      editingTagId = null;
+      render();
+      return;
+    }
+
+    const validRes = validateTagName(newName);
+    if (!validRes.valid) {
+      if (errBox) {
+        errBox.innerText = validRes.error;
+        errBox.style.display = 'block';
+      }
+      return;
+    }
+
+    const exists = state.categories.some(c => c.toLowerCase() === newName.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase());
+    if (exists) {
+      if (errBox) {
+        errBox.innerText = 'Метка с таким именем уже существует';
+        errBox.style.display = 'block';
+      }
+      return;
+    }
+
+    // Rename in state.categories
+    state.categories = state.categories.map(c => (c === oldName ? newName : c));
+
+    // Transfer color
+    if (state.categoryColors && state.categoryColors[oldName]) {
+      const colorVal = state.categoryColors[oldName];
+      delete state.categoryColors[oldName];
+      state.categoryColors[newName] = colorVal;
+    }
+
+    // Update in all items
+    state.items = state.items.map(it => {
+      const itemTags = getItemTags(it);
+      const updatedTags = [...new Set(itemTags.map(t => (t === oldName ? newName : t)))];
+      const updatedCat = it.category === oldName ? newName : it.category;
+      return {
+        ...it,
+        category: updatedCat,
+        tags: updatedTags
+      };
+    });
+
+    if (state.activeCategory === oldName) {
+      state.activeCategory = newName;
+    }
+
+    await persistVaultChanges();
+    const cfg = await getStoredConfig();
+    await saveStoredConfig({
+      ...cfg,
+      categories: state.categories.filter(c => c !== 'All'),
+      categoryColors: state.categoryColors
+    });
+
+    editingTagId = null;
+    showToast(t('settings.cat_renamed') || 'Метка переименована');
+    render();
+  }
+
+  const btnSaveTagRename = document.getElementById('sp-btn-save-tag-rename');
+  if (btnSaveTagRename) {
+    btnSaveTagRename.addEventListener('click', async e => {
+      e.stopPropagation();
+      const oldName = btnSaveTagRename.dataset.oldName || editingTagId;
+      await handleSaveTagRename(oldName);
+    });
+  }
+
+  const renameTagInput = document.getElementById('sp-rename-tag-input');
+  if (renameTagInput) {
+    renameTagInput.addEventListener('keydown', async e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const oldName = editingTagId;
+        await handleSaveTagRename(oldName);
+      } else if (e.key === 'Escape') {
+        editingTagId = null;
+        render();
+      }
+    });
+  }
+
   const btnAddCat = document.getElementById('sp-btn-add-cat');
   const newCatInput = document.getElementById('sp-new-cat-name');
   const catErr = document.getElementById('sp-cat-err');
   if (btnAddCat && newCatInput) {
-    btnAddCat.addEventListener('click', async () => {
+    const handleAddTag = async () => {
       const name = newCatInput.value.trim();
       if (!name) return;
+      const validRes = validateTagName(name);
+      if (!validRes.valid) {
+        if (catErr) {
+          catErr.innerText = validRes.error;
+          catErr.style.display = 'block';
+        }
+        return;
+      }
       if (state.categories.some(c => c.toLowerCase() === name.toLowerCase())) {
         if (catErr) {
-          catErr.innerText = 'Категория с таким именем уже существует';
+          catErr.innerText = 'Метка с таким именем уже существует';
           catErr.style.display = 'block';
         }
         return;
@@ -2757,8 +3132,16 @@ function attachEventHandlers() {
         categories: state.categories.filter(c => c !== 'All'),
         categoryColors: state.categoryColors
       });
-      showToast(`Категория «${name}» добавлена`);
+      showToast(`Метка «${name}» добавлена`);
       render();
+    };
+
+    btnAddCat.addEventListener('click', handleAddTag);
+    newCatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddTag();
+      }
     });
   }
 
@@ -2810,11 +3193,18 @@ function attachEventHandlers() {
         delete state.categoryColors[catToDelete];
       }
       state.items = state.items.map(it => {
-        if (it.category === catToDelete) {
-          return { ...it, category: 'Work' };
-        }
-        return it;
+        const itemTags = getItemTags(it);
+        const filtered = itemTags.filter(t => t !== catToDelete);
+        const finalTags = filtered.length > 0 ? filtered : ['Work'];
+        return {
+          ...it,
+          tags: finalTags,
+          category: it.category === catToDelete ? finalTags[0] : it.category
+        };
       });
+      if (state.activeCategory === catToDelete) {
+        state.activeCategory = 'All';
+      }
       await persistVaultChanges();
       const cfg = await getStoredConfig();
       await saveStoredConfig({
@@ -2822,7 +3212,7 @@ function attachEventHandlers() {
         categories: state.categories.filter(c => c !== 'All'),
         categoryColors: state.categoryColors
       });
-      showToast(`Категория «${catToDelete}» удалена`);
+      showToast(`Метка «${catToDelete}» удалена`);
       render();
     });
   });

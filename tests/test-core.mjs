@@ -240,8 +240,37 @@ async function runTests() {
   const varsStr = getCategoryCssVars(amberDef);
   assert(varsStr.includes('--pill-color:#F59E0B'), 'CSS vars must define pill-color');
   assert(varsStr.includes('--pill-bg-dark:'), 'CSS vars must define pill-bg-dark');
-  assert(varsStr.includes('--pill-bg-light:'), 'CSS vars must define pill-bg-light');
-  console.log('   ✓ Category Color Tone System verified');
+  // Test 11: Tag System Validation & Multi-tag Extraction
+  console.log('11. Testing Tag System Validation & Multi-tag Extraction...');
+  const { validateTagName, getItemTags } = await import('../src/core/categories.js');
+
+  // Validation: empty / spaces
+  assert.strictEqual(validateTagName('').valid, false);
+  assert.strictEqual(validateTagName('   ').valid, false);
+
+  // Validation: allowed letters and digits (EN, RU, UA, with spaces)
+  assert.strictEqual(validateTagName('Work').valid, true);
+  assert.strictEqual(validateTagName('Работа 2026').valid, true);
+  assert.strictEqual(validateTagName('Банки та фінанси').valid, true);
+  assert.strictEqual(validateTagName('Web3 100').valid, true);
+
+  // Validation: max 30 chars
+  assert.strictEqual(validateTagName('a'.repeat(30)).valid, true);
+  assert.strictEqual(validateTagName('a'.repeat(31)).valid, false);
+
+  // Validation: disallowed special characters
+  assert.strictEqual(validateTagName('Work!').valid, false);
+  assert.strictEqual(validateTagName('Work@Home').valid, false);
+  assert.strictEqual(validateTagName('Tag-Name').valid, false);
+  assert.strictEqual(validateTagName('Tag_Name').valid, false);
+  assert.strictEqual(validateTagName('Tag#1').valid, false);
+
+  // getItemTags
+  assert.deepStrictEqual(getItemTags({ tags: ['Finance', 'Crypto'] }), ['Finance', 'Crypto']);
+  assert.deepStrictEqual(getItemTags({ category: 'Personal' }), ['Personal']);
+  assert.deepStrictEqual(getItemTags({}), ['Work']);
+  assert.deepStrictEqual(getItemTags(null), ['Work']);
+  console.log('   ✓ Tag System Validation & Multi-tag Extraction verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

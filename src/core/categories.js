@@ -127,18 +127,18 @@ export const DEFAULT_CATEGORY_COLORS = {
 };
 
 /**
- * Returns color definition object for a category.
+ * Returns color definition object for a category / tag.
  * @param {string} catName
  * @param {Record<string, string>} [customColors]
  * @returns {typeof CATEGORY_COLORS[keyof typeof CATEGORY_COLORS]}
  */
 export function getCategoryColorDef(catName, customColors = {}) {
-  const colorId = (customColors && customColors[catName]) || DEFAULT_CATEGORY_COLORS[catName] || 'amber';
-  return CATEGORY_COLORS[colorId] || CATEGORY_COLORS.amber;
+  const colorId = (customColors && customColors[catName]) || DEFAULT_CATEGORY_COLORS[catName] || 'slate';
+  return CATEGORY_COLORS[colorId] || CATEGORY_COLORS.slate;
 }
 
 /**
- * Generates inline CSS custom properties for styling a category pill/badge.
+ * Generates inline CSS custom properties for styling a category/tag pill/badge.
  * @param {typeof CATEGORY_COLORS[keyof typeof CATEGORY_COLORS]} colorDef
  * @returns {string}
  */
@@ -156,3 +156,51 @@ export function getCategoryCssVars(colorDef) {
     `--pill-bg-light-active:${colorDef.bgLightActive}`
   ].join(';');
 }
+
+/**
+ * Validates a tag name:
+ * - Only letters and digits (letters/numbers, optional single space between words)
+ * - Maximum length 30 characters
+ * - Non-empty
+ * @param {string} name
+ * @returns {{ valid: boolean, error?: string, name?: string }}
+ */
+export function validateTagName(name) {
+  if (!name || typeof name !== 'string') {
+    return { valid: false, error: 'Название метки не может быть пустым' };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Название метки не может быть пустым' };
+  }
+  if (trimmed.length > 30) {
+    return { valid: false, error: 'Максимальная длина метки — 30 символов' };
+  }
+  const regex = /^[\p{L}\p{N}]+(?: [\p{L}\p{N}]+)*$/u;
+  if (!regex.test(trimmed)) {
+    return { valid: false, error: 'В названии допускаются только буквы и цифры без спецсимволов' };
+  }
+  return { valid: true, name: trimmed };
+}
+
+/**
+ * Normalizes tags for an item, ensuring an array of valid strings.
+ * Falls back to item.category if tags is not set.
+ * @param {any} item
+ * @returns {string[]}
+ */
+export function getItemTags(item) {
+  if (!item) return ['Work'];
+  if (Array.isArray(item.tags) && item.tags.length > 0) {
+    return item.tags.filter(t => typeof t === 'string' && t.trim().length > 0);
+  }
+  if (item.category && typeof item.category === 'string' && item.category.trim().length > 0) {
+    return [item.category.trim()];
+  }
+  return ['Work'];
+}
+
+export const TAG_COLORS = CATEGORY_COLORS;
+export const DEFAULT_TAG_COLORS = DEFAULT_CATEGORY_COLORS;
+export const getTagColorDef = getCategoryColorDef;
+export const getTagCssVars = getCategoryCssVars;
