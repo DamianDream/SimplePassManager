@@ -557,6 +557,21 @@
       "ru": "Добавить",
       "ua": "Додати"
     },
+    "new_cat_color_label": {
+      "en": "Category color tone:",
+      "ru": "Цветовой тон категории:",
+      "ua": "Колірний тон категорії:"
+    },
+    "change_color_title": {
+      "en": "Change color tone",
+      "ru": "Изменить цветовой тон",
+      "ua": "Змінити колірний тон"
+    },
+    "cat_color_updated": {
+      "en": "Category color updated",
+      "ru": "Цвет категории обновлен",
+      "ua": "Колір категорії оновлено"
+    },
     "backup_section": {
       "en": "Backup & Data Transfer",
       "ru": "Резервное копирование и экспорт",

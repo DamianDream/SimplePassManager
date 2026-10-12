@@ -14,6 +14,7 @@ export const state = {
   activeProjectId: null,
   items: [],
   categories: ['All', 'Work', 'Personal'],
+  categoryColors: { Work: 'blue', Personal: 'green' },
   activeCategory: 'All',
   searchQuery: '',
   activeTab: 'vault', // 'vault' | 'generator' | 'settings' | 'item-details'

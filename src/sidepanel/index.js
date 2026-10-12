@@ -53,6 +53,12 @@ import {
   sortItemsByDomainMatch
 } from '../core/domain.js';
 import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } from '../core/i18n.js';
+import {
+  CATEGORY_COLORS,
+  DEFAULT_CATEGORY_COLORS,
+  getCategoryColorDef,
+  getCategoryCssVars
+} from '../core/categories.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -87,6 +93,8 @@ let settingsSearchQuery = '';
 let openAccordions = new Set(['appearance', 'security']);
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
+let selectedNewCatColor = 'amber';
+let activeColorPickerCat = null;
 
 // ─── THEME MANAGER ──────────────────────────────────────────────────────────
 
@@ -194,13 +202,18 @@ async function init() {
 
   const userCategories = storedConfig.categories || ['Work', 'Personal'];
   const fullCategories = ['All', ...userCategories.filter(c => c !== 'All')];
+  const userCategoryColors = {
+    ...DEFAULT_CATEGORY_COLORS,
+    ...(storedConfig.categoryColors || {})
+  };
 
   updateState({
     isInitialized: storedVault !== null,
     lockInterval: storedConfig.lockInterval || '3days',
     theme: currentTheme,
     language: currentLang,
-    categories: fullCategories
+    categories: fullCategories,
+    categoryColors: userCategoryColors
   });
 
   // Attempt to restore active session (e.g. valid within 3 days)
@@ -924,8 +937,19 @@ function renderVaultView() {
 
   const pillsHtml = state.categories
     .map(c => {
-      const label = c === 'All' ? t('categories.All') : (c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c));
-      return `<button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${label}</button>`;
+      const isAll = c === 'All';
+      const label = isAll ? t('categories.All') : (c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c));
+      if (isAll) {
+        return `<button class="sp-pill sp-pill-all ${c === state.activeCategory ? 'active' : ''}" data-cat="${c}">${label}</button>`;
+      }
+      const colorDef = getCategoryColorDef(c, state.categoryColors);
+      const cssVars = getCategoryCssVars(colorDef);
+      return `
+        <button class="sp-pill ${c === state.activeCategory ? 'active' : ''}" data-color-pill="true" data-cat="${c}" style="${cssVars}">
+          <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+          <span>${label}</span>
+        </button>
+      `;
     })
     .join('');
 
@@ -1605,7 +1629,13 @@ function renderItemFormView() {
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">${t('form.category_label')}</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label class="sp-label">${t('form.category_label')}</label>
+            <span id="sp-form-cat-preview" class="sp-pill" data-color-pill="true" style="${getCategoryCssVars(getCategoryColorDef(item.category || 'Work', state.categoryColors))}; padding:2px 7px; font-size:10px; pointer-events:none;">
+              <span class="sp-pill-dot" style="background-color:${getCategoryColorDef(item.category || 'Work', state.categoryColors).color};"></span>
+              <span>${(item.category || 'Work') === 'Work' ? t('categories.Work') : ((item.category || 'Work') === 'Personal' ? t('categories.Personal') : (item.category || 'Work'))}</span>
+            </span>
+          </div>
           <select id="sp-item-category" class="sp-input">
             ${state.categories
               .filter(c => c !== 'All')
@@ -1928,16 +1958,43 @@ function renderSettingsView() {
   const catListHtml = catItems.map(c => {
     const isDefault = c === 'Work' || c === 'Personal';
     const label = c === 'Work' ? t('categories.Work') : (c === 'Personal' ? t('categories.Personal') : c);
+    const colorDef = getCategoryColorDef(c, state.categoryColors);
+    const cssVars = getCategoryCssVars(colorDef);
+    const isPickerOpen = activeColorPickerCat === c;
+
     return `
-      <div class="sp-cat-item ${isDefault ? 'default' : ''}">
-        <span>${label} ${isDefault ? `<span style="font-size:10px; color:var(--text-dim);">${t('settings.default_cat_badge')}</span>` : ''}</span>
-        ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : ''}
+      <div class="sp-cat-item-wrap">
+        <div class="sp-cat-item ${isDefault ? 'default' : ''}">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="sp-pill" data-color-pill="true" style="${cssVars}; pointer-events:none; padding:3px 8px; font-size:11px;">
+              <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+              <span>${label}</span>
+            </span>
+            ${isDefault ? `<span style="font-size:10px; color:var(--text-dim);">${t('settings.default_cat_badge')}</span>` : ''}
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button type="button" class="sp-cat-color-btn" data-action="toggle-cat-color-picker" data-cat="${c}" style="background-color:${colorDef.color};" title="${t('settings.change_color_title')}"></button>
+            ${!isDefault ? `<button type="button" class="sp-cat-del-btn" data-cat="${c}" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : ''}
+          </div>
+        </div>
+        ${isPickerOpen ? `
+          <div class="sp-cat-edit-palette">
+            <span style="font-size:11px; color:var(--text-dim); margin-right:4px;">${t('settings.new_cat_color_label')}</span>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              ${Object.values(CATEGORY_COLORS).map(color => `
+                <button type="button" class="sp-color-swatch-sm ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'amber') ? 'selected' : ''}" data-action="set-cat-color" data-cat="${c}" data-color-id="${color.id}" style="background-color:${color.color};" title="${color.name}">
+                  ${color.id === (state.categoryColors[c] || DEFAULT_CATEGORY_COLORS[c] || 'amber') ? icons.iCheck : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
 
   const catHtml = `
-    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal categories">
+    <div class="sp-setting-row" data-search="категории папки управление добавить категории work personal categories цвет tone">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${icons.iFolder} ${t('settings.categories_section')}</span>
         <span class="sp-badge-info">${catItems.length}</span>
@@ -1948,13 +2005,27 @@ function renderSettingsView() {
         ${catListHtml}
       </div>
 
-      <div style="display:flex; gap:6px; margin-top:10px;">
-        <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" style="flex:1;" />
-        <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
-          ${icons.iPlus} ${t('settings.add_cat_btn')}
-        </button>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border-subtle); display:flex; flex-direction:column; gap:8px;">
+        <span style="font-size:11px; font-weight:600; color:var(--text-muted);">${t('settings.new_cat_color_label')}</span>
+        <div class="sp-color-palette" id="sp-new-cat-palette">
+          ${Object.values(CATEGORY_COLORS).map(color => {
+            const isSelected = color.id === selectedNewCatColor;
+            return `
+              <button type="button" class="sp-color-swatch ${isSelected ? 'selected' : ''}" data-action="select-new-cat-color" data-color-id="${color.id}" style="background-color:${color.color};" title="${color.name}">
+                ${isSelected ? icons.iCheck : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="display:flex; gap:6px; margin-top:2px;">
+          <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" style="flex:1;" />
+          <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
+            ${icons.iPlus} ${t('settings.add_cat_btn')}
+          </button>
+        </div>
+        <div id="sp-cat-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
       </div>
-      <div id="sp-cat-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
     </div>
   `;
 
@@ -2515,6 +2586,20 @@ function attachEventHandlers() {
     });
   }
 
+  const itemCatSelect = document.getElementById('sp-item-category');
+  if (itemCatSelect) {
+    itemCatSelect.addEventListener('change', e => {
+      const val = e.target.value;
+      const previewEl = document.getElementById('sp-form-cat-preview');
+      if (previewEl) {
+        const cDef = getCategoryColorDef(val, state.categoryColors);
+        const cLabel = val === 'Work' ? t('categories.Work') : (val === 'Personal' ? t('categories.Personal') : val);
+        previewEl.setAttribute('style', `${getCategoryCssVars(cDef)}; padding:2px 7px; font-size:10px; pointer-events:none;`);
+        previewEl.innerHTML = `<span class="sp-pill-dot" style="background-color:${cDef.color};"></span><span>${cLabel}</span>`;
+      }
+    });
+  }
+
   // ─── Generator Tab controls (Smooth 60fps Interactive Live-Update) ───
   function updateGeneratorLiveUI() {
     currentGeneratedPassword = generatePassword(genOptions);
@@ -2687,15 +2772,56 @@ function attachEventHandlers() {
         return;
       }
       state.categories.push(name);
+      if (!state.categoryColors) state.categoryColors = {};
+      state.categoryColors[name] = selectedNewCatColor;
       const cfg = await getStoredConfig();
       await saveStoredConfig({
         ...cfg,
-        categories: state.categories.filter(c => c !== 'All')
+        categories: state.categories.filter(c => c !== 'All'),
+        categoryColors: state.categoryColors
       });
       showToast(`Категория «${name}» добавлена`);
       render();
     });
   }
+
+  // Color selection for new category
+  document.querySelectorAll('[data-action="select-new-cat-color"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      selectedNewCatColor = btn.dataset.colorId;
+      render();
+    });
+  });
+
+  // Toggle category color picker tray
+  document.querySelectorAll('[data-action="toggle-cat-color-picker"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const cat = btn.dataset.cat;
+      activeColorPickerCat = activeColorPickerCat === cat ? null : cat;
+      render();
+    });
+  });
+
+  // Set color for existing category
+  document.querySelectorAll('[data-action="set-cat-color"]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const cat = btn.dataset.cat;
+      const colorId = btn.dataset.colorId;
+      if (!state.categoryColors) state.categoryColors = {};
+      state.categoryColors[cat] = colorId;
+      activeColorPickerCat = null;
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({
+        ...cfg,
+        categoryColors: state.categoryColors
+      });
+      showToast(t('settings.cat_color_updated'));
+      render();
+    });
+  });
 
   document.querySelectorAll('.sp-cat-del-btn').forEach(btn => {
     btn.addEventListener('click', async e => {
@@ -2703,6 +2829,9 @@ function attachEventHandlers() {
       const catToDelete = btn.dataset.cat;
       if (catToDelete === 'Work' || catToDelete === 'Personal') return;
       state.categories = state.categories.filter(c => c !== catToDelete);
+      if (state.categoryColors) {
+        delete state.categoryColors[catToDelete];
+      }
       state.items = state.items.map(it => {
         if (it.category === catToDelete) {
           return { ...it, category: 'Work' };
@@ -2713,7 +2842,8 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({
         ...cfg,
-        categories: state.categories.filter(c => c !== 'All')
+        categories: state.categories.filter(c => c !== 'All'),
+        categoryColors: state.categoryColors
       });
       showToast(`Категория «${catToDelete}» удалена`);
       render();

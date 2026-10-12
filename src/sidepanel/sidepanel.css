@@ -398,9 +398,16 @@ button svg,
   gap: 6px;
   overflow-x: auto;
   padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.sp-category-pills::-webkit-scrollbar {
+  display: none;
 }
 
 .sp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--bg-card);
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
@@ -411,6 +418,8 @@ button svg,
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1.2;
 }
 
 .sp-pill:hover {
@@ -418,7 +427,58 @@ button svg,
   color: var(--text-main);
 }
 
-.sp-pill.active {
+.sp-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  box-shadow: 0 0 4px currentColor;
+}
+
+/* Color-toned category pills */
+body.theme-dark .sp-pill[data-color-pill="true"] {
+  background: var(--pill-bg-dark);
+  border-color: var(--pill-border-dark);
+  color: var(--pill-text-dark);
+}
+
+body.theme-light .sp-pill[data-color-pill="true"] {
+  background: var(--pill-bg-light);
+  border-color: var(--pill-border-light);
+  color: var(--pill-text-light);
+}
+
+body.theme-dark .sp-pill[data-color-pill="true"]:hover {
+  background: var(--pill-bg-dark-active);
+  border-color: var(--pill-color);
+  color: #FFFFFF;
+}
+
+body.theme-light .sp-pill[data-color-pill="true"]:hover {
+  background: var(--pill-bg-light-active);
+  border-color: var(--pill-color);
+  color: var(--pill-text-light);
+}
+
+body.theme-dark .sp-pill[data-color-pill="true"].active {
+  background: var(--pill-bg-dark-active);
+  border-color: var(--pill-color);
+  color: #FFFFFF;
+  box-shadow: 0 0 10px var(--pill-border-dark);
+  font-weight: 700;
+}
+
+body.theme-light .sp-pill[data-color-pill="true"].active {
+  background: var(--pill-bg-light-active);
+  border-color: var(--pill-color);
+  color: var(--pill-text-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-weight: 700;
+}
+
+/* Special styling for "All" pill */
+.sp-pill-all.active {
   background: var(--text-main);
   color: var(--bg-main);
   border-color: var(--text-main);
@@ -1464,11 +1524,17 @@ button svg,
   margin-top: 8px;
 }
 
+.sp-cat-item-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .sp-cat-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
+  padding: 6px 10px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -1476,7 +1542,24 @@ button svg,
 }
 
 .sp-cat-item.default {
-  opacity: 0.85;
+  opacity: 0.95;
+}
+
+.sp-cat-color-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-surface);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: inline-block;
+  outline: 1px solid var(--border-subtle);
+  padding: 0;
+}
+
+.sp-cat-color-btn:hover {
+  transform: scale(1.15);
+  outline-color: var(--text-main);
 }
 
 .sp-cat-del-btn {
@@ -1495,6 +1578,73 @@ button svg,
 .sp-cat-del-btn:hover {
   color: var(--danger);
   background: rgba(239, 68, 68, 0.1);
+}
+
+.sp-cat-edit-palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  animation: spSelectPop 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sp-color-palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sp-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 11px;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  padding: 0;
+}
+
+.sp-color-swatch:hover {
+  transform: scale(1.12);
+}
+
+.sp-color-swatch.selected {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 0 2px var(--text-main);
+  transform: scale(1.08);
+}
+
+.sp-color-swatch-sm {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 9px;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  padding: 0;
+}
+
+.sp-color-swatch-sm:hover {
+  transform: scale(1.15);
+}
+
+.sp-color-swatch-sm.selected {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 0 2px var(--text-main);
 }
 
 /* ─── E2EE BROWSER-TO-BROWSER TUNNEL STYLES ─── */

@@ -217,6 +217,32 @@ async function runTests() {
 
   console.log('   ✓ Multilingual Translations (EN / RU / UA) verified');
 
+  // Test 10: Category Color Tone System
+  console.log('10. Testing Category Color Tone System...');
+  const {
+    CATEGORY_COLORS,
+    DEFAULT_CATEGORY_COLORS,
+    getCategoryColorDef,
+    getCategoryCssVars
+  } = await import('../src/core/categories.js');
+
+  assert(Object.keys(CATEGORY_COLORS).length >= 8, 'Must have at least 8 curated color tones');
+  assert.strictEqual(getCategoryColorDef('Work').id, 'blue', 'Default Work category must be blue');
+  assert.strictEqual(getCategoryColorDef('Personal').id, 'green', 'Default Personal category must be green');
+
+  // Custom assigned category color
+  const customDefs = { Finance: 'amber', Crypto: 'purple' };
+  assert.strictEqual(getCategoryColorDef('Finance', customDefs).id, 'amber');
+  assert.strictEqual(getCategoryColorDef('Crypto', customDefs).id, 'purple');
+
+  // CSS variables formatting
+  const amberDef = CATEGORY_COLORS.amber;
+  const varsStr = getCategoryCssVars(amberDef);
+  assert(varsStr.includes('--pill-color:#F59E0B'), 'CSS vars must define pill-color');
+  assert(varsStr.includes('--pill-bg-dark:'), 'CSS vars must define pill-bg-dark');
+  assert(varsStr.includes('--pill-bg-light:'), 'CSS vars must define pill-bg-light');
+  console.log('   ✓ Category Color Tone System verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
