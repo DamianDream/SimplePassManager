@@ -90,7 +90,7 @@ let isPasswordVisible = false;
 
 // Settings view state
 let settingsSearchQuery = '';
-let openAccordions = new Set(['appearance', 'security']);
+let activeSettingsSection = null;
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
 let selectedNewCatColor = 'amber';
@@ -2109,34 +2109,39 @@ function renderSettingsView() {
     {
       id: 'appearance',
       title: t('settings.appearance_section'),
+      desc: t('settings.appearance_desc_short'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour language язык мова'
+      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour language язык мова en ru ua'
     },
     {
       id: 'security',
       title: t('settings.security_section'),
+      desc: t('settings.security_desc_short'),
       icon: icons.iShield,
       content: secHtml,
-      keywords: 'пароль сессия 3 дня тайм-аут блокировка безопасность смена'
+      keywords: 'пароль сессия 3 дня тайм-аут блокировка безопасность смена мастер-пароль'
     },
     {
       id: 'databases',
       title: t('settings.db_section'),
+      desc: t('settings.db_desc_short'),
       icon: icons.iFolder,
       content: dbHtml,
-      keywords: 'база проект хранилище список pass'
+      keywords: 'база проект хранилище список pass синхронизация'
     },
     {
       id: 'categories',
       title: t('settings.categories_section'),
+      desc: t('settings.categories_desc_short'),
       icon: icons.iFolder,
       content: catHtml,
-      keywords: 'категории папки work personal создать добавить'
+      keywords: 'категории папки work personal создать добавить цвет tone'
     },
     {
       id: 'backup',
       title: t('settings.backup_section'),
+      desc: t('settings.backup_desc_short'),
       icon: icons.iDownload,
       content: backupHtml,
       keywords: 'бэкап экспорт импорт json pass txt export backup'
@@ -2144,53 +2149,89 @@ function renderSettingsView() {
     {
       id: 'about',
       title: t('settings.about_section'),
+      desc: t('settings.about_desc_short'),
       icon: icons.iGlobe,
       content: aboutHtml,
       keywords: 'версия лицензия шифрование сброс о программе mit about'
     }
   ];
 
-  // Filter sections by search query
-  const filteredSections = sections.filter(s => {
-    if (!query) return true;
-    return (
-      s.title.toLowerCase().includes(query) ||
-      s.keywords.toLowerCase().includes(query) ||
-      s.content.toLowerCase().includes(query)
-    );
-  });
+  let bodyContentHtml = '';
 
-  const accordionsHtml = filteredSections.length
-    ? filteredSections
-        .map(s => {
-          const isOpen = query ? true : openAccordions.has(s.id);
-          return `
-        <div class="sp-accordion ${isOpen ? 'open' : ''}" data-accordion-id="${s.id}">
-          <button type="button" class="sp-accordion-header" data-action="toggle-accordion" data-accordion-id="${s.id}">
-            <div class="sp-accordion-title-wrap">
-              ${s.icon}
-              <span>${s.title}</span>
+  if (query) {
+    const filteredSections = sections.filter(s => {
+      return (
+        s.title.toLowerCase().includes(query) ||
+        (s.desc && s.desc.toLowerCase().includes(query)) ||
+        s.keywords.toLowerCase().includes(query) ||
+        s.content.toLowerCase().includes(query)
+      );
+    });
+
+    if (filteredSections.length) {
+      bodyContentHtml = `
+        <div class="sp-settings-search-results">
+          ${filteredSections.map(s => `
+            <div class="sp-settings-search-group">
+              <div class="sp-settings-search-group-header">
+                <span class="sp-settings-search-group-icon">${s.icon}</span>
+                <span>${s.title}</span>
+              </div>
+              <div class="sp-settings-sub-body">
+                ${s.content}
+              </div>
             </div>
-            <span class="sp-accordion-icon">▾</span>
-          </button>
-          <div class="sp-accordion-body">
-            ${s.content}
-          </div>
+          `).join('')}
         </div>
       `;
-        })
-        .join('')
-    : `
-      <div class="sp-empty-state" style="height: 180px;">
-        <div class="sp-empty-icon">${icons.iSearch}</div>
-        <p style="font-size: 13px; font-weight: 600;">${t('settings.settings_not_found')}</p>
-        <p style="font-size: 11px;">${t('settings.no_search_results', { query: settingsSearchQuery })}</p>
+    } else {
+      bodyContentHtml = `
+        <div class="sp-empty-state" style="height: 180px;">
+          <div class="sp-empty-icon">${icons.iSearch}</div>
+          <p style="font-size: 13px; font-weight: 600;">${t('settings.settings_not_found')}</p>
+          <p style="font-size: 11px;">${t('settings.no_search_results', { query: settingsSearchQuery })}</p>
+        </div>
+      `;
+    }
+  } else if (activeSettingsSection) {
+    const activeSec = sections.find(s => s.id === activeSettingsSection) || sections[0];
+    bodyContentHtml = `
+      <div class="sp-settings-subview">
+        <div class="sp-settings-sub-header">
+          <button type="button" class="sp-settings-back-btn" id="sp-settings-back">
+            ${icons.iChevronLeft}
+            <span>${t('settings.back_to_settings') || t('form.back')}</span>
+          </button>
+          <h3 class="sp-settings-sub-title">${activeSec.title}</h3>
+        </div>
+        <div class="sp-settings-sub-body">
+          ${activeSec.content}
+        </div>
       </div>
     `;
+  } else {
+    // Clean, flat minimal list of settings sections
+    bodyContentHtml = `
+      <div class="sp-settings-menu-list">
+        ${sections.map(s => `
+          <button type="button" class="sp-settings-menu-item" data-action="open-settings-section" data-section-id="${s.id}">
+            <div class="sp-settings-menu-left">
+              <span class="sp-settings-menu-icon">${s.icon}</span>
+              <div class="sp-settings-menu-text">
+                <span class="sp-settings-menu-title">${s.title}</span>
+                ${s.desc ? `<span class="sp-settings-menu-subtitle">${s.desc}</span>` : ''}
+              </div>
+            </div>
+            <span class="sp-settings-menu-arrow">${icons.iChevronRight}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
 
   return `
     <div style="display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; flex:1;">
-      <!-- Settings Header Search Bar (mySmart Style) -->
+      <!-- Settings Header Search Bar -->
       <div class="sp-search-bar" style="padding: 10px 14px 6px;">
         <div class="sp-search-input-wrap">
           <span class="sp-search-icon">${icons.iSearch}</span>
@@ -2200,7 +2241,7 @@ function renderSettingsView() {
       </div>
 
       <div class="sp-settings-container">
-        ${accordionsHtml}
+        ${bodyContentHtml}
       </div>
     </div>
   `;
@@ -2256,6 +2297,10 @@ function attachEventHandlers() {
     btn.addEventListener('click', () => {
       const targetNav = btn.dataset.nav;
       isDrawerOpen = false;
+      if (targetNav === 'settings') {
+        activeSettingsSection = null;
+        settingsSearchQuery = '';
+      }
       updateState({ activeTab: targetNav, selectedItem: null, isProjectSwitcherOpen: false });
     });
   });
@@ -2679,24 +2724,23 @@ function attachEventHandlers() {
     });
   }
 
-  document.querySelectorAll('[data-action="toggle-accordion"]').forEach(header => {
-    header.addEventListener('click', () => {
-      const id = header.dataset.accordionId;
-      const willOpen = !openAccordions.has(id);
-      if (willOpen) {
-        openAccordions.add(id);
-      } else {
-        openAccordions.delete(id);
-      }
+  // Open settings section subview
+  document.querySelectorAll('[data-action="open-settings-section"]').forEach(item => {
+    item.addEventListener('click', () => {
+      const sectionId = item.dataset.sectionId;
+      activeSettingsSection = sectionId;
       render();
-      if (willOpen) {
-        setTimeout(() => {
-          const el = document.querySelector(`[data-accordion-id="${id}"]`);
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 30);
-      }
     });
   });
+
+  // Back from settings section subview
+  const btnSettingsBack = document.getElementById('sp-settings-back');
+  if (btnSettingsBack) {
+    btnSettingsBack.addEventListener('click', () => {
+      activeSettingsSection = null;
+      render();
+    });
+  }
 
   // Custom Select Dropdown for Lock Interval
   const customLockSelect = document.getElementById('sp-setting-lock-interval-dropdown');

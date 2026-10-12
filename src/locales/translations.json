@@ -282,10 +282,20 @@
       "ru": "Поиск по настройкам...",
       "ua": "Пошук за налаштуваннями..."
     },
+    "back_to_settings": {
+      "en": "Settings",
+      "ru": "Настройки",
+      "ua": "Налаштування"
+    },
     "appearance_section": {
       "en": "Appearance & Theme",
       "ru": "Оформление и тема",
       "ua": "Зовнішній вигляд та тема"
+    },
+    "appearance_desc_short": {
+      "en": "Theme and interface language",
+      "ru": "Тема оформления и язык интерфейса",
+      "ua": "Тема оформлення та мова інтерфейсу"
     },
     "language_label": {
       "en": "Interface Language",
@@ -316,6 +326,11 @@
       "en": "Security & Session",
       "ru": "Безопасность и сессия",
       "ua": "Безпека та сесія"
+    },
+    "security_desc_short": {
+      "en": "Master password, lock timeout and session",
+      "ru": "Мастер-пароль, блокировка и сессия",
+      "ua": "Майстер-пароль, блокування та сесія"
     },
     "master_pwd_check": {
       "en": "Master Password Check",
@@ -442,6 +457,11 @@
       "ru": "Базы данных и хранилище",
       "ua": "Бази даних та сховище"
     },
+    "db_desc_short": {
+      "en": "Projects, pass CLI and local storage",
+      "ru": "Проекты, pass CLI и локальное хранилище",
+      "ua": "Проєкти, pass CLI та локальне сховище"
+    },
     "current_db_label": {
       "en": "Current Database (Project)",
       "ru": "Текущая база (Проект)",
@@ -537,6 +557,11 @@
       "ru": "Категории записей",
       "ua": "Категорії записів"
     },
+    "categories_desc_short": {
+      "en": "Manage categories and color tones",
+      "ru": "Управление категориями и цветами",
+      "ua": "Керування категоріями та кольорами"
+    },
     "categories_desc": {
       "en": "Default categories are «Work» and «Personal». You can add custom categories.",
       "ru": "По умолчанию создаются только «Work» и «Personal». Вы можете добавить любые свои категории.",
@@ -576,6 +601,11 @@
       "en": "Backup & Data Transfer",
       "ru": "Резервное копирование и экспорт",
       "ua": "Резервне копіювання та експорт"
+    },
+    "backup_desc_short": {
+      "en": "Export JSON / PASS and import data",
+      "ru": "Экспорт JSON / PASS и импорт данных",
+      "ua": "Експорт JSON / PASS та імпорт даних"
     },
     "export_json_label": {
       "en": "Encrypted JSON Backup",
@@ -641,6 +671,11 @@
       "en": "About & License",
       "ru": "О программе и Лицензия",
       "ua": "Про програму та Ліцензія"
+    },
+    "about_desc_short": {
+      "en": "Version 1.0.0, encryption specs and reset",
+      "ru": "Версия 1.0.0, шифрование и сброс данных",
+      "ua": "Версія 1.0.0, шифрування та скидання даних"
     },
     "about_desc": {
       "en": "Open-source zero-knowledge password manager. Passwords are never sent to third-party servers.",
