@@ -1835,7 +1835,7 @@ function renderSettingsView() {
   const appearanceHtml = `
     <div class="sp-setting-row" data-search="language язык мова en ru ua switch интерфейс">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iGlobe} ${t('settings.language_label')}</span>
+        <span class="sp-setting-label">${t('settings.language_label')}</span>
         <div class="sp-lang-selector">
           <button type="button" class="sp-lang-btn ${getLanguage() === 'en' ? 'active' : ''}" data-lang="en">EN</button>
           <button type="button" class="sp-lang-btn ${getLanguage() === 'ru' ? 'active' : ''}" data-lang="ru">RU</button>
@@ -1849,7 +1849,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="тема оформления темная светлая cloud dancer darkest hour вид интерфейс переключатель theme dark light">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iMoon} ${t('settings.theme_label')}</span>
+        <span class="sp-setting-label">${t('settings.theme_label')}</span>
         <label class="sp-liquid-switch">
           <input type="checkbox" id="sp-theme-toggle" ${isDark ? 'checked' : ''} />
           <span class="sp-liquid-slider"></span>
@@ -1865,7 +1865,7 @@ function renderSettingsView() {
   const secHtml = `
     <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность security session">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iKey} ${t('settings.master_pwd_check')}</span>
+        <span class="sp-setting-label">${t('settings.master_pwd_check')}</span>
         <span class="sp-badge-info">${LOCK_INTERVALS[state.lockInterval]?.id === '3days' ? '3d' : (state.lockInterval || '3days')}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.master_pwd_check_desc')}</p>
@@ -1903,7 +1903,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="статус сессия время активности status session active">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} ${t('settings.session_status_label')}</span>
+        <span class="sp-setting-label">${t('settings.session_status_label')}</span>
         <span style="font-size:11px; font-weight:600; color:var(--success);">${sessionStatusText}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.session_status_desc')}</p>
@@ -1911,7 +1911,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="сменить мастер пароль ключ безопасность change password">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iEdit} ${t('settings.master_pwd_label')}</span>
+        <span class="sp-setting-label">${t('settings.master_pwd_label')}</span>
         <button class="sp-btn-secondary" id="sp-btn-toggle-change-pwd" style="padding:4px 8px; font-size:11px;">
           ${isChangePwdOpen ? t('form.cancel_btn') : t('settings.change_pwd_btn')}
         </button>
@@ -1937,7 +1937,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="заблокировать блокировка выйти заморозить lock vault">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iLock} ${t('settings.lock_vault_label')}</span>
+        <span class="sp-setting-label">${t('settings.lock_vault_label')}</span>
         <button class="sp-btn-danger" id="sp-btn-lock-now" style="padding:4px 10px; font-size:11px;">
           ${t('settings.lock_now_btn')}
         </button>
@@ -1953,7 +1953,7 @@ function renderSettingsView() {
   const dbHtml = `
     <div class="sp-setting-row" data-search="база данных проект хранилище active project pass">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iFolder} ${t('settings.current_db_label')}</span>
+        <span class="sp-setting-label">${t('settings.current_db_label')}</span>
         <div style="display:flex; align-items:center; gap:6px;">
           <span class="sp-badge-info">${activeProj ? activeProj.name : '—'}</span>
           ${activeProj && activeProj.type === 'pass_cli' ? `<span class="sp-badge-pass">${t('settings.badge_pass_cli')}</span>` : `<span class="sp-badge-browser">${t('settings.badge_browser')}</span>`}
@@ -1962,14 +1962,14 @@ function renderSettingsView() {
       <p class="sp-setting-desc">${t('settings.db_stats_desc', { projects: state.projects.length, items: getActiveProjectItems().length })}</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-open-switcher" style="width:100%; justify-content:center;">
-          ${icons.iFolder} ${t('settings.manage_dbs_btn')}
+          ${t('settings.manage_dbs_btn')}
         </button>
       </div>
     </div>
 
     <div class="sp-setting-row" data-search="хранилище тип локальное браузер pass cli синхронизация gpg native">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} ${t('settings.pass_cli_label')}</span>
+        <span class="sp-setting-label">${t('settings.pass_cli_label')}</span>
         <span style="font-size:11px; font-weight:600; color:${hostConnected ? 'var(--success)' : '#f59e0b'};">
           ${hostConnected ? t('settings.pass_connected', { version: state.passHostStatus.version }) : t('settings.pass_not_connected')}
         </span>
@@ -2003,7 +2003,7 @@ function renderSettingsView() {
 
       <div style="display:flex; gap:8px; margin-top:4px;">
         <button class="sp-btn-secondary" id="sp-btn-check-pass-host" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
-          ${icons.iRefresh} ${t('settings.check_status_btn')}
+          ${t('settings.check_status_btn')}
         </button>
         <button class="sp-btn-secondary" id="sp-btn-show-pass-instructions" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
           ${t('settings.instructions_btn')}
@@ -2014,7 +2014,7 @@ function renderSettingsView() {
         activeProj && activeProj.type === 'pass_cli'
           ? `
         <button class="sp-btn-primary" id="sp-btn-sync-active-pass" style="width:100%; justify-content:center; font-size:11px; padding:7px 10px; margin-top:4px;">
-          ${icons.iRefresh} ${t('settings.sync_pass_btn')}
+          ${t('settings.sync_pass_btn')}
         </button>
       `
           : ''
@@ -2085,11 +2085,7 @@ function renderSettingsView() {
 
   const catHtml = `
     <div class="sp-setting-row" data-search="метки теги tags categories папки work personal создать добавить цвет tone переименовать">
-      <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iTag} ${t('settings.categories_section')}</span>
-        <span class="sp-badge-info">${catItems.length}</span>
-      </div>
-      <p class="sp-setting-desc">${t('settings.categories_desc')}</p>
+      <p class="sp-setting-desc" style="margin-top:0;">${t('settings.categories_desc')}</p>
 
       <div class="sp-cat-list">
         ${catListHtml}
@@ -2111,7 +2107,7 @@ function renderSettingsView() {
         <div style="display:flex; gap:6px; margin-top:2px;">
           <input type="text" id="sp-new-cat-name" class="sp-input" placeholder="${t('settings.new_cat_placeholder')}" maxlength="30" style="flex:1;" />
           <button type="button" class="sp-btn-primary" id="sp-btn-add-cat" style="white-space:nowrap; padding:6px 12px; font-size:12px;">
-            ${icons.iPlus} ${t('settings.add_cat_btn')}
+            ${t('settings.add_cat_btn')}
           </button>
         </div>
         <div id="sp-cat-err" style="display:none; font-size:11px; color:var(--danger); margin-top:4px;"></div>
@@ -2123,37 +2119,37 @@ function renderSettingsView() {
   const backupHtml = `
     <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать backup export">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iDownload} ${t('settings.export_json_label')}</span>
+        <span class="sp-setting-label">${t('settings.export_json_label')}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.export_json_desc')}</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-export-json" style="width:100%; justify-content:center;">
-          ${icons.iDownload} ${t('settings.export_json_btn')}
+          ${t('settings.export_json_btn')}
         </button>
       </div>
     </div>
 
     <div class="sp-setting-row" data-search="экспорт pass unix password store txt текст export pass">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iDownload} UNIX PASS (.txt)</span>
+        <span class="sp-setting-label">UNIX PASS (.txt)</span>
       </div>
       <p class="sp-setting-desc">~/.password-store format</p>
       <div class="sp-setting-control">
         <button class="sp-btn-secondary" id="sp-btn-export-pass" style="width:100%; justify-content:center;">
-          ${icons.iDownload} Export PASS (.txt)
+          Export PASS (.txt)
         </button>
       </div>
     </div>
 
     <div class="sp-setting-row" data-search="импорт восстановить загрузить файл backup import">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iUpload} ${t('settings.import_json_label')}</span>
+        <span class="sp-setting-label">${t('settings.import_json_label')}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.import_json_desc')}</p>
       <div class="sp-setting-control">
         <input type="file" id="sp-import-file-input" style="display:none;" accept=".json,.txt" />
         <button class="sp-btn-secondary" id="sp-btn-trigger-import" style="width:100%; justify-content:center;">
-          ${icons.iUpload} ${t('settings.import_choose_file')}
+          ${t('settings.import_choose_file')}
         </button>
       </div>
     </div>
@@ -2173,7 +2169,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="шифрование криптография алгоритм aes pbkdf2 cryptography">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${icons.iShield} ${t('settings.crypto_spec_title')}</span>
+        <span class="sp-setting-label">${t('settings.crypto_spec_title')}</span>
       </div>
       <p class="sp-setting-desc" style="font-family:monospace; font-size:10px; line-height:1.5;">
         Algorithm: AES-256-GCM (12-byte random IV)<br>
@@ -2184,7 +2180,7 @@ function renderSettingsView() {
 
     <div class="sp-setting-row" data-search="сброс удалить все данные стереть очистить wipe danger reset">
       <div class="sp-setting-header">
-        <span class="sp-setting-label" style="color:var(--danger);">${icons.iTrash} ${t('settings.wipe_data_label')}</span>
+        <span class="sp-setting-label" style="color:var(--danger);">${t('settings.wipe_data_label')}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.wipe_data_desc')}</p>
       <div class="sp-setting-control">
@@ -2224,9 +2220,10 @@ function renderSettingsView() {
       id: 'categories',
       title: t('settings.categories_section'),
       desc: t('settings.categories_desc_short'),
-      icon: icons.iFolder,
+      icon: icons.iTag,
+      badge: catItems.length,
       content: catHtml,
-      keywords: 'категории папки work personal создать добавить цвет tone'
+      keywords: 'метки теги категории папки work personal создать добавить цвет tone'
     },
     {
       id: 'backup',
@@ -2267,6 +2264,7 @@ function renderSettingsView() {
                 <div class="sp-settings-item-left">
                   <span class="sp-settings-item-icon">${s.icon}</span>
                   <span class="sp-settings-item-title">${s.title}</span>
+                  ${s.badge !== undefined ? `<span class="sp-badge-info" style="margin-left:6px;">${s.badge}</span>` : ''}
                 </div>
                 <span class="sp-settings-item-arrow">${icons.iChevronDown}</span>
               </button>
