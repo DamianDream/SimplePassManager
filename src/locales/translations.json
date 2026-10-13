@@ -628,9 +628,9 @@
       "ua": "Резервне копіювання та експорт"
     },
     "backup_desc_short": {
-      "en": "Export JSON / PASS and import data",
-      "ru": "Экспорт JSON / PASS и импорт данных",
-      "ua": "Експорт JSON / PASS та імпорт даних"
+      "en": "Export JSON / CSV and import data",
+      "ru": "Экспорт JSON / CSV и импорт данных",
+      "ua": "Експорт JSON / CSV та імпорт даних"
     },
     "export_json_label": {
       "en": "Encrypted JSON Backup",
@@ -646,6 +646,31 @@
       "en": "Export JSON",
       "ru": "Экспортировать JSON",
       "ua": "Експортувати JSON"
+    },
+    "csv_unencrypted_label": {
+      "en": "Export/Import unencrypted passwords",
+      "ru": "Export/Import не зашифрованых паролей",
+      "ua": "Export/Import незашифрованих паролів"
+    },
+    "csv_export_btn": {
+      "en": "Export",
+      "ru": "Export",
+      "ua": "Export"
+    },
+    "csv_import_btn": {
+      "en": "Import",
+      "ru": "Import",
+      "ua": "Import"
+    },
+    "csv_import_success": {
+      "en": "Imported {count} passwords from CSV",
+      "ru": "Импортировано {count} паролей из CSV",
+      "ua": "Імпортовано {count} паролів із CSV"
+    },
+    "csv_import_empty": {
+      "en": "No valid passwords found in CSV",
+      "ru": "В файле CSV не найдено подходящих паролей",
+      "ua": "У файлі CSV не знайдено відповідних паролів"
     },
     "import_json_label": {
       "en": "Import Vault from JSON",

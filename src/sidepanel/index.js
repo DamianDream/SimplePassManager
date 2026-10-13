@@ -36,7 +36,9 @@ import {
   normalizeVaultData,
   verifyMasterPassword,
   itemToPassFormat,
-  passFormatToItem
+  passFormatToItem,
+  itemsToCsv,
+  csvToItems
 } from '../core/storage.js';
 import { createSession, restoreSession, destroySession, LOCK_INTERVALS } from '../core/session.js';
 import { generatePassword, evaluatePasswordStrength } from '../core/generator.js';
@@ -2129,14 +2131,17 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="экспорт pass unix password store txt текст export pass">
+    <div class="sp-setting-row" data-search="экспорт импорт csv не зашифрованных паролей export import plaintext unencrypted pass txt">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">UNIX PASS (.txt)</span>
+        <span class="sp-setting-label">${t('settings.csv_unencrypted_label')}</span>
       </div>
-      <p class="sp-setting-desc">~/.password-store format</p>
-      <div class="sp-setting-control">
-        <button class="sp-btn-secondary" id="sp-btn-export-pass" style="width:100%; justify-content:center;">
-          Export PASS (.txt)
+      <div class="sp-setting-control" style="display:flex; gap:8px;">
+        <button class="sp-btn-secondary" id="sp-btn-export-csv" style="flex:1; justify-content:center;">
+          ${t('settings.csv_export_btn')}
+        </button>
+        <input type="file" id="sp-import-csv-input" style="display:none;" accept=".csv,text/csv" />
+        <button class="sp-btn-secondary" id="sp-btn-trigger-import-csv" style="flex:1; justify-content:center;">
+          ${t('settings.csv_import_btn')}
         </button>
       </div>
     </div>
@@ -2231,7 +2236,7 @@ function renderSettingsView() {
       desc: t('settings.backup_desc_short'),
       icon: icons.iDownload,
       content: backupHtml,
-      keywords: 'бэкап экспорт импорт json pass txt export backup'
+      keywords: 'бэкап экспорт импорт json csv pass txt export backup plaintext'
     },
     {
       id: 'about',
@@ -3549,22 +3554,79 @@ function attachEventHandlers() {
     });
   }
 
-  const btnExportPass = document.getElementById('sp-btn-export-pass');
-  if (btnExportPass) {
-    btnExportPass.addEventListener('click', () => {
-      let combined = '';
+  const btnExportCsv = document.getElementById('sp-btn-export-csv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', () => {
       const activeProj = getActiveProject();
       const projectItems = getActiveProjectItems();
-      projectItems.forEach(item => {
-        combined += `=== ${activeProj.name}/${item.category}/${item.title} ===\n${itemToPassFormat(item)}\n\n`;
-      });
-      const blob = new Blob([combined], { type: 'text/plain' });
+      const itemsToExport = projectItems.length > 0 ? projectItems : state.items;
+      const csvContent = itemsToCsv(itemsToExport);
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `simplepass-${activeProj.name}.txt`;
+      const projName = activeProj?.name ? activeProj.name.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_') : 'passwords';
+      a.download = `simplepass-${projName}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  const btnTriggerImportCsv = document.getElementById('sp-btn-trigger-import-csv');
+  const importCsvInput = document.getElementById('sp-import-csv-input');
+  if (btnTriggerImportCsv && importCsvInput) {
+    btnTriggerImportCsv.addEventListener('click', () => {
+      importCsvInput.value = '';
+      importCsvInput.click();
+    });
+
+    importCsvInput.addEventListener('change', async e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async evt => {
+        try {
+          const content = evt.target.result;
+          const activeProj = getActiveProject();
+          const targetProjId = activeProj ? activeProj.id : (state.projects[0]?.id || 'proj_default');
+          const { items: importedItems, newCategories } = csvToItems(content, targetProjId);
+
+          if (!importedItems || importedItems.length === 0) {
+            alert(t('settings.csv_import_empty'));
+            return;
+          }
+
+          // Register any newly discovered tags
+          if (newCategories && newCategories.length > 0) {
+            let catsChanged = false;
+            newCategories.forEach(tag => {
+              if (!state.categories.some(c => c.toLowerCase() === tag.toLowerCase())) {
+                state.categories.push(tag);
+                catsChanged = true;
+              }
+            });
+            if (catsChanged) {
+              const cfg = await getStoredConfig();
+              await saveStoredConfig({
+                ...cfg,
+                categories: state.categories.filter(c => c !== 'All')
+              });
+            }
+          }
+
+          // Append imported items
+          const updatedItems = [...state.items, ...importedItems];
+          updateState({ items: updatedItems });
+          await persistVaultChanges();
+
+          showToast(t('settings.csv_import_success', { count: importedItems.length }));
+          render();
+        } catch (err) {
+          alert('Ошибка при импорте CSV: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
     });
   }
 

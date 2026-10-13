@@ -4,7 +4,7 @@ import {
   decryptVault,
   validateMasterPassword
 } from '../src/core/crypto.js';
-import { normalizeVaultData, passFormatToItem, itemToPassFormat } from '../src/core/storage.js';
+import { normalizeVaultData, passFormatToItem, itemToPassFormat, itemsToCsv, csvToItems, parseCsv } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
 
 
@@ -271,6 +271,90 @@ async function runTests() {
   assert.deepStrictEqual(getItemTags({}), ['Work']);
   assert.deepStrictEqual(getItemTags(null), ['Work']);
   console.log('   ✓ Tag System Validation & Multi-tag Extraction verified');
+
+  // Test 12: CSV Export & Import with strict column order (login, pass, name, tag, url, note)
+  console.log('12. Testing CSV Export & Import with strict column order (login, pass, name, tag, url, note)...');
+  const sampleCsvItems = [
+    {
+      title: 'Google Account',
+      username: 'user@gmail.com',
+      password: 'password123!',
+      category: 'Work',
+      tags: ['Work', 'Cloud'],
+      url: 'https://google.com',
+      notes: 'Main work account'
+    },
+    {
+      title: 'GitHub, Corp',
+      username: 'octocat',
+      password: 'p@$$"word"',
+      category: 'Personal',
+      tags: ['Personal'],
+      url: 'https://github.com',
+      notes: 'Line 1\nLine 2 with "quotes" and, comma'
+    }
+  ];
+
+  // 1. Export to CSV
+  const exportedCsv = itemsToCsv(sampleCsvItems);
+  assert(exportedCsv.startsWith('login,pass,name,tag,url,note'), 'Header must be exactly: login,pass,name,tag,url,note');
+
+  // Verify rows structure
+  const parsedRows = parseCsv(exportedCsv);
+  assert.strictEqual(parsedRows.length, 3, 'Must have header + 2 data rows');
+  assert.deepStrictEqual(parsedRows[0], ['login', 'pass', 'name', 'tag', 'url', 'note']);
+
+  // Check row 1
+  assert.strictEqual(parsedRows[1][0], 'user@gmail.com'); // login
+  assert.strictEqual(parsedRows[1][1], 'password123!');   // pass
+  assert.strictEqual(parsedRows[1][2], 'Google Account');  // name
+  assert.strictEqual(parsedRows[1][3], 'Work, Cloud');     // tag
+  assert.strictEqual(parsedRows[1][4], 'https://google.com'); // url
+  assert.strictEqual(parsedRows[1][5], 'Main work account');  // note
+
+  // Check row 2 (escaped quotes, commas, multiline notes)
+  assert.strictEqual(parsedRows[2][0], 'octocat');
+  assert.strictEqual(parsedRows[2][1], 'p@$$"word"');
+  assert.strictEqual(parsedRows[2][2], 'GitHub, Corp');
+  assert.strictEqual(parsedRows[2][3], 'Personal');
+  assert.strictEqual(parsedRows[2][4], 'https://github.com');
+  assert.strictEqual(parsedRows[2][5], 'Line 1\nLine 2 with "quotes" and, comma');
+
+  // 2. Import from CSV
+  const { items: importedItems, newCategories } = csvToItems(exportedCsv, 'proj_test');
+  assert.strictEqual(importedItems.length, 2);
+  assert.strictEqual(importedItems[0].username, 'user@gmail.com');
+  assert.strictEqual(importedItems[0].password, 'password123!');
+  assert.strictEqual(importedItems[0].title, 'Google Account');
+  assert.deepStrictEqual(importedItems[0].tags, ['Work', 'Cloud']);
+  assert.strictEqual(importedItems[0].category, 'Work');
+  assert.strictEqual(importedItems[0].url, 'https://google.com');
+  assert.strictEqual(importedItems[0].notes, 'Main work account');
+
+  assert.strictEqual(importedItems[1].username, 'octocat');
+  assert.strictEqual(importedItems[1].password, 'p@$$"word"');
+  assert.strictEqual(importedItems[1].title, 'GitHub, Corp');
+  assert.deepStrictEqual(importedItems[1].tags, ['Personal']);
+  assert.strictEqual(importedItems[1].category, 'Personal');
+  assert.strictEqual(importedItems[1].url, 'https://github.com');
+  assert.strictEqual(importedItems[1].notes, 'Line 1\nLine 2 with "quotes" and, comma');
+
+  assert(newCategories.includes('Work'));
+  assert(newCategories.includes('Cloud'));
+  assert(newCategories.includes('Personal'));
+
+  // 3. Import from CSV without header
+  const rawCsvWithoutHeader = `bob,SecretPass99,Banking,Finance;Cards,https://bank.com,Card PIN 1234`;
+  const importResultNoHeader = csvToItems(rawCsvWithoutHeader, 'proj_test');
+  assert.strictEqual(importResultNoHeader.items.length, 1);
+  assert.strictEqual(importResultNoHeader.items[0].username, 'bob');
+  assert.strictEqual(importResultNoHeader.items[0].password, 'SecretPass99');
+  assert.strictEqual(importResultNoHeader.items[0].title, 'Banking');
+  assert.deepStrictEqual(importResultNoHeader.items[0].tags, ['Finance', 'Cards']);
+  assert.strictEqual(importResultNoHeader.items[0].url, 'https://bank.com');
+  assert.strictEqual(importResultNoHeader.items[0].notes, 'Card PIN 1234');
+
+  console.log('   ✓ CSV Export & Import with strict column ordering verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }
