@@ -54,7 +54,7 @@ import {
   isItemMatchingDomain,
   sortItemsByDomainMatch
 } from '../core/domain.js';
-import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } from '../core/i18n.js';
+import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES, LANGUAGE_OPTIONS } from '../core/i18n.js';
 import {
   CATEGORY_COLORS,
   DEFAULT_CATEGORY_COLORS,
@@ -97,6 +97,7 @@ let settingsSearchQuery = '';
 let openSections = new Set();
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
+let isLangSelectOpen = false;
 let selectedNewCatColor = 'amber';
 let activeColorPickerCat = null;
 let editingTagId = null;
@@ -1901,19 +1902,37 @@ function renderSettingsView() {
 
   // 0. Accordion: Appearance & Theme
   const isDark = state.theme === 'dark';
+  const currentLang = getLanguage();
+  const currentLangObj = LANGUAGE_OPTIONS.find(o => o.code === currentLang) || LANGUAGE_OPTIONS[0];
+
   const appearanceHtml = `
-    <div class="sp-setting-row" data-search="language язык мова en ru ua switch интерфейс">
+    <div class="sp-setting-row" data-search="language язык мова беларуская қазақша 中文 日本語 english интерфейс switch">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.language_label')}</span>
-        <div class="sp-lang-selector">
-          <button type="button" class="sp-lang-btn ${getLanguage() === 'en' ? 'active' : ''}" data-lang="en">EN</button>
-          <button type="button" class="sp-lang-btn ${getLanguage() === 'ru' ? 'active' : ''}" data-lang="ru">RU</button>
-          <button type="button" class="sp-lang-btn ${getLanguage() === 'ua' ? 'active' : ''}" data-lang="ua">UA</button>
-        </div>
+        <span class="sp-badge-info">${currentLangObj.code.toUpperCase()}</span>
       </div>
       <p class="sp-setting-desc">
         ${t('settings.language_desc')}
       </p>
+      <div class="sp-setting-control">
+        <div class="sp-custom-select ${isLangSelectOpen ? 'open' : ''}" id="sp-setting-lang-dropdown">
+          <button type="button" class="sp-custom-select-trigger" id="sp-custom-lang-trigger" aria-haspopup="listbox" aria-expanded="${isLangSelectOpen}">
+            <span class="sp-custom-select-value">${currentLangObj.flag} ${currentLangObj.name}</span>
+            <span class="sp-custom-select-arrow">${icons.iChevronDown}</span>
+          </button>
+          <div class="sp-custom-select-dropdown">
+            ${LANGUAGE_OPTIONS.map(opt => {
+              const isSelected = opt.code === currentLang;
+              return `
+                <div class="sp-custom-select-option ${isSelected ? 'selected' : ''}" data-val="${opt.code}">
+                  <span>${opt.flag} ${opt.name}</span>
+                  ${isSelected ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="sp-setting-row" data-search="тема оформления темная светлая cloud dancer darkest hour вид интерфейс переключатель theme dark light">
@@ -2198,7 +2217,7 @@ function renderSettingsView() {
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="экспорт импорт csv не зашифрованных паролей export import plaintext unencrypted pass txt">
+    <div class="sp-setting-row" data-search="экспорт импорт csv не зашифрованных паролей export import plaintext unencrypted pass txt template шаблон">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.csv_unencrypted_label')}</span>
       </div>
@@ -2210,6 +2229,11 @@ function renderSettingsView() {
         <button class="sp-btn-secondary" id="sp-btn-trigger-import-csv" style="flex:1; justify-content:center;">
           ${t('settings.csv_import_btn')}
         </button>
+      </div>
+      <div style="margin-top:8px; display:flex; justify-content:flex-start;">
+        <a href="#" id="sp-download-csv-template" style="font-size:11px; color:var(--text-dim); text-decoration:underline; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:color 0.15s ease;">
+          ${icons.iDownload} ${t('settings.csv_template_link')}
+        </a>
       </div>
     </div>
 
@@ -2270,7 +2294,7 @@ function renderSettingsView() {
       desc: t('settings.appearance_desc_short'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет cloud dancer darkest hour language язык мова en ru ua'
+      keywords: 'тема оформления темная светлая вид цвет language язык мова беларуская қазақша 中文 日本語 english'
     },
     {
       id: 'security',
@@ -2994,6 +3018,20 @@ function attachEventHandlers() {
         document.querySelector('.sp-tag-input-container')?.classList.remove('open');
       }
     }
+    const langDrop = document.getElementById('sp-setting-lang-dropdown');
+    if (langDrop && (langDrop.classList.contains('open') || isLangSelectOpen)) {
+      if (!e.target.closest('#sp-setting-lang-dropdown')) {
+        isLangSelectOpen = false;
+        langDrop.classList.remove('open');
+      }
+    }
+    const lockDrop = document.getElementById('sp-setting-lock-interval-dropdown');
+    if (lockDrop && (lockDrop.classList.contains('open') || isCustomSelectOpen)) {
+      if (!e.target.closest('#sp-setting-lock-interval-dropdown')) {
+        isCustomSelectOpen = false;
+        lockDrop.classList.remove('open');
+      }
+    }
   });
 
   // CSV Import in Item Form
@@ -3108,20 +3146,37 @@ function attachEventHandlers() {
     });
   }
 
-  // Language Selector Handler in Settings
-  document.querySelectorAll('.sp-lang-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const lang = btn.dataset.lang;
-      if (lang && SUPPORTED_LANGUAGES.includes(lang)) {
-        setLanguage(lang);
-        updateState({ language: lang });
-        const cfg = await getStoredConfig();
-        await saveStoredConfig({ ...cfg, language: lang });
-        showToast(t('toasts.language_changed'));
-        render();
+  // Custom Select Dropdown for Language in Settings
+  const customLangSelect = document.getElementById('sp-setting-lang-dropdown');
+  const customLangTrigger = document.getElementById('sp-custom-lang-trigger');
+  if (customLangSelect && customLangTrigger) {
+    customLangTrigger.addEventListener('click', e => {
+      e.stopPropagation();
+      isLangSelectOpen = !isLangSelectOpen;
+      customLangSelect.classList.toggle('open', isLangSelectOpen);
+      const lockDrop = document.getElementById('sp-setting-lock-interval-dropdown');
+      if (lockDrop && isCustomSelectOpen) {
+        isCustomSelectOpen = false;
+        lockDrop.classList.remove('open');
       }
     });
-  });
+
+    customLangSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
+      opt.addEventListener('click', async e => {
+        e.stopPropagation();
+        const lang = opt.dataset.val;
+        isLangSelectOpen = false;
+        if (lang && SUPPORTED_LANGUAGES.includes(lang)) {
+          setLanguage(lang);
+          updateState({ language: lang });
+          const cfg = await getStoredConfig();
+          await saveStoredConfig({ ...cfg, language: lang });
+          showToast(t('toasts.language_changed'));
+          render();
+        }
+      });
+    });
+  }
 
   // Theme Toggle Handler in Settings
   const themeToggle = document.getElementById('sp-theme-toggle');
@@ -3663,6 +3718,21 @@ function attachEventHandlers() {
       a.href = url;
       const projName = activeProj?.name ? activeProj.name.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_') : 'passwords';
       a.download = `simplepass-${projName}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const btnDownloadCsvTemplate = document.getElementById('sp-download-csv-template');
+  if (btnDownloadCsvTemplate) {
+    btnDownloadCsvTemplate.addEventListener('click', e => {
+      e.preventDefault();
+      const templateContent = 'login, pass, name, tag, url, note\r\nuser@example.com, P@ssw0rd123!, Google, Work, https://google.com, Primary work account\r\n';
+      const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'simplepass-template.csv';
       a.click();
       URL.revokeObjectURL(url);
     });

@@ -1,0 +1,3 @@
+login, pass, name, tag, url, note
+user@example.com, P@ssw0rd123!, Google, Work, https://google.com, Primary work account
+personal@mail.com, Secure#2026, GitHub, Personal, https://github.com, Personal dev profile

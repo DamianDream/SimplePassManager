@@ -192,10 +192,10 @@ async function runTests() {
   console.log('   ✓ Domain Auto-detection & Priority Sorting verified');
 
   // Test 9: Multilingual Support (EN / RU / UA)
-  console.log('9. Testing Multilingual Translations (EN / RU / UA)...');
+  console.log('9. Testing Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA)...');
   const { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } = await import('../src/core/i18n.js');
 
-  assert.deepStrictEqual(SUPPORTED_LANGUAGES, ['en', 'ru', 'ua']);
+  assert.deepStrictEqual(SUPPORTED_LANGUAGES, ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja']);
 
   setLanguage('en');
   assert.strictEqual(getLanguage(), 'en');
@@ -215,7 +215,31 @@ async function runTests() {
   assert.strictEqual(t('settings.language_label'), 'Мова інтерфейсу');
   assert.strictEqual(t('footer.items_count', { count: 10 }), '10 паролів у базі');
 
-  console.log('   ✓ Multilingual Translations (EN / RU / UA) verified');
+  setLanguage('be');
+  assert.strictEqual(getLanguage(), 'be');
+  assert.strictEqual(t('nav.passwords'), 'Паролі');
+  assert.strictEqual(t('settings.language_label'), 'Мова інтэрфейсу');
+
+  setLanguage('kk');
+  assert.strictEqual(getLanguage(), 'kk');
+  assert.strictEqual(t('nav.passwords'), 'Құпия сөздер');
+  assert.strictEqual(t('settings.language_label'), 'Интерфейс тілі');
+
+  setLanguage('zh');
+  assert.strictEqual(getLanguage(), 'zh');
+  assert.strictEqual(t('nav.passwords'), '密码');
+  assert.strictEqual(t('settings.language_label'), '界面语言');
+
+  setLanguage('ja');
+  assert.strictEqual(getLanguage(), 'ja');
+  assert.strictEqual(t('nav.passwords'), 'パスワード');
+  assert.strictEqual(t('settings.language_label'), '表示言語');
+
+  // Verify CSV template translation link
+  setLanguage('ru');
+  assert.strictEqual(t('settings.csv_template_link'), 'Скачать шаблон CSV для импорта');
+
+  console.log('   ✓ Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA) verified');
 
   // Test 10: Category Color Tone System
   console.log('10. Testing Category Color Tone System...');
