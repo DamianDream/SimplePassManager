@@ -1906,7 +1906,7 @@ function renderSettingsView() {
   const currentLangObj = LANGUAGE_OPTIONS.find(o => o.code === currentLang) || LANGUAGE_OPTIONS[0];
 
   const appearanceHtml = `
-    <div class="sp-setting-row" data-search="language язык мова беларуская қазақша 中文 日本語 english интерфейс switch">
+    <div class="sp-setting-row" data-search="language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english интерфейс switch">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.language_label')}</span>
         <span class="sp-badge-info">${currentLangObj.code.toUpperCase()}</span>
@@ -2294,7 +2294,7 @@ function renderSettingsView() {
       desc: t('settings.appearance_desc_short'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет language язык мова беларуская қазақша 中文 日本語 english'
+      keywords: 'тема оформления темная светлая вид цвет language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english'
     },
     {
       id: 'security',

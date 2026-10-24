@@ -192,10 +192,10 @@ async function runTests() {
   console.log('   ✓ Domain Auto-detection & Priority Sorting verified');
 
   // Test 9: Multilingual Support (EN / RU / UA)
-  console.log('9. Testing Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA)...');
+  console.log('9. Testing Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA / HI)...');
   const { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES } = await import('../src/core/i18n.js');
 
-  assert.deepStrictEqual(SUPPORTED_LANGUAGES, ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja']);
+  assert.deepStrictEqual(SUPPORTED_LANGUAGES, ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'hi']);
 
   setLanguage('en');
   assert.strictEqual(getLanguage(), 'en');
@@ -235,11 +235,16 @@ async function runTests() {
   assert.strictEqual(t('nav.passwords'), 'パスワード');
   assert.strictEqual(t('settings.language_label'), '表示言語');
 
+  setLanguage('hi');
+  assert.strictEqual(getLanguage(), 'hi');
+  assert.strictEqual(t('nav.passwords'), 'पासवर्ड');
+  assert.strictEqual(t('settings.language_label'), 'इंटरफ़ेस भाषा');
+
   // Verify CSV template translation link
   setLanguage('ru');
   assert.strictEqual(t('settings.csv_template_link'), 'Скачать шаблон CSV для импорта');
 
-  console.log('   ✓ Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA) verified');
+  console.log('   ✓ Multilingual Translations (EN / RU / UA / BE / KK / ZH / JA / HI) verified');
 
   // Test 10: Category Color Tone System
   console.log('10. Testing Category Color Tone System...');

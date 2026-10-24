@@ -1,11 +1,11 @@
 /**
  * SimplePass Internationalization (i18n) Engine
- * Supports EN / RU / UA / BE / KK / ZH / JA with instant reactive language switching.
+ * Supports EN / RU / UA / BE / KK / ZH / JA / HI with instant reactive language switching.
  */
 
 import translations from '../locales/translations.json' with { type: 'json' };
 
-export const SUPPORTED_LANGUAGES = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja'];
+export const SUPPORTED_LANGUAGES = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'hi'];
 export const DEFAULT_LANGUAGE = 'ru';
 
 export const LANGUAGE_OPTIONS = [
@@ -15,7 +15,8 @@ export const LANGUAGE_OPTIONS = [
   { code: 'be', name: 'Беларуская', flag: '🇧🇾' },
   { code: 'kk', name: 'Қазақша', flag: '🇰🇿' },
   { code: 'zh', name: '中文', flag: '🇨🇳' },
-  { code: 'ja', name: '日本語', flag: '🇯🇵' }
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' }
 ];
 
 let currentLanguage = DEFAULT_LANGUAGE;
