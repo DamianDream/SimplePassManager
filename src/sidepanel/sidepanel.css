@@ -1,11 +1,11 @@
 :root,
 body.theme-light {
-  --bg-main: #F1F0EC;
-  --bg-surface: #E8E7E2;
+  --bg-main: #F8FAFC;
+  --bg-surface: #F1F5F9;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #E3E2DD;
+  --bg-card-hover: #E2E8F0;
   --bg-input: #FFFFFF;
-  --border-subtle: #D8D6CF;
+  --border-subtle: #E2E8F0;
   --border-focus: #1F1F21;
   --text-main: #1F1F21;
   --text-muted: #5A5A5E;
@@ -33,8 +33,8 @@ body.theme-dark {
   --bg-card-hover: #36363B;
   --bg-input: #18181A;
   --border-subtle: #3A3A40;
-  --border-focus: #F1F0EC;
-  --text-main: #F1F0EC;
+  --border-focus: #F8FAFC;
+  --text-main: #F8FAFC;
   --text-muted: #A1A1A8;
   --text-dim: #71717A;
 

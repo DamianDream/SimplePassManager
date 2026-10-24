@@ -241,7 +241,7 @@ async function init() {
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
 
-  // Apply saved theme (defaults to light: Cloud Dancer #F1F0EC)
+  // Apply saved theme (defaults to light: #F8FAFC)
   const currentTheme = storedConfig.theme || 'light';
   applyTheme(currentTheme);
 
