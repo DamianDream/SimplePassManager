@@ -191,7 +191,7 @@ export function validateTagName(name) {
  */
 export function getItemTags(item) {
   if (!item) return ['Work'];
-  if (Array.isArray(item.tags) && item.tags.length > 0) {
+  if (Array.isArray(item.tags)) {
     return item.tags.filter(t => typeof t === 'string' && t.trim().length > 0);
   }
   if (item.category && typeof item.category === 'string' && item.category.trim().length > 0) {

@@ -104,6 +104,40 @@ let editingTagId = null;
 // Form multi-tags state
 let formSelectedTags = [];
 let currentFormItemId = null;
+let formDraft = null;
+
+function saveFormDraftFromDOM() {
+  const form = document.getElementById('sp-item-form');
+  if (!form) return;
+  const idEl = document.getElementById('sp-item-id');
+  const projEl = document.getElementById('sp-item-project');
+  const titleEl = document.getElementById('sp-item-title');
+  const urlEl = document.getElementById('sp-item-url');
+  const userEl = document.getElementById('sp-item-username');
+  const passEl = document.getElementById('sp-item-password');
+  const notesEl = document.getElementById('sp-item-notes');
+
+  const id = idEl ? idEl.value : '';
+  const isNew = !id;
+
+  formDraft = {
+    isNew,
+    id,
+    projectId: projEl ? projEl.value : '',
+    title: titleEl ? titleEl.value : '',
+    url: urlEl ? urlEl.value : '',
+    username: userEl ? userEl.value : '',
+    password: passEl ? passEl.value : '',
+    notes: notesEl ? notesEl.value : '',
+    tags: Array.isArray(formSelectedTags) ? [...formSelectedTags] : []
+  };
+}
+
+function clearFormDraft() {
+  formDraft = null;
+  formSelectedTags = [];
+  currentFormItemId = null;
+}
 
 // ─── THEME MANAGER ──────────────────────────────────────────────────────────
 
@@ -143,6 +177,10 @@ function updateActiveTabDomain() {
       activeTabDomain = clean;
       activeTabId = tabId;
       if (state.isUnlocked) {
+        if (state.activeTab === 'item-details') {
+          saveFormDraftFromDOM();
+          return;
+        }
         render();
       }
     }
@@ -183,6 +221,15 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
       });
     }
   } catch (_) {}
+}
+
+// Preserve form draft whenever sidepanel loses focus or window is switched
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', () => {
+    if (state && state.activeTab === 'item-details') {
+      saveFormDraftFromDOM();
+    }
+  });
 }
 
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
@@ -1570,27 +1617,47 @@ function renderRecoveryBackupModal() {
 
 function renderItemFormView() {
   const activeProj = getActiveProject();
-  const item = state.selectedItem || {
+  const isNew = !state.selectedItem;
+  const targetFormId = state.selectedItem ? state.selectedItem.id : '__new__';
+
+  const hasValidDraft = formDraft && (
+    (isNew && formDraft.isNew) ||
+    (!isNew && formDraft.id === state.selectedItem.id)
+  );
+
+  if (currentFormItemId !== targetFormId) {
+    currentFormItemId = targetFormId;
+    if (hasValidDraft && Array.isArray(formDraft.tags)) {
+      formSelectedTags = [...formDraft.tags];
+    } else {
+      formSelectedTags = isNew ? [] : getItemTags(state.selectedItem);
+    }
+  }
+
+  const defaultProjId = activeProj ? activeProj.id : (state.projects[0] ? state.projects[0].id : 'proj_default');
+  const baseItem = state.selectedItem || {
     id: '',
-    projectId: activeProj ? activeProj.id : 'proj_default',
+    projectId: defaultProjId,
     title: '',
     username: '',
     password: '',
     url: activeTabDomain ? `https://${activeTabDomain}` : '',
-    category: 'Work',
+    category: '',
     notes: ''
   };
 
-  const isNew = !item.id;
-  const targetFormId = item.id || '__new__';
-  if (currentFormItemId !== targetFormId) {
-    currentFormItemId = targetFormId;
-    formSelectedTags = isNew
-      ? [state.activeCategory !== 'All' ? state.activeCategory : 'Work']
-      : getItemTags(item);
-  }
+  const item = hasValidDraft ? {
+    id: formDraft.id,
+    projectId: formDraft.projectId || baseItem.projectId,
+    title: formDraft.title !== undefined ? formDraft.title : baseItem.title,
+    username: formDraft.username !== undefined ? formDraft.username : baseItem.username,
+    password: formDraft.password !== undefined ? formDraft.password : baseItem.password,
+    url: formDraft.url !== undefined ? formDraft.url : baseItem.url,
+    category: formDraft.tags && formDraft.tags[0] ? formDraft.tags[0] : (baseItem.category || ''),
+    notes: formDraft.notes !== undefined ? formDraft.notes : baseItem.notes
+  } : baseItem;
 
-  const currentProjId = item.projectId || (activeProj ? activeProj.id : (state.projects[0] ? state.projects[0].id : 'proj_default'));
+  const currentProjId = item.projectId || defaultProjId;
   const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
 
   return `
@@ -1655,17 +1722,17 @@ function renderItemFormView() {
 
         <div class="sp-form-group">
           <label class="sp-label">${t('form.title_label')} *</label>
-          <input type="text" id="sp-item-title" class="sp-input" value="${item.title}" placeholder="${t('form.title_placeholder')}" required />
+          <input type="text" id="sp-item-title" class="sp-input" value="${escapeHtml(item.title || '')}" placeholder="${t('form.title_placeholder')}" required />
         </div>
 
         <div class="sp-form-group">
           <label class="sp-label">${t('form.url_label')}</label>
-          <input type="text" id="sp-item-url" class="sp-input" value="${item.url}" placeholder="${t('form.url_placeholder')}" />
+          <input type="text" id="sp-item-url" class="sp-input" value="${escapeHtml(item.url || '')}" placeholder="${t('form.url_placeholder')}" />
         </div>
 
         <div class="sp-form-group">
           <label class="sp-label">${t('form.login_label')}</label>
-          <input type="text" id="sp-item-username" class="sp-input" value="${item.username}" placeholder="${t('form.login_placeholder')}" />
+          <input type="text" id="sp-item-username" class="sp-input" value="${escapeHtml(item.username || '')}" placeholder="${t('form.login_placeholder')}" />
         </div>
 
         <div class="sp-form-group">
@@ -1676,7 +1743,7 @@ function renderItemFormView() {
             </button>
           </div>
           <div class="sp-input-with-action">
-            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" value="${item.password}" required style="padding-right: 36px;" />
+            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" value="${escapeHtml(item.password || '')}" required style="padding-right: 36px;" />
             <button type="button" class="sp-input-action-btn" id="sp-toggle-pwd-vis">
               ${isPasswordVisible ? icons.iEyeOff : icons.iEye}
             </button>
@@ -1720,7 +1787,7 @@ function renderItemFormView() {
 
         <div class="sp-form-group">
           <label class="sp-label">${t('form.notes_label')}</label>
-          <textarea id="sp-item-notes" class="sp-input" rows="3" placeholder="${t('form.notes_placeholder')}">${item.notes || ''}</textarea>
+          <textarea id="sp-item-notes" class="sp-input" rows="3" placeholder="${t('form.notes_placeholder')}">${escapeHtml(item.notes || '')}</textarea>
         </div>
 
         <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top:8px;">
@@ -2362,6 +2429,9 @@ function attachEventHandlers() {
       if (targetNav === 'settings') {
         settingsSearchQuery = '';
       }
+      if (state.activeTab === 'item-details' && targetNav !== 'item-details') {
+        clearFormDraft();
+      }
       updateState({ activeTab: targetNav, selectedItem: null, isProjectSwitcherOpen: false });
     });
   });
@@ -2405,7 +2475,7 @@ function attachEventHandlers() {
   const btnAdd = document.getElementById('sp-btn-add');
   if (btnAdd) {
     btnAdd.addEventListener('click', () => {
-      currentFormItemId = null;
+      clearFormDraft();
       updateState({ activeTab: 'item-details', selectedItem: null, isProjectSwitcherOpen: false });
     });
   }
@@ -2571,6 +2641,7 @@ function attachEventHandlers() {
     const item = state.items.find(i => i.id === id);
 
     card.querySelector('[data-action="view"]')?.addEventListener('click', () => {
+      clearFormDraft();
       updateState({ activeTab: 'item-details', selectedItem: item });
     });
 
@@ -2599,7 +2670,7 @@ function attachEventHandlers() {
   const btnBack = document.getElementById('sp-form-back');
   if (btnBack) {
     btnBack.addEventListener('click', () => {
-      currentFormItemId = null;
+      clearFormDraft();
       updateState({ activeTab: 'vault', selectedItem: null });
     });
   }
@@ -2614,7 +2685,7 @@ function attachEventHandlers() {
   const btnDelete = document.getElementById('sp-form-delete');
   if (btnDelete && state.selectedItem) {
     btnDelete.addEventListener('click', () => {
-      currentFormItemId = null;
+      clearFormDraft();
       deleteItem(state.selectedItem.id);
     });
   }
@@ -2639,6 +2710,7 @@ function attachEventHandlers() {
         pwdInput.type = 'text';
         isPasswordVisible = true;
       }
+      saveFormDraftFromDOM();
     });
   }
 
@@ -2700,6 +2772,7 @@ function attachEventHandlers() {
 
         projectDropdown.style.display = 'none';
         projectSelectWrap.classList.remove('open');
+        saveFormDraftFromDOM();
       });
     });
   }
@@ -2708,8 +2781,12 @@ function attachEventHandlers() {
   document.querySelectorAll('[data-action="remove-form-tag"]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      saveFormDraftFromDOM();
       const tagToRemove = btn.dataset.tag;
       formSelectedTags = formSelectedTags.filter(t => t !== tagToRemove);
+      if (formDraft) {
+        formDraft.tags = [...formSelectedTags];
+      }
       render();
     });
   });
@@ -2771,11 +2848,15 @@ function attachEventHandlers() {
     tagDropdown.querySelectorAll('[data-action="select-dropdown-tag"]').forEach(itemEl => {
       itemEl.addEventListener('click', e => {
         e.stopPropagation();
+        saveFormDraftFromDOM();
         const selTag = itemEl.dataset.tag;
         if (!formSelectedTags.includes(selTag)) {
           formSelectedTags.push(selTag);
         } else {
           formSelectedTags = formSelectedTags.filter(t => t !== selTag);
+        }
+        if (formDraft) {
+          formDraft.tags = [...formSelectedTags];
         }
         tagDropdown.style.display = 'none';
         tagWrap?.classList.remove('open');
@@ -2787,6 +2868,7 @@ function attachEventHandlers() {
     tagDropdown.querySelectorAll('[data-action="create-dropdown-tag"]').forEach(createEl => {
       createEl.addEventListener('click', async e => {
         e.stopPropagation();
+        saveFormDraftFromDOM();
         const newTag = createEl.dataset.tag;
         const validRes = validateTagName(newTag);
         if (!validRes.valid) {
@@ -2811,6 +2893,9 @@ function attachEventHandlers() {
         if (!formSelectedTags.includes(newTag)) {
           formSelectedTags.push(newTag);
         }
+        if (formDraft) {
+          formDraft.tags = [...formSelectedTags];
+        }
         tagDropdown.style.display = 'none';
         tagWrap?.classList.remove('open');
         if (tagInputErr) tagInputErr.style.display = 'none';
@@ -2834,11 +2919,15 @@ function attachEventHandlers() {
         e.preventDefault();
         const val = tagSearchInput.value.trim();
         if (!val) return;
+        saveFormDraftFromDOM();
         const allTags = state.categories.filter(c => c !== 'All');
         const matched = allTags.find(t => t.toLowerCase() === val.toLowerCase());
         if (matched) {
           if (!formSelectedTags.includes(matched)) {
             formSelectedTags.push(matched);
+          }
+          if (formDraft) {
+            formDraft.tags = [...formSelectedTags];
           }
           tagSearchInput.value = '';
           tagDropdown.style.display = 'none';
@@ -2863,6 +2952,9 @@ function attachEventHandlers() {
             categoryColors: state.categoryColors
           });
           formSelectedTags.push(val);
+          if (formDraft) {
+            formDraft.tags = [...formSelectedTags];
+          }
           tagSearchInput.value = '';
           tagDropdown.style.display = 'none';
           document.querySelector('.sp-tag-input-container')?.classList.remove('open');
@@ -2921,7 +3013,7 @@ function attachEventHandlers() {
         await persistVaultChanges();
         notifyStateChange();
         showToast(`Импортировано ${imported.length} паролей в «${activeProj ? activeProj.name : 'базу'}»`);
-        currentFormItemId = null;
+        clearFormDraft();
         updateState({ activeTab: 'vault', selectedItem: null });
       } catch (err) {
         alert('Ошибка импорта CSV: ' + err.message);
@@ -2931,9 +3023,13 @@ function attachEventHandlers() {
 
   const itemForm = document.getElementById('sp-item-form');
   if (itemForm) {
+    itemForm.addEventListener('input', () => {
+      saveFormDraftFromDOM();
+    });
+
     itemForm.addEventListener('submit', e => {
       e.preventDefault();
-      const tags = formSelectedTags.length > 0 ? [...formSelectedTags] : ['Work'];
+      const tags = [...formSelectedTags];
       saveItem({
         id: document.getElementById('sp-item-id').value,
         projectId: document.getElementById('sp-item-project').value,
@@ -2941,11 +3037,11 @@ function attachEventHandlers() {
         url: document.getElementById('sp-item-url').value.trim(),
         username: document.getElementById('sp-item-username').value.trim(),
         password: document.getElementById('sp-item-password').value,
-        category: tags[0] || 'Work',
+        category: tags[0] || '',
         tags,
         notes: document.getElementById('sp-item-notes').value.trim()
       });
-      currentFormItemId = null;
+      clearFormDraft();
     });
   }
 

@@ -268,6 +268,7 @@ async function runTests() {
   // getItemTags
   assert.deepStrictEqual(getItemTags({ tags: ['Finance', 'Crypto'] }), ['Finance', 'Crypto']);
   assert.deepStrictEqual(getItemTags({ category: 'Personal' }), ['Personal']);
+  assert.deepStrictEqual(getItemTags({ tags: [] }), []);
   assert.deepStrictEqual(getItemTags({}), ['Work']);
   assert.deepStrictEqual(getItemTags(null), ['Work']);
   console.log('   ✓ Tag System Validation & Multi-tag Extraction verified');
