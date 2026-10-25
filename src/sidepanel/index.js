@@ -1284,7 +1284,6 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
-            <button class="sp-btn-icon" data-action="export-csv" title="${t('vault.export_csv_btn')}">${icons.iDownload}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="${t('vault.copy_user')}">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="${t('vault.copy_pwd')}">${icons.iKey}</button>
           </div>
@@ -2693,11 +2692,6 @@ function attachEventHandlers() {
       e.stopPropagation();
       copyToClipboard(item.username);
       showToast(t('toasts.login_copied'));
-    });
-
-    card.querySelector('[data-action="export-csv"]')?.addEventListener('click', e => {
-      e.stopPropagation();
-      downloadItemAsCsv(item);
     });
 
     card.querySelector('[data-action="copy-pwd"]')?.addEventListener('click', e => {
