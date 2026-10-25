@@ -23,6 +23,7 @@ export const state = {
   lockInterval: '3days',
   theme: 'light',
   language: 'ru',
+  showCardTags: false,
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,

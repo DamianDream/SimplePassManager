@@ -263,6 +263,7 @@ async function init() {
     lockInterval: storedConfig.lockInterval || '3days',
     theme: currentTheme,
     language: currentLang,
+    showCardTags: storedConfig.showCardTags === true,
     categories: fullCategories,
     categoryColors: userCategoryColors
   });
@@ -1259,6 +1260,18 @@ function renderVaultView() {
           .map(item => {
             const letter = item.title ? item.title[0] : '?';
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
+            let tagsHtml = '';
+            if (state.showCardTags) {
+              const itemTags = getItemTags(item);
+              tagsHtml = itemTags
+                .map(tName => {
+                  const colorDef = getCategoryColorDef(tName, state.categoryColors);
+                  const cssVars = getCategoryCssVars(colorDef);
+                  const label = tName === 'Work' ? t('categories.Work') : (tName === 'Personal' ? t('categories.Personal') : tName);
+                  return `<span class="sp-pill sp-pill-tag-card" data-color-pill="true" style="${cssVars}; pointer-events:none;"><span class="sp-pill-dot" style="background-color:${colorDef.color};"></span><span>${escapeHtml(label)}</span></span>`;
+                })
+                .join('');
+            }
 
             return `
         <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
@@ -1267,6 +1280,7 @@ function renderVaultView() {
             <div class="sp-card-meta">
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
+                ${tagsHtml}
                 ${isMatched ? `<span class="sp-matched-pill" title="${t('vault.current_site')}">${icons.iGlobe} ${t('vault.site_pill')}</span>` : ''}
               </div>
               <span class="sp-card-sub">${escapeHtml(item.username || item.url || t('vault.no_login'))}</span>
@@ -1941,6 +1955,19 @@ function renderSettingsView() {
         ${isDark ? t('settings.theme_dark_desc') : t('settings.theme_light_desc')}
       </p>
     </div>
+
+    <div class="sp-setting-row" data-search="метки теги карточки показывать скрывать отображение tags badge pills cards show hide">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.show_card_tags_label')}</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-show-card-tags-toggle" ${state.showCardTags ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.show_card_tags_desc')}
+      </p>
+    </div>
   `;
 
   // 1. Accordion: Security & Session
@@ -2303,7 +2330,7 @@ function renderSettingsView() {
       desc: t('settings.appearance_desc_short'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english'
+      keywords: 'тема оформления темная светлая вид цвет метки теги карточки tags cards badge language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english'
     },
     {
       id: 'security',
@@ -3201,6 +3228,18 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, theme: newTheme });
       showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
+    });
+  }
+
+  // Show Card Tags Toggle Handler in Settings
+  const cardTagsToggle = document.getElementById('sp-show-card-tags-toggle');
+  if (cardTagsToggle) {
+    cardTagsToggle.addEventListener('change', async e => {
+      const showCardTags = e.target.checked;
+      updateState({ showCardTags });
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({ ...cfg, showCardTags });
+      showToast(showCardTags ? t('toasts.card_tags_shown') : t('toasts.card_tags_hidden'));
     });
   }
 

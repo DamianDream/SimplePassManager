@@ -18,7 +18,8 @@ export const DEFAULT_CONFIG = {
   theme: 'light',
   language: 'ru',
   defaultCategory: 'Work',
-  categories: ['Work', 'Personal']
+  categories: ['Work', 'Personal'],
+  showCardTags: false
 };
 
 const memoryStore = new Map();

@@ -507,6 +507,18 @@ async function runTests() {
   assert.strictEqual(parsedExported.items[0].login.uris[0].uri, 'https://accounts.google.com/signin');
   console.log('   ✓ Bitwarden JSON 2-Way Compatibility verified');
 
+  // Test 15: Show/Hide Card Tags Settings & State
+  console.log('15. Testing Show/Hide Card Tags Setting & Translations...');
+  const { DEFAULT_CONFIG } = await import('../src/core/storage.js');
+  const { state } = await import('../src/core/state.js');
+  assert.strictEqual(DEFAULT_CONFIG.showCardTags, false, 'DEFAULT_CONFIG.showCardTags must default to false');
+  assert.strictEqual(state.showCardTags, false, 'state.showCardTags must default to false');
+  assert(t('settings.show_card_tags_label'), 'Label translation must exist');
+  assert(t('settings.show_card_tags_desc'), 'Desc translation must exist');
+  assert(t('toasts.card_tags_shown'), 'Toast shown translation must exist');
+  assert(t('toasts.card_tags_hidden'), 'Toast hidden translation must exist');
+  console.log('   ✓ Show/Hide Card Tags Setting & Translations verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
