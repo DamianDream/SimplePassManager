@@ -900,10 +900,6 @@ function renderAuthScreen() {
             <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? t('auth.lockout_attempt_error', { current: failedAttempts, max: 3 }) : ''}</div>
           </div>
 
-          <div id="sp-forgot-pwd-wrap" style="text-align:center; margin-top:-4px; margin-bottom:4px; display:${failedAttempts > 0 || isLockedOut ? 'block' : 'none'};">
-            <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
-          </div>
-
           ${isLockedOut ? `
             <button type="button" class="sp-btn-primary" id="sp-btn-goto-recovery" style="justify-content:center; margin-top: 6px;">
               ${icons.iKey} ${t('auth.restore_by_key_btn')}
@@ -912,6 +908,9 @@ function renderAuthScreen() {
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
               ${icons.iUnlock} ${t('auth.unlock_btn')}
             </button>
+            <div id="sp-forgot-pwd-wrap" style="text-align:center; margin-top: 6px;">
+              <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
+            </div>
           `}
         </form>
       </div>
