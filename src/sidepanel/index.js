@@ -22,10 +22,7 @@ import {
   validateMasterPassword,
   generateRecoveryPhrase,
   decryptVaultWithRecovery,
-  rekeyVault,
-  generateTunnelKeyPair,
-  encryptTunnelPayload,
-  decryptTunnelPayload
+  rekeyVault
 } from '../core/crypto.js';
 import {
   getStoredVault,
@@ -158,27 +155,6 @@ function applyTheme(theme) {
   document.body.classList.remove('theme-light', 'theme-dark');
   document.body.classList.add(`theme-${currentTheme}`);
 }
-
-// ─── E2EE BROWSER-TO-BROWSER TUNNEL STATE ───
-// Side A: Sending party (holds secret item, connects to Side B's tunnel)
-let sendTunnelModalState = {
-  isOpen: false,
-  item: null,
-  peerPublicKey: '',
-  encryptedPacket: '',
-  status: 'awaiting_tunnel', // 'awaiting_tunnel' | 'ready_to_send' | 'sent'
-  error: ''
-};
-
-// Side B: Receiving party (opens tunnel, receives encrypted payload into memory)
-let receiveTunnelModalState = {
-  isOpen: false,
-  keyPair: null,
-  tunnelToken: '', // invitation code containing Side B public key
-  status: 'waiting', // 'waiting' | 'received'
-  decryptedItem: null,
-  error: ''
-};
 
 // ─── ACTIVE TAB AUTO-DETECTION ─────────────────────────────────────────────
 
@@ -757,7 +733,6 @@ function render() {
           <span class="sp-header-title" id="sp-header-title">${sectionTitle}</span>
         </div>
         <div class="sp-header-actions">
-          <button class="sp-btn-icon" id="sp-btn-open-tunnel-receive" title="${t('nav.share_tunnel')}">${icons.iLink}</button>
           <button class="sp-btn-icon" id="sp-btn-add" title="${t('nav.add_password')}">${icons.iPlus}</button>
           <button class="sp-btn-icon" id="sp-btn-lock" title="${t('nav.lock_vault')}">${icons.iLock}</button>
         </div>
@@ -813,10 +788,6 @@ function render() {
 
       <!-- PASS CLI Instructions Modal -->
       ${renderPassInstructionsModal()}
-
-      <!-- E2EE Tunnel Modals (Party A Sender & Party B Receiver) -->
-      ${renderSendTunnelModal()}
-      ${renderReceiveTunnelModal()}
 
       <!-- 12-Word Recovery Key Backup Modal (shown on profile creation or recovery rekey) -->
       ${renderRecoveryBackupModal()}
@@ -1202,6 +1173,22 @@ function renderAuthScreen() {
 
 // ─── VAULT VIEW ──────────────────────────────────────────────────────────────
 
+function downloadItemAsCsv(item) {
+  if (!item) return;
+  const csvContent = itemsToCsv([item]);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = (item.title || 'password').replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_');
+  a.download = `${safeName}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(t('toasts.item_csv_exported'));
+}
+
 function renderVaultView() {
   const query = state.searchQuery.toLowerCase().trim();
   const cat = state.activeCategory;
@@ -1297,6 +1284,7 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
+            <button class="sp-btn-icon" data-action="export-csv" title="${t('vault.export_csv_btn')}">${icons.iDownload}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="${t('vault.copy_user')}">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="${t('vault.copy_pwd')}">${icons.iKey}</button>
           </div>
@@ -1588,231 +1576,6 @@ function parseCsvFile(csvContent) {
   return items;
 }
 
-// ─── E2EE BROWSER-TO-BROWSER TUNNEL LOGIC ────────────────────────────────────
-
-/**
- * Side A: Sender initiates sending a password through an E2EE tunnel.
- */
-function openSendTunnelModal(item) {
-  sendTunnelModalState = {
-    isOpen: true,
-    item,
-    peerPublicKey: '',
-    encryptedPacket: '',
-    status: 'awaiting_tunnel',
-    error: ''
-  };
-  render();
-}
-
-function closeSendTunnelModal() {
-  sendTunnelModalState = {
-    isOpen: false,
-    item: null,
-    peerPublicKey: '',
-    encryptedPacket: '',
-    status: 'awaiting_tunnel',
-    error: ''
-  };
-  render();
-}
-
-/**
- * Side B: Receiver creates an ephemeral E2EE tunnel and waits for transmission.
- */
-async function openReceiveTunnelModal() {
-  try {
-    const keyPairInfo = await generateTunnelKeyPair();
-    // Tunnel token encodes Side B's ephemeral ECDH public key
-    const tunnelToken = `SPTUN_KEY:${keyPairInfo.publicKeyBase64}`;
-
-    receiveTunnelModalState = {
-      isOpen: true,
-      keyPair: keyPairInfo.keyPair,
-      tunnelToken,
-      status: 'waiting',
-      decryptedItem: null,
-      error: ''
-    };
-    render();
-  } catch (err) {
-    showToast('Ошибка создания туннеля: ' + err.message);
-  }
-}
-
-function closeReceiveTunnelModal() {
-  // Ephemeral keys are immediately garbage collected and destroyed
-  receiveTunnelModalState = {
-    isOpen: false,
-    keyPair: null,
-    tunnelToken: '',
-    status: 'waiting',
-    decryptedItem: null,
-    error: ''
-  };
-  render();
-}
-
-function renderSendTunnelModal() {
-  if (!sendTunnelModalState.isOpen || !sendTunnelModalState.item) return '';
-
-  const { item, status, encryptedPacket, error } = sendTunnelModalState;
-
-  return `
-    <div class="sp-modal-overlay" id="sp-send-tunnel-overlay" style="z-index: 200;">
-      <div class="sp-modal-content" style="max-width:350px;">
-        <div class="sp-modal-header">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} ${t('tunnel.send_title')}</span>
-          </div>
-          <button class="sp-btn-icon" id="sp-send-tunnel-close" title="${t('nav.close')}">${icons.iX}</button>
-        </div>
-
-        <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-          ${t('tunnel.send_desc', { title: escapeHtml(item.title) })}
-        </div>
-
-        ${status === 'awaiting_tunnel' ? `
-          <div class="sp-tunnel-box">
-            <div class="sp-tunnel-status-bar">
-              <span class="sp-tunnel-pulse-dot"></span>
-              <span>${t('tunnel.step1_title')}</span>
-            </div>
-            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; line-height:1.4;">
-              ${t('tunnel.step1_sub')}
-            </p>
-            <textarea id="sp-send-peer-key-input" class="sp-tunnel-code-area" placeholder="${t('tunnel.tunnel_code_placeholder')}"></textarea>
-            ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
-          </div>
-
-          <button class="sp-btn-primary" id="sp-btn-connect-and-encrypt" style="justify-content:center; width:100%;">
-            ${icons.iZap} ${t('tunnel.connect_encrypt_btn')}
-          </button>
-        ` : `
-          <div class="sp-tunnel-box">
-            <div class="sp-tunnel-status-bar" style="color:var(--success);">
-              <span class="sp-tunnel-pulse-dot success"></span>
-              <span>${t('tunnel.tunnel_ready')}</span>
-            </div>
-            <p style="font-size:11px; color:var(--text-muted); line-height:1.4;">
-              ${t('tunnel.payload_ready_desc')}
-            </p>
-            <textarea readonly class="sp-tunnel-code-area" style="user-select:all;">${encryptedPacket}</textarea>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="sp-btn-primary" id="sp-btn-copy-tunnel-packet" style="justify-content:center; font-size:12px;">
-              ${icons.iCopy} ${t('tunnel.copy_payload_btn')}
-            </button>
-            <button class="sp-btn-secondary" id="sp-btn-close-send-tunnel" style="justify-content:center; font-size:12px;">
-              ${t('tunnel.close_tunnel_btn')}
-            </button>
-          </div>
-        `}
-
-        <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
-          <span class="sp-tunnel-badge">${t('tunnel.zero_knowledge_badge')}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderReceiveTunnelModal() {
-  if (!receiveTunnelModalState.isOpen) return '';
-
-  const { tunnelToken, decryptedItem, error } = receiveTunnelModalState;
-
-  return `
-    <div class="sp-modal-overlay" id="sp-receive-tunnel-overlay" style="z-index: 200;">
-      <div class="sp-modal-content" style="max-width:350px;">
-        <div class="sp-modal-header">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iTunnel} ${t('tunnel.receive_title')}</span>
-          </div>
-          <button class="sp-btn-icon" id="sp-receive-tunnel-close" title="${t('nav.close')}">${icons.iX}</button>
-        </div>
-
-        ${!decryptedItem ? `
-          <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">
-            ${t('tunnel.receive_desc')}
-          </div>
-
-          <div class="sp-tunnel-box">
-            <div class="sp-tunnel-status-bar">
-              <span class="sp-tunnel-pulse-dot"></span>
-              <span>${t('tunnel.waiting_status')}</span>
-            </div>
-            <p style="font-size:11px; color:var(--text-muted); line-height:1.3;">
-              ${t('tunnel.your_key_label')}
-            </p>
-            <textarea readonly class="sp-tunnel-code-area" style="height:54px; user-select:all;">${tunnelToken}</textarea>
-            <button class="sp-btn-secondary" id="sp-btn-copy-tunnel-token" style="justify-content:center; font-size:11px; padding:5px 8px;">
-              ${icons.iCopy} ${t('tunnel.copy_code_btn')}
-            </button>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
-            <label class="sp-label" style="margin:0;">${t('tunnel.received_payload_label')}</label>
-            <textarea id="sp-receive-packet-input" class="sp-tunnel-code-area" placeholder="${t('tunnel.received_payload_placeholder')}"></textarea>
-            ${error ? `<div style="font-size:11px; color:var(--danger);">${escapeHtml(error)}</div>` : ''}
-
-            <button class="sp-btn-primary" id="sp-btn-decrypt-tunnel-packet" style="justify-content:center;">
-              ${icons.iUnlock} ${t('tunnel.decrypt_btn')}
-            </button>
-          </div>
-        ` : `
-          <div class="sp-tunnel-status-bar" style="color:var(--success); margin-bottom:8px;">
-            <span class="sp-tunnel-pulse-dot success"></span>
-            <span>${t('tunnel.received_success')}</span>
-          </div>
-
-          <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px; display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">${t('form.title_label')}:</span>
-              <span style="font-weight:700; color:var(--text-main); font-size:13px;">${escapeHtml(decryptedItem.title)}</span>
-            </div>
-            ${decryptedItem.username ? `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">${t('form.login_label')}:</span>
-              <span style="font-family:monospace; color:var(--text-muted); font-size:12px;">${escapeHtml(decryptedItem.username)}</span>
-            </div>` : ''}
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">${t('form.password_label')}:</span>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span style="font-family:monospace; font-weight:700; color:var(--text-main); font-size:13px;" id="sp-tunnel-decrypted-pwd">${escapeHtml(decryptedItem.password)}</span>
-                <button class="sp-btn-icon" id="sp-btn-copy-tunnel-pwd" title="${t('generator.copy_title')}">${icons.iCopy}</button>
-              </div>
-            </div>
-            ${decryptedItem.url ? `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:11px; color:var(--text-dim);">${t('form.url_label')}:</span>
-              <span style="font-size:11px; color:var(--text-muted);">${escapeHtml(decryptedItem.url)}</span>
-            </div>` : ''}
-            ${decryptedItem.notes ? `
-            <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">
-              ${t('form.notes_label')}: <span style="color:var(--text-muted);">${escapeHtml(decryptedItem.notes)}</span>
-            </div>` : ''}
-          </div>
-
-          <div style="display:flex; gap:8px; margin-top:12px;">
-            <button class="sp-btn-primary" id="sp-btn-save-tunnel-item" style="flex:1; justify-content:center; font-size:12px;">
-              ${icons.iPlus} ${t('tunnel.save_profile_btn')}
-            </button>
-            <button class="sp-btn-secondary" id="sp-btn-finish-tunnel" style="padding:6px 12px; font-size:12px;">
-              ${t('tunnel.close_tunnel_btn')}
-            </button>
-          </div>
-        `}
-
-        <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:10px;">
-          <span class="sp-tunnel-badge">${t('tunnel.closes_notice')}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function renderRecoveryBackupModal() {
   if (!newlyCreatedRecoveryPhrase) return '';
 
@@ -1912,7 +1675,7 @@ function renderItemFormView() {
         </button>
         <h3 style="font-size:14px; font-weight:700;">${isNew ? t('form.new_title') : t('form.edit_title')}</h3>
         <div style="display:flex; gap:6px;">
-          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-share" style="padding:6px 10px;" title="${t('vault.share_action')}">${icons.iLink}</button>` : ''}
+          ${!isNew ? `<button type="button" class="sp-btn-secondary" id="sp-form-export-csv" style="padding:6px 10px;" title="${t('vault.export_csv_btn')}">${icons.iDownload}</button>` : ''}
           ${!isNew ? `<button type="button" class="sp-btn-danger" id="sp-form-delete" style="padding:6px 10px;" title="${t('form.delete_btn')}">${icons.iTrash}</button>` : '<div></div>'}
         </div>
       </div>
@@ -2932,20 +2695,17 @@ function attachEventHandlers() {
       showToast(t('toasts.login_copied'));
     });
 
+    card.querySelector('[data-action="export-csv"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      downloadItemAsCsv(item);
+    });
+
     card.querySelector('[data-action="copy-pwd"]')?.addEventListener('click', e => {
       e.stopPropagation();
       copyToClipboard(item.password);
       showToast(t('toasts.password_copied'));
     });
   });
-
-  // Header receive tunnel button
-  const btnReceiveTunnel = document.getElementById('sp-btn-open-tunnel-receive');
-  if (btnReceiveTunnel) {
-    btnReceiveTunnel.addEventListener('click', () => {
-      openReceiveTunnelModal();
-    });
-  }
 
   // Item form back & delete
   const btnBack = document.getElementById('sp-form-back');
@@ -2956,10 +2716,10 @@ function attachEventHandlers() {
     });
   }
 
-  const btnFormShare = document.getElementById('sp-form-share');
-  if (btnFormShare && state.selectedItem) {
-    btnFormShare.addEventListener('click', () => {
-      openSendTunnelModal(state.selectedItem);
+  const btnFormExportCsv = document.getElementById('sp-form-export-csv');
+  if (btnFormExportCsv && state.selectedItem) {
+    btnFormExportCsv.addEventListener('click', () => {
+      downloadItemAsCsv(state.selectedItem);
     });
   }
 
@@ -3730,144 +3490,6 @@ function attachEventHandlers() {
       render();
     });
   });
-
-  // ─── E2EE Tunnel Send Modal Listeners (Side A) ───
-  const sendTunnelCloseBtn = document.getElementById('sp-send-tunnel-close');
-  const sendTunnelOverlay = document.getElementById('sp-send-tunnel-overlay');
-  const btnCloseSendTunnel = document.getElementById('sp-btn-close-send-tunnel');
-
-  [sendTunnelCloseBtn, btnCloseSendTunnel].forEach(btn => {
-    if (btn) {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        closeSendTunnelModal();
-      });
-    }
-  });
-
-  if (sendTunnelOverlay) {
-    sendTunnelOverlay.addEventListener('click', e => {
-      if (e.target === sendTunnelOverlay) closeSendTunnelModal();
-    });
-  }
-
-  const btnConnectAndEncrypt = document.getElementById('sp-btn-connect-and-encrypt');
-  if (btnConnectAndEncrypt && sendTunnelModalState.item) {
-    btnConnectAndEncrypt.addEventListener('click', async () => {
-      const rawInput = document.getElementById('sp-send-peer-key-input')?.value.trim();
-      if (!rawInput) {
-        sendTunnelModalState.error = 'Вставьте код или ссылку туннеля принимающей стороны';
-        render();
-        return;
-      }
-
-      let peerPublicKey = rawInput;
-      if (rawInput.startsWith('SPTUN_KEY:')) {
-        peerPublicKey = rawInput.slice(10).trim();
-      }
-
-      try {
-        const { tunnelPacket } = await encryptTunnelPayload(sendTunnelModalState.item, peerPublicKey);
-        sendTunnelModalState.peerPublicKey = peerPublicKey;
-        sendTunnelModalState.encryptedPacket = tunnelPacket;
-        sendTunnelModalState.status = 'ready_to_send';
-        sendTunnelModalState.error = '';
-        render();
-      } catch (err) {
-        sendTunnelModalState.error = 'Не удалось подключиться к туннелю: ' + err.message;
-        render();
-      }
-    });
-  }
-
-  const btnCopyTunnelPacket = document.getElementById('sp-btn-copy-tunnel-packet');
-  if (btnCopyTunnelPacket && sendTunnelModalState.encryptedPacket) {
-    btnCopyTunnelPacket.addEventListener('click', () => {
-      copyToClipboard(sendTunnelModalState.encryptedPacket);
-      showToast(t('toasts.tunnel_packet_copied'));
-    });
-  }
-
-  // ─── E2EE Tunnel Receive Modal Listeners (Side B) ───
-  const receiveTunnelCloseBtn = document.getElementById('sp-receive-tunnel-close');
-  const receiveTunnelOverlay = document.getElementById('sp-receive-tunnel-overlay');
-  const btnFinishTunnel = document.getElementById('sp-btn-finish-tunnel');
-
-  [receiveTunnelCloseBtn, btnFinishTunnel].forEach(btn => {
-    if (btn) {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        closeReceiveTunnelModal();
-      });
-    }
-  });
-
-  if (receiveTunnelOverlay) {
-    receiveTunnelOverlay.addEventListener('click', e => {
-      if (e.target === receiveTunnelOverlay) closeReceiveTunnelModal();
-    });
-  }
-
-  const btnCopyTunnelToken = document.getElementById('sp-btn-copy-tunnel-token');
-  if (btnCopyTunnelToken && receiveTunnelModalState.tunnelToken) {
-    btnCopyTunnelToken.addEventListener('click', () => {
-      copyToClipboard(receiveTunnelModalState.tunnelToken);
-      showToast(t('toasts.tunnel_token_copied'));
-    });
-  }
-
-  const btnDecryptTunnelPacket = document.getElementById('sp-btn-decrypt-tunnel-packet');
-  if (btnDecryptTunnelPacket && receiveTunnelModalState.keyPair) {
-    btnDecryptTunnelPacket.addEventListener('click', async () => {
-      const rawPacket = document.getElementById('sp-receive-packet-input')?.value.trim();
-      if (!rawPacket) {
-        receiveTunnelModalState.error = 'Вставьте полученный зашифрованный пакет из туннеля';
-        render();
-        return;
-      }
-
-      try {
-        const decrypted = await decryptTunnelPayload(rawPacket, receiveTunnelModalState.keyPair.privateKey);
-        receiveTunnelModalState.decryptedItem = decrypted;
-        receiveTunnelModalState.status = 'received';
-        receiveTunnelModalState.error = '';
-        render();
-      } catch (err) {
-        receiveTunnelModalState.error = 'Ошибка расшифровки туннеля: ' + err.message;
-        render();
-      }
-    });
-  }
-
-  const btnCopyTunnelPwd = document.getElementById('sp-btn-copy-tunnel-pwd');
-  if (btnCopyTunnelPwd && receiveTunnelModalState.decryptedItem) {
-    btnCopyTunnelPwd.addEventListener('click', () => {
-      copyToClipboard(receiveTunnelModalState.decryptedItem.password);
-      showToast(t('toasts.password_copied'));
-    });
-  }
-
-  const btnSaveTunnelItem = document.getElementById('sp-btn-save-tunnel-item');
-  if (btnSaveTunnelItem && receiveTunnelModalState.decryptedItem) {
-    btnSaveTunnelItem.addEventListener('click', async () => {
-      const activeProj = getActiveProject();
-      const itemToSave = {
-        id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        projectId: activeProj ? activeProj.id : 'proj_default',
-        title: receiveTunnelModalState.decryptedItem.title || 'Полученный пароль',
-        username: receiveTunnelModalState.decryptedItem.username || '',
-        password: receiveTunnelModalState.decryptedItem.password || '',
-        url: receiveTunnelModalState.decryptedItem.url || '',
-        notes: receiveTunnelModalState.decryptedItem.notes || '',
-        category: 'Work',
-        updatedAt: new Date().toISOString()
-      };
-      state.items.push(itemToSave);
-      await persistVaultChanges();
-      closeReceiveTunnelModal();
-      showToast(`Пароль сохранён в «${activeProj ? activeProj.name : 'базу'}»!`);
-    });
-  }
 
   const btnToggleChangePwd = document.getElementById('sp-btn-toggle-change-pwd');
   if (btnToggleChangePwd) {

@@ -85,48 +85,31 @@ async function runTests() {
   assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Should pass: 11 chars + #');
   console.log('   ✓ Master password policy verified');
 
-  // Test 6: Browser-to-Browser E2EE Tunnel (ECDH P-256 + AES-256-GCM)
-  console.log('6. Testing Browser-to-Browser E2EE Tunnel (ECDH P-256 + AES-256-GCM)...');
-  const {
-    generateTunnelKeyPair,
-    encryptTunnelPayload,
-    decryptTunnelPayload
-  } = await import('../src/core/crypto.js');
-
-  // Party B creates receiving tunnel keypair and exports public key
-  const receiverTunnel = await generateTunnelKeyPair();
-  assert(receiverTunnel.publicKeyBase64, 'Receiver must produce public key base64');
-
-  const secretItem = {
-    title: 'Secret Server Access',
-    username: 'admin',
-    password: 'UltraSecretPassword2026!',
-    url: 'https://vpn.corp.net',
-    notes: 'Access token 999'
+  // Test 6: Single-Item Unencrypted CSV Quick Export & Parsing
+  console.log('6. Testing Single-Item Unencrypted CSV Quick Export & Parsing...');
+  const quickExportItem = {
+    title: 'Work Email Access',
+    username: 'alice@company.com',
+    password: 'SuperSecretPass2026!',
+    tags: ['Work', 'Important'],
+    url: 'https://mail.company.com',
+    notes: 'Quick export item note'
   };
 
-  // Party A receives Party B's public key, derives shared secret, and encrypts payload
-  const { tunnelPacket, envelope, senderPublicKeyBase64 } = await encryptTunnelPayload(secretItem, receiverTunnel.publicKeyBase64);
-  assert(tunnelPacket.startsWith('SPTUN1:'), 'Tunnel packet must start with SPTUN1:');
-  assert(envelope.spTunnel === true, 'Envelope must flag spTunnel');
-  assert.strictEqual(envelope.senderPub, senderPublicKeyBase64);
+  const singleCsv = itemsToCsv([quickExportItem]);
+  assert(singleCsv.includes('login,pass,name,tag,url,note'), 'CSV header must be present');
+  assert(singleCsv.includes('alice@company.com'), 'Username must be in CSV');
+  assert(singleCsv.includes('SuperSecretPass2026!'), 'Password must be in CSV');
+  assert(singleCsv.includes('Work Email Access'), 'Title must be in CSV');
 
-  // Party B receives packet and decrypts using its private key
-  const decryptedItem = await decryptTunnelPayload(tunnelPacket, receiverTunnel.keyPair.privateKey);
-  assert.strictEqual(decryptedItem.title, secretItem.title);
-  assert.strictEqual(decryptedItem.password, secretItem.password);
-  assert.strictEqual(decryptedItem.username, secretItem.username);
-
-  // Party C (attacker or wrong private key) tries to decrypt packet
-  const fakeReceiver = await generateTunnelKeyPair();
-  let attackerFailed = false;
-  try {
-    await decryptTunnelPayload(tunnelPacket, fakeReceiver.keyPair.privateKey);
-  } catch (_) {
-    attackerFailed = true;
-  }
-  assert(attackerFailed, 'Decryption with wrong private key must fail');
-  console.log('   ✓ E2EE browser-to-browser tunnel handshake verified');
+  const { items: parsedItems } = csvToItems(singleCsv);
+  assert.strictEqual(parsedItems.length, 1, 'Should parse exactly 1 item');
+  assert.strictEqual(parsedItems[0].title, quickExportItem.title);
+  assert.strictEqual(parsedItems[0].username, quickExportItem.username);
+  assert.strictEqual(parsedItems[0].password, quickExportItem.password);
+  assert.strictEqual(parsedItems[0].url, quickExportItem.url);
+  assert.strictEqual(parsedItems[0].notes, quickExportItem.notes);
+  console.log('   ✓ Single-Item unencrypted CSV quick export & round-trip parsed successfully');
 
   // Test 7: 12-Word Recovery Key & Dual-Key Envelope Encryption
   console.log('7. Testing 12-word recovery key and Dual-Key envelope decryption/rekey...');
