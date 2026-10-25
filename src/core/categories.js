@@ -56,16 +56,16 @@ export const CATEGORY_COLORS = {
   },
   green: {
     id: 'green',
-    name: 'Green',
-    color: '#10B981',
-    darkText: '#34D399',
-    lightText: '#047857',
-    bgDark: 'rgba(16, 185, 129, 0.16)',
-    bgLight: 'rgba(16, 185, 129, 0.12)',
-    borderDark: 'rgba(16, 185, 129, 0.35)',
-    borderLight: 'rgba(16, 185, 129, 0.3)',
-    bgDarkActive: 'rgba(16, 185, 129, 0.32)',
-    bgLightActive: 'rgba(16, 185, 129, 0.24)'
+    name: 'Lime',
+    color: '#BADC00',
+    darkText: '#D9F230',
+    lightText: '#4D5E00',
+    bgDark: 'rgba(186, 220, 0, 0.16)',
+    bgLight: 'rgba(186, 220, 0, 0.14)',
+    borderDark: 'rgba(186, 220, 0, 0.35)',
+    borderLight: 'rgba(186, 220, 0, 0.35)',
+    bgDarkActive: 'rgba(186, 220, 0, 0.32)',
+    bgLightActive: 'rgba(186, 220, 0, 0.26)'
   },
   red: {
     id: 'red',

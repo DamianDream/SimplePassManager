@@ -241,6 +241,7 @@ async function runTests() {
   assert(Object.keys(CATEGORY_COLORS).length >= 8, 'Must have at least 8 curated color tones');
   assert.strictEqual(getCategoryColorDef('Work').id, 'blue', 'Default Work category must be blue');
   assert.strictEqual(getCategoryColorDef('Personal').id, 'green', 'Default Personal category must be green');
+  assert.strictEqual(CATEGORY_COLORS.green.color, '#BADC00', 'Green/Lime color tone must be #BADC00');
 
   // Custom assigned category color
   const customDefs = { Finance: 'amber', Crypto: 'purple' };

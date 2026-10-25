@@ -11,10 +11,10 @@ body.theme-light {
   --text-muted: #5A5A5E;
   --text-dim: #8A8A90;
 
-  --accent: #12B981;
-  --accent-hover: #059669;
-  --accent-glow: rgba(18, 185, 129, 0.25);
-  --accent-text: #ffffff;
+  --accent: #BADC00;
+  --accent-hover: #A6C500;
+  --accent-glow: rgba(186, 220, 0, 0.25);
+  --accent-text: #1F1F21;
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -38,10 +38,10 @@ body.theme-dark {
   --text-muted: #A1A1A8;
   --text-dim: #71717A;
 
-  --accent: #12B981;
-  --accent-hover: #059669;
-  --accent-glow: rgba(18, 185, 129, 0.25);
-  --accent-text: #ffffff;
+  --accent: #BADC00;
+  --accent-hover: #A6C500;
+  --accent-glow: rgba(186, 220, 0, 0.25);
+  --accent-text: #1F1F21;
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -560,13 +560,13 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
 /* ─── DOMAIN MATCH HIGHLIGHT ───────────────────── */
 .sp-card.sp-card-matched {
   border: 1.5px solid var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-glow), 0 2px 10px rgba(18, 185, 129, 0.12);
+  box-shadow: 0 0 0 1px var(--accent-glow), 0 2px 10px rgba(186, 220, 0, 0.15);
   position: relative;
 }
 
 .sp-card.sp-card-matched:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 14px rgba(18, 185, 129, 0.22);
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 14px rgba(186, 220, 0, 0.25);
 }
 
 .sp-card-avatar.matched {
