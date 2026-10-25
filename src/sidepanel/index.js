@@ -87,7 +87,7 @@ let newlyCreatedRecoveryPhrase = null;
 let cachedVaultProfiles = [];
 let cachedActiveVaultId = null;
 let isCreatingNewVaultFromLock = false;
-let isVaultDropdownOpen = false;
+let isProfileSelectorViewActive = false;
 
 // Temporary generator options
 let genOptions = {
@@ -1043,9 +1043,75 @@ function renderAuthScreen() {
     return;
   }
 
-  // 4. Normal Lock Screen with database selector, lockout prevention, and inline "Забыли пароль?"
+  // 4. Profile Selector Screen ("Войти в другой профиль")
+  if (isProfileSelectorViewActive) {
+    rootEl.innerHTML = `
+      <div class="sp-auth-screen">
+        <div class="sp-auth-box" style="max-width: 360px;">
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;display:block;object-fit:contain;" alt="Logo" /></div>
+          <h2 class="sp-auth-title">${t('auth.select_profile_title')}</h2>
+          <p class="sp-auth-desc">${t('auth.select_profile_desc')}</p>
+
+          <div class="sp-profile-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px; width:100%;">
+            ${cachedVaultProfiles.map(p => `
+              <div class="sp-profile-select-item ${p.id === cachedActiveVaultId ? 'active' : ''}" data-vault-id="${p.id}">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="font-size:16px;">🗄️</span>
+                  <span style="font-weight:${p.id === cachedActiveVaultId ? '600' : '500'}; font-size:13px; color:var(--text-main);">${p.name}</span>
+                </div>
+                ${p.id === cachedActiveVaultId ? '<span style="color:var(--sp-primary); font-weight:bold; font-size:13px;">✓</span>' : ''}
+              </div>
+            `).join('')}
+          </div>
+
+          <button type="button" class="sp-btn-secondary" id="sp-btn-profile-create-new" style="width:100%; justify-content:center; margin-bottom:10px;">
+            ${icons.iPlus} ${t('auth.create_new_db_btn')}
+          </button>
+
+          <div style="text-align:center;">
+            <button type="button" class="sp-link-btn" id="sp-btn-cancel-profile-select">${t('auth.return_to_login_btn')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.querySelectorAll('.sp-profile-select-item').forEach(el => {
+      el.addEventListener('click', async () => {
+        const vId = el.dataset.vaultId;
+        if (vId && vId !== cachedActiveVaultId) {
+          cachedActiveVaultId = vId;
+          await setActiveVaultId(vId);
+          failedAttempts = 0;
+          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ sp_failed_attempts: 0 });
+          }
+        }
+        isProfileSelectorViewActive = false;
+        renderAuthScreen();
+      });
+    });
+
+    const btnNew = document.getElementById('sp-btn-profile-create-new');
+    if (btnNew) {
+      btnNew.addEventListener('click', () => {
+        isProfileSelectorViewActive = false;
+        isCreatingNewVaultFromLock = true;
+        renderAuthScreen();
+      });
+    }
+
+    const btnCancel = document.getElementById('sp-btn-cancel-profile-select');
+    if (btnCancel) {
+      btnCancel.addEventListener('click', () => {
+        isProfileSelectorViewActive = false;
+        renderAuthScreen();
+      });
+    }
+    return;
+  }
+
+  // 5. Normal Lock Screen with lockout prevention, "Забыли пароль?" and "Войти в другой профиль"
   const isLockedOut = failedAttempts >= 3;
-  const activeProfile = cachedVaultProfiles.find(p => p.id === cachedActiveVaultId) || cachedVaultProfiles[0];
 
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
@@ -1060,40 +1126,6 @@ function renderAuthScreen() {
           </div>
         ` : ''}
 
-        ${cachedVaultProfiles.length > 0 ? `
-          <div class="sp-vault-selector-container" style="width:100%; margin-bottom:12px; position:relative; text-align:left;">
-            <div style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
-              ${t('auth.select_db_label')}
-            </div>
-            <div class="sp-custom-select ${isVaultDropdownOpen ? 'open' : ''}" id="sp-vault-select">
-              <button type="button" class="sp-custom-select-trigger" id="sp-vault-select-trigger" style="font-size:13px; font-weight:500;">
-                <span class="sp-custom-select-value" style="display:flex; align-items:center; gap:6px;">
-                  <span style="font-size:14px;">🗄️</span>
-                  <span>${activeProfile ? activeProfile.name : 'Основная база'}</span>
-                </span>
-                <span class="sp-custom-select-arrow">▾</span>
-              </button>
-              <div class="sp-custom-select-dropdown" id="sp-vault-select-dropdown" style="max-height:180px;">
-                ${cachedVaultProfiles.map(p => `
-                  <div class="sp-custom-select-option ${p.id === activeProfile?.id ? 'selected' : ''}" data-vault-id="${p.id}">
-                    <span style="display:flex; align-items:center; gap:6px;">
-                      <span style="font-size:13px;">🗄️</span>
-                      <span>${p.name}</span>
-                    </span>
-                    ${p.id === activeProfile?.id ? '<span style="color:var(--sp-primary); font-size:12px; font-weight:bold;">✓</span>' : ''}
-                  </div>
-                `).join('')}
-                <div class="sp-custom-select-option" data-vault-id="__create_new__" style="border-top:1px solid var(--border-subtle); color:var(--sp-primary); font-weight:500;">
-                  <span style="display:flex; align-items:center; gap:6px;">
-                    <span>➕</span>
-                    <span>${t('auth.create_new_db_option')}</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ` : ''}
-
         <form class="sp-auth-form" id="sp-unlock-form" novalidate>
           <div>
             <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
@@ -1104,12 +1136,16 @@ function renderAuthScreen() {
             <button type="button" class="sp-btn-primary" id="sp-btn-goto-recovery" style="justify-content:center; margin-top: 6px;">
               ${icons.iKey} ${t('auth.restore_by_key_btn')}
             </button>
+            <div id="sp-auth-links-wrap" style="text-align:center; margin-top: 10px; display:flex; flex-direction:column; gap:6px; align-items:center;">
+              <button type="button" class="sp-link-btn" id="sp-switch-profile" style="font-size:12px;">${t('auth.switch_profile_btn')}</button>
+            </div>
           ` : `
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
               ${icons.iUnlock} ${t('auth.unlock_btn')}
             </button>
-            <div id="sp-forgot-pwd-wrap" style="text-align:center; margin-top: 6px;">
+            <div id="sp-auth-links-wrap" style="text-align:center; margin-top: 10px; display:flex; flex-direction:column; gap:6px; align-items:center;">
               <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
+              <button type="button" class="sp-link-btn" id="sp-switch-profile" style="color:var(--text-dim); font-size:12px;">${t('auth.switch_profile_btn')}</button>
             </div>
           `}
         </form>
@@ -1117,40 +1153,13 @@ function renderAuthScreen() {
     </div>
   `;
 
-  // Database dropdown triggers & selection
-  const vaultTrigger = document.getElementById('sp-vault-select-trigger');
-  const vaultSelect = document.getElementById('sp-vault-select');
-  if (vaultTrigger && vaultSelect) {
-    vaultTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      isVaultDropdownOpen = !isVaultDropdownOpen;
-      vaultSelect.classList.toggle('open', isVaultDropdownOpen);
+  const switchProfileBtn = document.getElementById('sp-switch-profile');
+  if (switchProfileBtn) {
+    switchProfileBtn.addEventListener('click', () => {
+      isProfileSelectorViewActive = true;
+      renderAuthScreen();
     });
   }
-
-  document.querySelectorAll('#sp-vault-select-dropdown .sp-custom-select-option').forEach(opt => {
-    opt.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const vId = opt.dataset.vaultId;
-      isVaultDropdownOpen = false;
-      if (vId === '__create_new__') {
-        isCreatingNewVaultFromLock = true;
-        renderAuthScreen();
-        return;
-      }
-      if (vId && vId !== cachedActiveVaultId) {
-        cachedActiveVaultId = vId;
-        await setActiveVaultId(vId);
-        failedAttempts = 0;
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ sp_failed_attempts: 0 });
-        }
-        renderAuthScreen();
-      } else {
-        if (vaultSelect) vaultSelect.classList.remove('open');
-      }
-    });
-  });
 
   const unlockInp = document.getElementById('sp-unlock-pwd');
   if (unlockInp) {

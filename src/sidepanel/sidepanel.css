@@ -719,6 +719,29 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   gap: 12px;
 }
 
+.sp-profile-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.sp-profile-select-item:hover {
+  border-color: var(--sp-primary);
+  background: var(--bg-surface);
+}
+
+.sp-profile-select-item.active {
+  border-color: var(--sp-primary);
+  background: var(--bg-surface);
+}
+
 .sp-input {
   width: 100%;
   padding: 10px 12px;
