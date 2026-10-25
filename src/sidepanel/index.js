@@ -1381,12 +1381,11 @@ function renderVaultView() {
             return `
         <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
           <div class="sp-card-left" data-action="view">
-            <div class="sp-card-avatar ${isMatched ? 'matched' : ''}">${avatarContent}</div>
+            <div class="sp-card-avatar">${avatarContent}</div>
             <div class="sp-card-meta">
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
                 ${tagsHtml}
-                ${isMatched ? `<span class="sp-matched-pill" title="${t('vault.current_site')}">${icons.iGlobe} ${t('vault.site_pill')}</span>` : ''}
               </div>
               <span class="sp-card-sub">${escapeHtml(item.username || item.url || t('vault.no_login'))}</span>
             </div>
