@@ -1252,46 +1252,6 @@
       "ja": "JSON/CSVの入出力と復元キー",
       "hi": "JSON/CSV निर्यात, आयात और पुनर्प्राप्ति कुंजी"
     },
-    "export_json_label": {
-      "en": "Encrypted JSON Backup",
-      "ru": "Зашифрованный JSON бэкап",
-      "ua": "Зашифрований JSON бекап",
-      "be": "Экспарт сховішча ў JSON",
-      "kk": "Қойманы JSON форматына экспорттау",
-      "zh": "导出保管库为 JSON",
-      "ja": "保管庫をJSONにエクスポート",
-      "hi": "वॉल्ट को JSON में निर्यात करें"
-    },
-    "export_json_desc": {
-      "en": "Complete snapshot of all databases and passwords encrypted (AES-256-GCM).",
-      "ru": "Полный снимок всех ваших баз и паролей в зашифрованном виде (AES-256-GCM).",
-      "ua": "Повний знімок усіх ваших баз і паролів у зашифрованому вигляді (AES-256-GCM).",
-      "be": "Захаваць усе зашыфраваныя паролі ў адзіны файл бэкапу.",
-      "kk": "Барлық шифрленген құпия сөздерді бір сақтық көшірме файлына сақтау.",
-      "zh": "将所有加密数据保存到备份文件中。",
-      "ja": "すべての暗号化データをバックアップファイルに保存します。",
-      "hi": "सभी एन्क्रिप्टेड पासवर्ड को एक बैकअप फ़ाइल में सहेजें।"
-    },
-    "export_json_btn": {
-      "en": "Export JSON",
-      "ru": "Экспортировать JSON",
-      "ua": "Експортувати JSON",
-      "be": "Экспартаваць JSON",
-      "kk": "JSON экспорттау",
-      "zh": "导出 JSON",
-      "ja": "JSONをエクスポート",
-      "hi": "JSON निर्यात करें"
-    },
-    "csv_unencrypted_label": {
-      "en": "Export/Import unencrypted passwords",
-      "ru": "Export/Import не зашифрованых паролей",
-      "ua": "Export/Import незашифрованих паролів",
-      "be": "Export/Import не зашыфраваных пароляў",
-      "kk": "Export/Import шифрленбеген құпия сөздер",
-      "zh": "导出/导入明文密码 (CSV)",
-      "ja": "非暗号化パスワードのエクスポート/インポート",
-      "hi": "Export/Import सादा पासवर्ड (CSV)"
-    },
     "csv_export_btn": {
       "en": "Export",
       "ru": "Export",
@@ -1331,36 +1291,6 @@
       "zh": "CSV 文件中未找到有效密码",
       "ja": "CSV内に有効なパスワードが見つかりませんでした",
       "hi": "CSV में कोई मान्य पासवर्ड नहीं मिला"
-    },
-    "import_json_label": {
-      "en": "Import Vault from JSON",
-      "ru": "Импорт хранилища из JSON",
-      "ua": "Імпорт сховища з JSON",
-      "be": "Імпарт сховішча з JSON",
-      "kk": "Қойманы JSON-нан импорттау",
-      "zh": "从 JSON 导入保管库",
-      "ja": "JSONから保管庫をインポート",
-      "hi": "JSON से वॉल्ट आयात करें"
-    },
-    "import_json_desc": {
-      "en": "Restore from SimplePass backup or import unencrypted Bitwarden JSON.",
-      "ru": "Восстановление из бэкапа SimplePass или импорт паролей из незашифрованного JSON Bitwarden.",
-      "ua": "Відновлення з бекапу SimplePass або імпорт паролів із незашифрованого JSON Bitwarden.",
-      "be": "Аднаўленне з бэкапу SimplePass або імпарт пароляў з незашыфраванага JSON Bitwarden.",
-      "kk": "SimplePass сақтық көшірмесінен қалпына келтіру немесе шифрленбеген Bitwarden JSON импорттау.",
-      "zh": "从 SimplePass 备份恢复或从未加密的 Bitwarden JSON 导入密码。",
-      "ja": "SimplePassバックアップからの復元、または暗号化されていないBitwarden JSONからのインポート。",
-      "hi": "SimplePass बैकअप से पुनर्स्थापित करें या अनएन्क्रिप्टेड Bitwarden JSON आयात करें।"
-    },
-    "import_choose_file": {
-      "en": "Choose file to import",
-      "ru": "Выбрать файл для импорта",
-      "ua": "Вибрати файл для імпорту",
-      "be": "Выбраць файл JSON/TXT",
-      "kk": "JSON/TXT файлын таңдау",
-      "zh": "选择 JSON/TXT 文件",
-      "ja": "JSON/TXTファイルを選択",
-      "hi": "JSON/TXT फ़ाइल चुनें"
     },
     "recovery_key_label": {
       "en": "Recovery Key (12 Words)",
@@ -1512,15 +1442,65 @@
       "ja": "CSVインポートテンプレートをダウンロード",
       "hi": "आयात के लिए CSV टेम्प्लेट डाउनलोड करें"
     },
-    "export_bitwarden_btn": {
-      "en": "Export Bitwarden (JSON)",
-      "ru": "Экспорт Bitwarden (JSON)",
-      "ua": "Експорт Bitwarden (JSON)",
-      "be": "Экспарт Bitwarden (JSON)",
-      "kk": "Bitwarden экспорт (JSON)",
-      "zh": "导出 Bitwarden (JSON)",
-      "ja": "Bitwardenエクスポート (JSON)",
-      "hi": "Bitwarden निर्यात (JSON)"
+    "export_title": {
+      "en": "Export passwords",
+      "ru": "Экспорт паролей",
+      "ua": "Експорт паролів",
+      "be": "Экспарт пароляў",
+      "kk": "Құпия сөздерді экспорттау",
+      "zh": "导出密码",
+      "ja": "パスワードのエクスポート",
+      "hi": "पासवर्ड निर्यात"
+    },
+    "export_desc": {
+      "en": "Export all passwords in unencrypted format (JSON or CSV).",
+      "ru": "Экспорт всех паролей в незашифрованном виде (JSON или CSV).",
+      "ua": "Експорт усіх паролів у незашифрованому вигляді (JSON або CSV).",
+      "be": "Экспарт усіх пароляў у незашыфраваным выглядзе (JSON або CSV).",
+      "kk": "Барлық құпия сөздерді шифрленбеген түрде экспорттау (JSON немесе CSV).",
+      "zh": "导出所有未加密密码（JSON 或 CSV）。",
+      "ja": "暗号化されていない形式（JSONまたはCSV）ですべてのパスワードをエクスポートします。",
+      "hi": "सभी पासवर्ड अनएन्क्रिप्टेड प्रारूप (JSON या CSV) में निर्यात करें।"
+    },
+    "import_title": {
+      "en": "Import passwords",
+      "ru": "Импорт паролей",
+      "ua": "Імпорт паролів",
+      "be": "Імпарт пароляў",
+      "kk": "Құпия сөздерді импорттау",
+      "zh": "导入密码",
+      "ja": "パスワードのインポート",
+      "hi": "पासवर्ड आयात"
+    },
+    "import_desc": {
+      "en": "Import passwords from JSON (Bitwarden / SimplePass) or CSV file. File type is detected automatically.",
+      "ru": "Импорт паролей из файла JSON (Bitwarden / SimplePass) или CSV. Тип файла определяется автоматически.",
+      "ua": "Імпорт паролів із файлу JSON (Bitwarden / SimplePass) або CSV. Тип файлу визначається автоматично.",
+      "be": "Імпарт пароляў з файла JSON (Bitwarden / SimplePass) або CSV. Тып файла вызначаецца аўтаматычна.",
+      "kk": "JSON (Bitwarden / SimplePass) немесе CSV файлынан құпия сөздерді импорттау. Файл түрі автоматты түрде анықталады.",
+      "zh": "从 JSON（Bitwarden / SimplePass）或 CSV 文件导入密码。系统会自动识别文件类型。",
+      "ja": "JSON（Bitwarden / SimplePass）またはCSVファイルからパスワードをインポートします。ファイル形式は自動検出されます。",
+      "hi": "JSON (Bitwarden / SimplePass) या CSV फ़ाइल से पासवर्ड आयात करें। फ़ाइल प्रकार स्वचालित रूप से पहचाना जाता है।"
+    },
+    "export_csv_success": {
+      "en": "Exported to CSV successfully",
+      "ru": "Экспорт в CSV успешно выполнен",
+      "ua": "Експорт у CSV успішно виконано",
+      "be": "Экспарт у CSV паспяхова выкананы",
+      "kk": "CSV форматында сәтті экспортталды",
+      "zh": "已成功导出为 CSV",
+      "ja": "CSVに正常にエクスポートしました",
+      "hi": "CSV में सफलतापूर्वक निर्यात किया गया"
+    },
+    "export_json_success": {
+      "en": "Exported to JSON successfully",
+      "ru": "Экспорт в JSON успешно выполнен",
+      "ua": "Експорт у JSON успішно виконано",
+      "be": "Экспарт у JSON паспяхова выкананы",
+      "kk": "JSON форматында сәтті экспортталды",
+      "zh": "已成功导出为 JSON",
+      "ja": "JSONに正常にエクスポートしました",
+      "hi": "JSON में सफलतापूर्वक निर्यात किया गया"
     }
   },
   "auth": {

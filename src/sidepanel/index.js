@@ -2212,31 +2212,30 @@ function renderSettingsView() {
 
   // 4. Accordion: Backup & Data Transfer
   const backupHtml = `
-    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать backup export bitwarden битварден">
+    <div class="sp-setting-row" data-search="экспорт export json csv">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${t('settings.export_json_label')}</span>
+        <span class="sp-setting-label">${t('settings.export_title')}</span>
       </div>
-      <p class="sp-setting-desc">${t('settings.export_json_desc')}</p>
-      <div class="sp-setting-control" style="display:flex; gap:8px;">
-        <button class="sp-btn-secondary" id="sp-btn-export-json" style="flex:1; justify-content:center;">
-          ${t('settings.export_json_btn')}
+      <p class="sp-setting-desc">${t('settings.export_desc')}</p>
+      <div class="sp-setting-control" style="display:flex; gap:8px; align-items:center;">
+        <button class="sp-btn-secondary" id="sp-btn-export-unified" style="flex:1; justify-content:center;">
+          ${t('settings.csv_export_btn')}
         </button>
-        <button class="sp-btn-secondary" id="sp-btn-export-bitwarden" style="flex:1; justify-content:center;">
-          ${t('settings.export_bitwarden_btn')}
-        </button>
+        <select id="sp-export-format-select" class="sp-select" style="width:95px; height:34px; padding:6px 8px; font-weight:600; text-align:center;">
+          <option value="json" selected>JSON</option>
+          <option value="csv">CSV</option>
+        </select>
       </div>
     </div>
 
-    <div class="sp-setting-row" data-search="экспорт импорт csv не зашифрованных паролей export import plaintext unencrypted pass txt template шаблон">
+    <div class="sp-setting-row" data-search="импорт import json csv bitwarden">
       <div class="sp-setting-header">
-        <span class="sp-setting-label">${t('settings.csv_unencrypted_label')}</span>
+        <span class="sp-setting-label">${t('settings.import_title')}</span>
       </div>
-      <div class="sp-setting-control" style="display:flex; gap:8px;">
-        <button class="sp-btn-secondary" id="sp-btn-export-csv" style="flex:1; justify-content:center;">
-          ${t('settings.csv_export_btn')}
-        </button>
-        <input type="file" id="sp-import-csv-input" style="display:none;" accept=".csv,text/csv" />
-        <button class="sp-btn-secondary" id="sp-btn-trigger-import-csv" style="flex:1; justify-content:center;">
+      <p class="sp-setting-desc">${t('settings.import_desc')}</p>
+      <div class="sp-setting-control">
+        <input type="file" id="sp-import-unified-file-input" style="display:none;" accept=".json,.csv,text/csv,application/json,.txt" />
+        <button class="sp-btn-secondary" id="sp-btn-trigger-import-unified" style="width:100%; justify-content:center;">
           ${t('settings.csv_import_btn')}
         </button>
       </div>
@@ -2244,19 +2243,6 @@ function renderSettingsView() {
         <a href="#" id="sp-download-csv-template" style="font-size:11px; color:var(--text-dim); text-decoration:underline; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:color 0.15s ease;">
           ${icons.iDownload} ${t('settings.csv_template_link')}
         </a>
-      </div>
-    </div>
-
-    <div class="sp-setting-row" data-search="импорт восстановить загрузить файл backup import">
-      <div class="sp-setting-header">
-        <span class="sp-setting-label">${t('settings.import_json_label')}</span>
-      </div>
-      <p class="sp-setting-desc">${t('settings.import_json_desc')}</p>
-      <div class="sp-setting-control">
-        <input type="file" id="sp-import-file-input" style="display:none;" accept=".json,.txt" />
-        <button class="sp-btn-secondary" id="sp-btn-trigger-import" style="width:100%; justify-content:center;">
-          ${t('settings.import_choose_file')}
-        </button>
       </div>
     </div>
   `;
@@ -3569,53 +3555,37 @@ function attachEventHandlers() {
     });
   }
 
-  const btnExportJson = document.getElementById('sp-btn-export-json');
-  if (btnExportJson) {
-    btnExportJson.addEventListener('click', async () => {
-      const envelope = await getStoredVault();
-      const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `simplepass-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  const btnExportBitwarden = document.getElementById('sp-btn-export-bitwarden');
-  if (btnExportBitwarden) {
-    btnExportBitwarden.addEventListener('click', () => {
+  const btnExportUnified = document.getElementById('sp-btn-export-unified');
+  if (btnExportUnified) {
+    btnExportUnified.addEventListener('click', () => {
+      const formatSelect = document.getElementById('sp-export-format-select');
+      const format = formatSelect ? formatSelect.value : 'json';
       const activeProj = getActiveProject();
       const projectItems = getActiveProjectItems();
       const itemsToExport = projectItems.length > 0 ? projectItems : state.items;
-      const jsonContent = itemsToBitwardenJson(itemsToExport);
-      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `bitwarden-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast(t('toasts.bitwarden_export_success'));
-    });
-  }
-
-  const btnExportCsv = document.getElementById('sp-btn-export-csv');
-  if (btnExportCsv) {
-    btnExportCsv.addEventListener('click', () => {
-      const activeProj = getActiveProject();
-      const projectItems = getActiveProjectItems();
-      const itemsToExport = projectItems.length > 0 ? projectItems : state.items;
-      const csvContent = itemsToCsv(itemsToExport);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
       const projName = activeProj?.name ? activeProj.name.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_') : 'passwords';
-      a.download = `simplepass-${projName}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+
+      if (format === 'csv') {
+        const csvContent = itemsToCsv(itemsToExport);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `passwords-${projName}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(t('settings.export_csv_success'));
+      } else {
+        const jsonContent = itemsToBitwardenJson(itemsToExport);
+        const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `passwords-${projName}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(t('settings.export_json_success'));
+      }
     });
   }
 
@@ -3634,15 +3604,15 @@ function attachEventHandlers() {
     });
   }
 
-  const btnTriggerImportCsv = document.getElementById('sp-btn-trigger-import-csv');
-  const importCsvInput = document.getElementById('sp-import-csv-input');
-  if (btnTriggerImportCsv && importCsvInput) {
-    btnTriggerImportCsv.addEventListener('click', () => {
-      importCsvInput.value = '';
-      importCsvInput.click();
+  const btnTriggerImportUnified = document.getElementById('sp-btn-trigger-import-unified');
+  const importUnifiedFileInput = document.getElementById('sp-import-unified-file-input');
+  if (btnTriggerImportUnified && importUnifiedFileInput) {
+    btnTriggerImportUnified.addEventListener('click', () => {
+      importUnifiedFileInput.value = '';
+      importUnifiedFileInput.click();
     });
 
-    importCsvInput.addEventListener('change', async e => {
+    importUnifiedFileInput.addEventListener('change', async e => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
 
@@ -3652,7 +3622,51 @@ function attachEventHandlers() {
           const content = evt.target.result;
           const activeProj = getActiveProject();
           const targetProjId = activeProj ? activeProj.id : (state.projects[0]?.id || 'proj_default');
-          const { items: importedItems, newCategories } = csvToItems(content, targetProjId);
+          const fileName = (file.name || '').toLowerCase();
+          const isJson = fileName.endsWith('.json') || (!fileName.endsWith('.csv') && content.trim().startsWith('{'));
+
+          let importedItems = [];
+          let newCategories = [];
+
+          if (isJson) {
+            const parsed = JSON.parse(content);
+            if (parsed.encrypted === true && Array.isArray(parsed.items)) {
+              alert(t('toasts.bitwarden_encrypted_err'));
+              return;
+            }
+            if (Array.isArray(parsed.items)) {
+              // Bitwarden export or item list
+              const res = bitwardenJsonToItems(parsed, targetProjId);
+              importedItems = res.items;
+              newCategories = res.newCategories;
+            } else if (Array.isArray(parsed)) {
+              importedItems = parsed.map((item, idx) => ({
+                id: item.id || `item_${Date.now()}_${idx}`,
+                projectId: targetProjId,
+                title: item.title || item.name || 'Untitled',
+                username: item.username || item.login || '',
+                password: item.password || item.pass || '',
+                url: item.url || '',
+                notes: item.notes || '',
+                category: (Array.isArray(item.tags) && item.tags[0]) || item.category || 'Work',
+                tags: Array.isArray(item.tags) && item.tags.length > 0 ? item.tags : [item.category || 'Work'],
+                updatedAt: new Date().toISOString()
+              }));
+            } else if (parsed.projects && Array.isArray(parsed.items)) {
+              importedItems = parsed.items.map(item => ({
+                ...item,
+                projectId: targetProjId
+              }));
+            } else {
+              alert('Неизвестный формат JSON файла');
+              return;
+            }
+          } else {
+            // CSV format
+            const res = csvToItems(content, targetProjId);
+            importedItems = res.items;
+            newCategories = res.newCategories;
+          }
 
           if (!importedItems || importedItems.length === 0) {
             alert(t('settings.csv_import_empty'));
@@ -3677,100 +3691,12 @@ function attachEventHandlers() {
             }
           }
 
-          // Append imported items
           const updatedItems = [...state.items, ...importedItems];
           updateState({ items: updatedItems });
           await persistVaultChanges();
 
           showToast(t('settings.csv_import_success', { count: importedItems.length }));
           render();
-        } catch (err) {
-          alert('Ошибка при импорте CSV: ' + err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
-  }
-
-  const btnTriggerImport = document.getElementById('sp-btn-trigger-import');
-  const importFileInput = document.getElementById('sp-import-file-input');
-  if (btnTriggerImport && importFileInput) {
-    btnTriggerImport.addEventListener('click', () => {
-      importFileInput.value = '';
-      importFileInput.click();
-    });
-
-    importFileInput.addEventListener('change', async e => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async evt => {
-        try {
-          const content = evt.target.result;
-          if (file.name.endsWith('.json') || file.name.endsWith('.txt')) {
-            const parsed = JSON.parse(content);
-            if (parsed.iv && parsed.salt && parsed.ciphertext) {
-              const decrypted = await decryptVault(parsed, state.masterPassword);
-              const normalized = normalizeVaultData(decrypted);
-              updateState({
-                projects: normalized.projects,
-                items: normalized.items
-              });
-              await persistVaultChanges();
-              showToast('Импорт зашифрованного JSON выполнен');
-              render();
-            } else if (parsed.encrypted === true && Array.isArray(parsed.items)) {
-              alert(t('toasts.bitwarden_encrypted_err'));
-            } else if (Array.isArray(parsed.items) && (parsed.encrypted === false || parsed.folders !== undefined || parsed.items.some(i => i.login || i.type !== undefined))) {
-              const activeProj = getActiveProject();
-              const targetProjId = activeProj ? activeProj.id : (state.projects[0]?.id || 'proj_default');
-              const { items: importedItems, newCategories } = bitwardenJsonToItems(parsed, targetProjId);
-
-              if (!importedItems || importedItems.length === 0) {
-                alert('В файле Bitwarden не найдено паролей');
-                return;
-              }
-
-              // Register newly discovered categories/folders
-              if (newCategories && newCategories.length > 0) {
-                let catsChanged = false;
-                newCategories.forEach(tag => {
-                  if (!state.categories.some(c => c.toLowerCase() === tag.toLowerCase())) {
-                    state.categories.push(tag);
-                    catsChanged = true;
-                  }
-                });
-                if (catsChanged) {
-                  const cfg = await getStoredConfig();
-                  await saveStoredConfig({
-                    ...cfg,
-                    categories: state.categories.filter(c => c !== 'All')
-                  });
-                }
-              }
-
-              const updatedItems = [...state.items, ...importedItems];
-              updateState({ items: updatedItems });
-              await persistVaultChanges();
-
-              showToast(t('toasts.bitwarden_import_success', { count: importedItems.length }));
-              render();
-            } else if (parsed.projects && parsed.items) {
-              const normalized = normalizeVaultData(parsed);
-              updateState({
-                projects: normalized.projects,
-                items: normalized.items
-              });
-              await persistVaultChanges();
-              showToast('Импорт данных выполнен');
-              render();
-            } else {
-              alert('Неверный формат JSON файла');
-            }
-          } else {
-            alert('Поддерживаются только .json файлы');
-          }
         } catch (err) {
           alert('Ошибка при импорте: ' + err.message);
         }
