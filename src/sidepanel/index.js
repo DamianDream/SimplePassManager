@@ -108,6 +108,8 @@ let openSections = new Set();
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
 let isLangSelectOpen = false;
+let isExportFormatSelectOpen = false;
+let selectedExportFormat = 'json';
 let selectedNewCatColor = 'amber';
 let activeColorPickerCat = null;
 let editingTagId = null;
@@ -2221,10 +2223,22 @@ function renderSettingsView() {
         <button class="sp-btn-secondary" id="sp-btn-export-unified" style="flex:1; justify-content:center;">
           ${t('settings.csv_export_btn')}
         </button>
-        <select id="sp-export-format-select" class="sp-select" style="width:95px; height:34px; padding:6px 8px; font-weight:600; text-align:center;">
-          <option value="json" selected>JSON</option>
-          <option value="csv">CSV</option>
-        </select>
+        <div class="sp-custom-select sp-custom-select-sm ${isExportFormatSelectOpen ? 'open' : ''}" id="sp-export-format-dropdown" style="width:105px; flex-shrink:0;">
+          <button type="button" class="sp-custom-select-trigger" id="sp-export-format-trigger" aria-haspopup="listbox" aria-expanded="${isExportFormatSelectOpen}">
+            <span class="sp-custom-select-value">${selectedExportFormat.toUpperCase()}</span>
+            <span class="sp-custom-select-arrow">${icons.iChevronDown}</span>
+          </button>
+          <div class="sp-custom-select-dropdown" style="min-width:105px;">
+            <div class="sp-custom-select-option ${selectedExportFormat === 'json' ? 'selected' : ''}" data-val="json" style="font-size:12px; padding:6px 10px;">
+              <span>JSON</span>
+              ${selectedExportFormat === 'json' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${selectedExportFormat === 'csv' ? 'selected' : ''}" data-val="csv" style="font-size:12px; padding:6px 10px;">
+              <span>CSV</span>
+              ${selectedExportFormat === 'csv' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3034,6 +3048,13 @@ function attachEventHandlers() {
         lockDrop.classList.remove('open');
       }
     }
+    const exportDrop = document.getElementById('sp-export-format-dropdown');
+    if (exportDrop && (exportDrop.classList.contains('open') || isExportFormatSelectOpen)) {
+      if (!e.target.closest('#sp-export-format-dropdown')) {
+        isExportFormatSelectOpen = false;
+        exportDrop.classList.remove('open');
+      }
+    }
   });
 
   // CSV Import in Item Form
@@ -3161,6 +3182,11 @@ function attachEventHandlers() {
         isCustomSelectOpen = false;
         lockDrop.classList.remove('open');
       }
+      const exportDrop = document.getElementById('sp-export-format-dropdown');
+      if (exportDrop && isExportFormatSelectOpen) {
+        isExportFormatSelectOpen = false;
+        exportDrop.classList.remove('open');
+      }
     });
 
     customLangSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
@@ -3214,6 +3240,16 @@ function attachEventHandlers() {
       e.stopPropagation();
       isCustomSelectOpen = !isCustomSelectOpen;
       customLockSelect.classList.toggle('open', isCustomSelectOpen);
+      const langDrop = document.getElementById('sp-setting-lang-dropdown');
+      if (langDrop && isLangSelectOpen) {
+        isLangSelectOpen = false;
+        langDrop.classList.remove('open');
+      }
+      const exportDrop = document.getElementById('sp-export-format-dropdown');
+      if (exportDrop && isExportFormatSelectOpen) {
+        isExportFormatSelectOpen = false;
+        exportDrop.classList.remove('open');
+      }
     });
 
     customLockSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
@@ -3229,6 +3265,36 @@ function attachEventHandlers() {
           updateState({ sessionExpiresAt: session.expiresAt });
         }
         showToast('Периодичность проверки обновлена');
+        render();
+      });
+    });
+  }
+
+  // Custom Select Dropdown for Export Format in Settings
+  const customExportSelect = document.getElementById('sp-export-format-dropdown');
+  const customExportTrigger = document.getElementById('sp-export-format-trigger');
+  if (customExportSelect && customExportTrigger) {
+    customExportTrigger.addEventListener('click', e => {
+      e.stopPropagation();
+      isExportFormatSelectOpen = !isExportFormatSelectOpen;
+      customExportSelect.classList.toggle('open', isExportFormatSelectOpen);
+      const langDrop = document.getElementById('sp-setting-lang-dropdown');
+      if (langDrop && isLangSelectOpen) {
+        isLangSelectOpen = false;
+        langDrop.classList.remove('open');
+      }
+      const lockDrop = document.getElementById('sp-setting-lock-interval-dropdown');
+      if (lockDrop && isCustomSelectOpen) {
+        isCustomSelectOpen = false;
+        lockDrop.classList.remove('open');
+      }
+    });
+
+    customExportSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
+      opt.addEventListener('click', e => {
+        e.stopPropagation();
+        selectedExportFormat = opt.dataset.val || 'json';
+        isExportFormatSelectOpen = false;
         render();
       });
     });
@@ -3558,8 +3624,7 @@ function attachEventHandlers() {
   const btnExportUnified = document.getElementById('sp-btn-export-unified');
   if (btnExportUnified) {
     btnExportUnified.addEventListener('click', () => {
-      const formatSelect = document.getElementById('sp-export-format-select');
-      const format = formatSelect ? formatSelect.value : 'json';
+      const format = selectedExportFormat || 'json';
       const activeProj = getActiveProject();
       const projectItems = getActiveProjectItems();
       const itemsToExport = projectItems.length > 0 ? projectItems : state.items;

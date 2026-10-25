@@ -1354,6 +1354,19 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
+.sp-custom-select-sm .sp-custom-select-trigger {
+  min-height: 34px;
+  height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.sp-custom-select-sm .sp-custom-select-value {
+  padding-right: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .sp-custom-select-trigger:hover,
 .sp-select-trigger:hover,
 .sp-custom-select-trigger:focus,
