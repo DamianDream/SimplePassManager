@@ -16,7 +16,7 @@ body.theme-light {
   --accent-glow: rgba(186, 220, 0, 0.25);
   --accent-text: #1F1F21;
 
-  --success: #10b981;
+  --success: #BADC00;
   --warning: #f59e0b;
   --danger: #ef4444;
   --danger-hover: #dc2626;
@@ -43,7 +43,7 @@ body.theme-dark {
   --accent-glow: rgba(186, 220, 0, 0.25);
   --accent-text: #1F1F21;
 
-  --success: #10b981;
+  --success: #BADC00;
   --warning: #f59e0b;
   --danger: #ef4444;
   --danger-hover: #dc2626;
@@ -911,7 +911,7 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
 }
 
 .sp-project-badge.active {
-  border-color: var(--success);
+  border-color: var(--accent);
   color: var(--text-main);
 }
 
@@ -919,8 +919,8 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 6px var(--success);
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
   flex-shrink: 0;
 }
 
@@ -1279,8 +1279,8 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   align-items: center;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: rgba(186, 220, 0, 0.15);
+  color: var(--accent);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.3px;
