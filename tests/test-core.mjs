@@ -386,6 +386,76 @@ async function runTests() {
 
   console.log('   ✓ CSV Export & Import with strict column ordering verified');
 
+  // Test 13: Multi-Vault Profiles, Isolation & Preservation
+  console.log('13. Testing Multi-Vault Profiles & Retention on New Database Creation...');
+  const {
+    getVaultProfiles,
+    getActiveVaultId,
+    setActiveVaultId,
+    getStoredVault,
+    saveStoredVault,
+    createVaultProfile,
+    deleteVaultProfile,
+    clearStoredVault
+  } = await import('../src/core/storage.js');
+
+  // Clear any existing test vault data
+  await clearStoredVault();
+
+  // 1. Initial vault creation
+  const data1 = {
+    version: 2,
+    projects: [{ id: 'proj_1', name: 'Main Project' }],
+    items: [{ id: 'item_1', title: 'Work Login', username: 'work@corp.com' }]
+  };
+  const env1 = await encryptVault(data1, 'MasterSecret123#');
+  await saveStoredVault(env1, 'vault_first');
+
+  let profiles = await getVaultProfiles();
+  assert.strictEqual(profiles.length, 1, 'Should have 1 profile registered');
+  assert.strictEqual(profiles[0].id, 'vault_first');
+
+  // 2. Create second vault (simulating creation from recovery screen when forgotten master password)
+  const data2 = {
+    version: 2,
+    projects: [{ id: 'proj_2', name: 'Personal Project' }],
+    items: [{ id: 'item_2', title: 'Personal Email', username: 'me@home.org' }]
+  };
+  const env2 = await encryptVault(data2, 'NewMasterPass456!');
+  const profile2 = await createVaultProfile('Вторая база', env2);
+
+  profiles = await getVaultProfiles();
+  assert.strictEqual(profiles.length, 2, 'Should now have 2 independent profiles registered');
+  assert.strictEqual(await getActiveVaultId(), profile2.id, 'Active vault should be the newly created vault');
+
+  // 3. Verify that old vault data was NOT deleted or overwritten!
+  const retrievedEnv1 = await getStoredVault('vault_first');
+  assert(retrievedEnv1 !== null, 'First vault envelope must still exist');
+  const decrypted1 = await decryptVault(retrievedEnv1, 'MasterSecret123#');
+  assert.strictEqual(decrypted1.items[0].username, 'work@corp.com', 'Original data in first vault must remain intact');
+
+  // 4. Verify new vault data is decrypted with its own password
+  const retrievedEnv2 = await getStoredVault(profile2.id);
+  assert(retrievedEnv2 !== null, 'Second vault envelope must exist');
+  const decrypted2 = await decryptVault(retrievedEnv2, 'NewMasterPass456!');
+  assert.strictEqual(decrypted2.items[0].username, 'me@home.org', 'Data in second vault must match its own items');
+
+  // 5. Switch active vault back to first vault and verify getStoredVault()
+  await setActiveVaultId('vault_first');
+  assert.strictEqual(await getActiveVaultId(), 'vault_first');
+  const activeEnv = await getStoredVault();
+  const decryptedActive = await decryptVault(activeEnv, 'MasterSecret123#');
+  assert.strictEqual(decryptedActive.items[0].title, 'Work Login');
+
+  // 6. Delete second vault and verify first vault remains completely intact
+  await deleteVaultProfile(profile2.id);
+  profiles = await getVaultProfiles();
+  assert.strictEqual(profiles.length, 1);
+  assert.strictEqual(profiles[0].id, 'vault_first');
+  assert(await getStoredVault('vault_first') !== null, 'First vault remains safe after deleting second vault');
+
+  console.log('   ✓ Multi-Vault Profiles & Retention on New Database Creation verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

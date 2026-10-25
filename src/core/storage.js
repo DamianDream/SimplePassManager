@@ -7,6 +7,8 @@ import { decryptVault, encryptVault } from './crypto.js';
 
 const STORAGE_VAULT_KEY = 'sp_encrypted_vault';
 const STORAGE_CONFIG_KEY = 'sp_user_config';
+export const STORAGE_VAULT_PROFILES_KEY = 'sp_vault_profiles';
+export const STORAGE_ACTIVE_VAULT_ID_KEY = 'sp_active_vault_id';
 
 export const DEFAULT_CONFIG = {
   activeProjectId: 'proj_default',
@@ -19,46 +21,270 @@ export const DEFAULT_CONFIG = {
   categories: ['Work', 'Personal']
 };
 
+const memoryStore = new Map();
+const hasLocalStorage = typeof localStorage !== 'undefined';
+
 const storageAPI = (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local)
   ? chrome.storage.local
   : {
       get: (keys, cb) => {
         const res = {};
+        const getItem = (k) => {
+          if (hasLocalStorage) return localStorage.getItem(k);
+          return memoryStore.has(k) ? memoryStore.get(k) : null;
+        };
         if (Array.isArray(keys)) {
           keys.forEach(k => {
-            const v = localStorage.getItem(k);
+            const v = getItem(k);
             if (v) res[k] = JSON.parse(v);
           });
         } else if (typeof keys === 'string') {
-          const v = localStorage.getItem(keys);
+          const v = getItem(keys);
           if (v) res[keys] = JSON.parse(v);
+        } else if (typeof keys === 'object' && keys !== null) {
+          Object.keys(keys).forEach(k => {
+            const v = getItem(k);
+            res[k] = v ? JSON.parse(v) : keys[k];
+          });
         }
         cb(res);
       },
       set: (obj, cb) => {
         Object.entries(obj).forEach(([k, v]) => {
-          localStorage.setItem(k, JSON.stringify(v));
+          const serialized = JSON.stringify(v);
+          if (hasLocalStorage) {
+            localStorage.setItem(k, serialized);
+          } else {
+            memoryStore.set(k, serialized);
+          }
         });
         if (cb) cb();
       },
       remove: (key, cb) => {
-        localStorage.removeItem(key);
+        const removeKey = (k) => {
+          if (hasLocalStorage) {
+            localStorage.removeItem(k);
+          } else {
+            memoryStore.delete(k);
+          }
+        };
+        if (Array.isArray(key)) {
+          key.forEach(removeKey);
+        } else {
+          removeKey(key);
+        }
         if (cb) cb();
       }
     };
 
-export function getStoredVault() {
+/**
+ * Returns all registered vault profiles.
+ * Backwards compatible: if legacy sp_encrypted_vault exists without profiles,
+ * a default profile is synthesized and registered.
+ */
+export function getVaultProfiles() {
   return new Promise(resolve => {
-    storageAPI.get(STORAGE_VAULT_KEY, res => {
-      resolve(res[STORAGE_VAULT_KEY] || null);
+    storageAPI.get([STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY], res => {
+      let profiles = res[STORAGE_VAULT_PROFILES_KEY];
+      const legacyVault = res[STORAGE_VAULT_KEY];
+
+      if ((!profiles || profiles.length === 0) && legacyVault) {
+        profiles = [
+          {
+            id: 'vault_default',
+            name: 'Основная база',
+            storageKey: STORAGE_VAULT_KEY,
+            createdAt: new Date().toISOString()
+          }
+        ];
+        storageAPI.set({
+          [STORAGE_VAULT_PROFILES_KEY]: profiles,
+          [STORAGE_ACTIVE_VAULT_ID_KEY]: 'vault_default'
+        }, () => {
+          resolve(profiles);
+        });
+        return;
+      }
+
+      resolve(profiles && Array.isArray(profiles) ? profiles : []);
     });
   });
 }
 
-export function saveStoredVault(envelope) {
+/**
+ * Returns the currently active vault profile ID.
+ */
+export function getActiveVaultId() {
   return new Promise(resolve => {
-    storageAPI.set({ [STORAGE_VAULT_KEY]: envelope }, () => {
+    storageAPI.get([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY], res => {
+      const activeId = res[STORAGE_ACTIVE_VAULT_ID_KEY];
+      const profiles = res[STORAGE_VAULT_PROFILES_KEY] || [];
+
+      if (activeId && profiles.some(p => p.id === activeId)) {
+        resolve(activeId);
+        return;
+      }
+      if (profiles.length > 0) {
+        resolve(profiles[0].id);
+        return;
+      }
+      if (res[STORAGE_VAULT_KEY]) {
+        resolve('vault_default');
+        return;
+      }
+      resolve(null);
+    });
+  });
+}
+
+/**
+ * Sets the active vault profile ID.
+ */
+export function setActiveVaultId(vaultId) {
+  return new Promise(resolve => {
+    storageAPI.set({ [STORAGE_ACTIVE_VAULT_ID_KEY]: vaultId }, () => {
       resolve();
+    });
+  });
+}
+
+/**
+ * Reads encrypted vault envelope from storage.
+ * If vaultId is provided, reads that specific vault; otherwise reads active vault.
+ */
+export async function getStoredVault(vaultId) {
+  const profiles = await getVaultProfiles();
+  let targetKey = STORAGE_VAULT_KEY;
+
+  if (vaultId) {
+    const found = profiles.find(p => p.id === vaultId);
+    if (found) targetKey = found.storageKey;
+  } else {
+    const activeId = await getActiveVaultId();
+    if (activeId) {
+      const found = profiles.find(p => p.id === activeId);
+      if (found) targetKey = found.storageKey;
+    }
+  }
+
+  return new Promise(resolve => {
+    storageAPI.get(targetKey, res => {
+      if (res[targetKey] !== undefined && res[targetKey] !== null) {
+        resolve(res[targetKey]);
+      } else if (targetKey !== STORAGE_VAULT_KEY) {
+        storageAPI.get(STORAGE_VAULT_KEY, legacyRes => {
+          resolve(legacyRes[STORAGE_VAULT_KEY] || null);
+        });
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Saves encrypted vault envelope to storage.
+ * Updates target vault without modifying other vaults.
+ */
+export async function saveStoredVault(envelope, vaultId) {
+  let targetVaultId = vaultId || (await getActiveVaultId());
+  let profiles = await getVaultProfiles();
+
+  if (!targetVaultId) {
+    targetVaultId = 'vault_default';
+  }
+
+  let profile = profiles.find(p => p.id === targetVaultId);
+  let storageKey = profile
+    ? profile.storageKey
+    : (targetVaultId === 'vault_default' ? STORAGE_VAULT_KEY : `sp_vault_${targetVaultId}`);
+
+  if (!profile) {
+    profile = {
+      id: targetVaultId,
+      name: 'Основная база',
+      storageKey,
+      createdAt: new Date().toISOString()
+    };
+    profiles = [...profiles, profile];
+  }
+
+  return new Promise(resolve => {
+    storageAPI.set({
+      [storageKey]: envelope,
+      [STORAGE_VAULT_PROFILES_KEY]: profiles,
+      [STORAGE_ACTIVE_VAULT_ID_KEY]: targetVaultId
+    }, () => {
+      resolve(profile);
+    });
+  });
+}
+
+/**
+ * Creates a brand new vault profile and stores its initial envelope.
+ * Leaves all existing vault databases completely untouched!
+ */
+export async function createVaultProfile(name, envelope) {
+  const profiles = await getVaultProfiles();
+  const id = 'vault_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+  const storageKey = `sp_vault_${id}`;
+  const profileName = (name && name.trim()) || `База ${profiles.length + 1}`;
+
+  const newProfile = {
+    id,
+    name: profileName,
+    storageKey,
+    createdAt: new Date().toISOString()
+  };
+
+  const updatedProfiles = [...profiles, newProfile];
+
+  return new Promise(resolve => {
+    storageAPI.set({
+      [storageKey]: envelope,
+      [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles,
+      [STORAGE_ACTIVE_VAULT_ID_KEY]: id
+    }, () => {
+      resolve(newProfile);
+    });
+  });
+}
+
+/**
+ * Deletes a specific vault profile and its stored data.
+ * If the active vault was deleted, points active to an existing profile.
+ */
+export async function deleteVaultProfile(vaultId) {
+  const profiles = await getVaultProfiles();
+  const targetIndex = profiles.findIndex(p => p.id === vaultId);
+  if (targetIndex === -1) return profiles;
+
+  const targetProfile = profiles[targetIndex];
+  const updatedProfiles = profiles.filter(p => p.id !== vaultId);
+
+  const activeId = await getActiveVaultId();
+  let nextActiveId = activeId;
+  if (activeId === vaultId) {
+    nextActiveId = updatedProfiles.length > 0 ? updatedProfiles[0].id : null;
+  }
+
+  return new Promise(resolve => {
+    storageAPI.remove(targetProfile.storageKey, () => {
+      const updates = {
+        [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles
+      };
+      if (nextActiveId) {
+        updates[STORAGE_ACTIVE_VAULT_ID_KEY] = nextActiveId;
+      }
+      storageAPI.set(updates, () => {
+        if (!nextActiveId) {
+          storageAPI.remove([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_KEY], () => {
+            resolve(updatedProfiles);
+          });
+        } else {
+          resolve(updatedProfiles);
+        }
+      });
     });
   });
 }
@@ -79,9 +305,20 @@ export function saveStoredConfig(config) {
   });
 }
 
-export function clearStoredVault() {
+/**
+ * Completely wipes all vault databases and profiles from storage.
+ */
+export async function clearStoredVault() {
+  const profiles = await getVaultProfiles();
+  const keysToRemove = [STORAGE_VAULT_KEY, STORAGE_VAULT_PROFILES_KEY, STORAGE_ACTIVE_VAULT_ID_KEY];
+  profiles.forEach(p => {
+    if (p.storageKey && !keysToRemove.includes(p.storageKey)) {
+      keysToRemove.push(p.storageKey);
+    }
+  });
+
   return new Promise(resolve => {
-    storageAPI.remove(STORAGE_VAULT_KEY, () => {
+    storageAPI.remove(keysToRemove, () => {
       resolve();
     });
   });
@@ -130,9 +367,9 @@ export function normalizeVaultData(data, initialProjectName = 'main') {
  * Verifies if entered password can decrypt current stored vault.
  * Returns true if valid, false otherwise.
  */
-export async function verifyMasterPassword(enteredPassword) {
+export async function verifyMasterPassword(enteredPassword, vaultId) {
   try {
-    const envelope = await getStoredVault();
+    const envelope = await getStoredVault(vaultId);
     if (!envelope) return false;
     await decryptVault(envelope, enteredPassword);
     return true;

@@ -38,7 +38,12 @@ import {
   itemToPassFormat,
   passFormatToItem,
   itemsToCsv,
-  csvToItems
+  csvToItems,
+  getVaultProfiles,
+  getActiveVaultId,
+  setActiveVaultId,
+  createVaultProfile,
+  deleteVaultProfile
 } from '../core/storage.js';
 import { createSession, restoreSession, destroySession, LOCK_INTERVALS } from '../core/session.js';
 import { generatePassword, evaluatePasswordStrength } from '../core/generator.js';
@@ -77,6 +82,12 @@ let isDrawerOpen = false;
 let failedAttempts = 0;
 let isRecoveryViewActive = false;
 let newlyCreatedRecoveryPhrase = null;
+
+// Multi-Vault profiles state
+let cachedVaultProfiles = [];
+let cachedActiveVaultId = null;
+let isCreatingNewVaultFromLock = false;
+let isVaultDropdownOpen = false;
 
 // Temporary generator options
 let genOptions = {
@@ -238,6 +249,9 @@ if (typeof window !== 'undefined') {
 async function init() {
   // Auto-detect active website domain immediately
   updateActiveTabDomain();
+
+  cachedVaultProfiles = await getVaultProfiles();
+  cachedActiveVaultId = await getActiveVaultId();
 
   const storedVault = await getStoredVault();
   const storedConfig = await getStoredConfig();
@@ -438,6 +452,8 @@ async function handleCreateVault(projectName, password, confirmPassword) {
   const recoveryPhrase = generateRecoveryPhrase();
   const encrypted = await encryptVault(initialData, password, recoveryPhrase);
   await saveStoredVault(encrypted);
+  cachedVaultProfiles = await getVaultProfiles();
+  cachedActiveVaultId = await getActiveVaultId();
   await saveStoredConfig({
     activeProjectId: projId,
     latestProjectId: projId,
@@ -452,6 +468,80 @@ async function handleCreateVault(projectName, password, confirmPassword) {
 
   // Display 12-word recovery phrase modal to user before final unlock
   newlyCreatedRecoveryPhrase = recoveryPhrase;
+  updateState({
+    isInitialized: true,
+    isUnlocked: true,
+    masterPassword: password,
+    projects: initialData.projects,
+    items: initialData.items,
+    activeProjectId: projId,
+    sessionExpiresAt: session.expiresAt
+  });
+}
+
+async function handleCreateAdditionalVault(projectName, password, confirmPassword) {
+  clearFieldErrors();
+
+  const pwdVal = validateMasterPassword(password);
+  if (!pwdVal.valid) {
+    showFieldError('sp-new-db-pwd', 'sp-err-new-db-pwd', pwdVal.error);
+    return;
+  }
+  if (password !== confirmPassword) {
+    showFieldError('sp-new-db-pwd2', 'sp-err-new-db-pwd2', 'Введенные пароли не совпадают');
+    return;
+  }
+
+  const projId = 'proj_' + Date.now();
+  const now = new Date().toISOString();
+  const dbName = (projectName && projectName.trim()) || `База ${cachedVaultProfiles.length + 1}`;
+
+  const initialProject = {
+    id: projId,
+    name: dbName,
+    type: 'browser',
+    createdAt: now,
+    updatedAt: now
+  };
+
+  const initialData = {
+    version: 2,
+    createdAt: now,
+    updatedAt: now,
+    projects: [initialProject],
+    items: [
+      {
+        id: 'item_sample_1',
+        projectId: projId,
+        title: 'SimplePass',
+        username: 'user@example.com',
+        password: generatePassword({ length: 24 }),
+        url: 'https://example.com',
+        category: 'Work',
+        notes: 'Начальная запись новой базы данных',
+        updatedAt: now
+      }
+    ]
+  };
+
+  const recoveryPhrase = generateRecoveryPhrase();
+  const encrypted = await encryptVault(initialData, password, recoveryPhrase);
+
+  // Creates separate vault profile without touching existing vaults
+  const newProfile = await createVaultProfile(dbName, encrypted);
+  cachedVaultProfiles = await getVaultProfiles();
+  cachedActiveVaultId = newProfile.id;
+
+  const session = await createSession(password, '3days');
+  failedAttempts = 0;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({ sp_failed_attempts: 0 });
+  }
+
+  isCreatingNewVaultFromLock = false;
+  isRecoveryViewActive = false;
+  newlyCreatedRecoveryPhrase = recoveryPhrase;
+
   updateState({
     isInitialized: true,
     isUnlocked: true,
@@ -764,6 +854,7 @@ function renderActiveTabContent() {
 // ─── AUTH SCREEN (LOCK / FIRST RUN) ──────────────────────────────────────────
 
 function renderAuthScreen() {
+  // 1. First-time initialization screen
   if (!state.isInitialized) {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
@@ -816,7 +907,69 @@ function renderAuthScreen() {
     return;
   }
 
-  // 2. Recovery screen view
+  // 2. New Database Creation from Lock Screen / Recovery
+  if (isCreatingNewVaultFromLock) {
+    rootEl.innerHTML = `
+      <div class="sp-auth-screen">
+        <div class="sp-auth-box" style="max-width: 360px;">
+          <div class="sp-auth-logo"><img src="icons/icon-128.png" style="width:48px;height:48px;display:block;object-fit:contain;" alt="Logo" /></div>
+          <h2 class="sp-auth-title">${t('auth.new_db_title')}</h2>
+          <p class="sp-auth-desc">${t('auth.new_db_desc')}</p>
+
+          <form class="sp-auth-form" id="sp-new-db-form" novalidate>
+            <div>
+              <input type="text" id="sp-new-db-name" class="sp-input" placeholder="${t('auth.db_name_placeholder')}" autofocus />
+              <div class="sp-field-error" id="sp-err-new-db-name"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-new-db-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
+              <div class="sp-field-error" id="sp-err-new-db-pwd"></div>
+            </div>
+            <div>
+              <input type="password" id="sp-new-db-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
+              <div class="sp-field-error" id="sp-err-new-db-pwd2"></div>
+            </div>
+            <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
+              ${icons.iPlus} ${t('auth.create_and_enter_btn')}
+            </button>
+            <div style="text-align:center; margin-top: 8px;">
+              <button type="button" class="sp-link-btn" id="sp-btn-cancel-new-db">${t('auth.cancel_btn')}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    ['sp-new-db-name', 'sp-new-db-pwd', 'sp-new-db-pwd2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          el.classList.remove('has-error');
+          const errEl = document.getElementById(id.replace('sp-new-db-', 'sp-err-new-db-'));
+          if (errEl) { errEl.innerText = ''; errEl.style.display = 'none'; }
+        });
+      }
+    });
+
+    const btnCancelNew = document.getElementById('sp-btn-cancel-new-db');
+    if (btnCancelNew) {
+      btnCancelNew.addEventListener('click', () => {
+        isCreatingNewVaultFromLock = false;
+        renderAuthScreen();
+      });
+    }
+
+    document.getElementById('sp-new-db-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const dbName = document.getElementById('sp-new-db-name').value;
+      const p1 = document.getElementById('sp-new-db-pwd').value;
+      const p2 = document.getElementById('sp-new-db-pwd2').value;
+      handleCreateAdditionalVault(dbName, p1, p2);
+    });
+    return;
+  }
+
+  // 3. Recovery screen view
   if (isRecoveryViewActive) {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
@@ -841,7 +994,10 @@ function renderAuthScreen() {
             <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
               ${icons.iUnlock} ${t('auth.restore_access_btn')}
             </button>
-            <div style="text-align:center; margin-top: 6px;">
+            <button type="button" class="sp-btn-secondary" id="sp-btn-create-new-vault" style="width:100%; justify-content:center; margin-top: 8px;">
+              ${icons.iPlus} ${t('auth.create_new_db_btn')}
+            </button>
+            <div style="text-align:center; margin-top: 8px;">
               <button type="button" class="sp-link-btn" id="sp-btn-cancel-recovery">${t('auth.return_to_login_btn')}</button>
             </div>
           </form>
@@ -859,6 +1015,15 @@ function renderAuthScreen() {
         });
       }
     });
+
+    const btnCreateNewVault = document.getElementById('sp-btn-create-new-vault');
+    if (btnCreateNewVault) {
+      btnCreateNewVault.addEventListener('click', () => {
+        isRecoveryViewActive = false;
+        isCreatingNewVaultFromLock = true;
+        renderAuthScreen();
+      });
+    }
 
     const btnCancel = document.getElementById('sp-btn-cancel-recovery');
     if (btnCancel) {
@@ -878,8 +1043,9 @@ function renderAuthScreen() {
     return;
   }
 
-  // 3. Normal Lock Screen with failed attempt lockout and inline "Забыли пароль?"
+  // 4. Normal Lock Screen with database selector, lockout prevention, and inline "Забыли пароль?"
   const isLockedOut = failedAttempts >= 3;
+  const activeProfile = cachedVaultProfiles.find(p => p.id === cachedActiveVaultId) || cachedVaultProfiles[0];
 
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
@@ -891,6 +1057,40 @@ function renderAuthScreen() {
         ${isLockedOut ? `
           <div class="sp-lockout-alert">
             ${t('auth.lockout_warning')}
+          </div>
+        ` : ''}
+
+        ${cachedVaultProfiles.length > 0 ? `
+          <div class="sp-vault-selector-container" style="width:100%; margin-bottom:12px; position:relative; text-align:left;">
+            <div style="font-size:11px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
+              ${t('auth.select_db_label')}
+            </div>
+            <div class="sp-custom-select ${isVaultDropdownOpen ? 'open' : ''}" id="sp-vault-select">
+              <button type="button" class="sp-custom-select-trigger" id="sp-vault-select-trigger" style="font-size:13px; font-weight:500;">
+                <span class="sp-custom-select-value" style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size:14px;">🗄️</span>
+                  <span>${activeProfile ? activeProfile.name : 'Основная база'}</span>
+                </span>
+                <span class="sp-custom-select-arrow">▾</span>
+              </button>
+              <div class="sp-custom-select-dropdown" id="sp-vault-select-dropdown" style="max-height:180px;">
+                ${cachedVaultProfiles.map(p => `
+                  <div class="sp-custom-select-option ${p.id === activeProfile?.id ? 'selected' : ''}" data-vault-id="${p.id}">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                      <span style="font-size:13px;">🗄️</span>
+                      <span>${p.name}</span>
+                    </span>
+                    ${p.id === activeProfile?.id ? '<span style="color:var(--sp-primary); font-size:12px; font-weight:bold;">✓</span>' : ''}
+                  </div>
+                `).join('')}
+                <div class="sp-custom-select-option" data-vault-id="__create_new__" style="border-top:1px solid var(--border-subtle); color:var(--sp-primary); font-weight:500;">
+                  <span style="display:flex; align-items:center; gap:6px;">
+                    <span>➕</span>
+                    <span>${t('auth.create_new_db_option')}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         ` : ''}
 
@@ -916,6 +1116,41 @@ function renderAuthScreen() {
       </div>
     </div>
   `;
+
+  // Database dropdown triggers & selection
+  const vaultTrigger = document.getElementById('sp-vault-select-trigger');
+  const vaultSelect = document.getElementById('sp-vault-select');
+  if (vaultTrigger && vaultSelect) {
+    vaultTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isVaultDropdownOpen = !isVaultDropdownOpen;
+      vaultSelect.classList.toggle('open', isVaultDropdownOpen);
+    });
+  }
+
+  document.querySelectorAll('#sp-vault-select-dropdown .sp-custom-select-option').forEach(opt => {
+    opt.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const vId = opt.dataset.vaultId;
+      isVaultDropdownOpen = false;
+      if (vId === '__create_new__') {
+        isCreatingNewVaultFromLock = true;
+        renderAuthScreen();
+        return;
+      }
+      if (vId && vId !== cachedActiveVaultId) {
+        cachedActiveVaultId = vId;
+        await setActiveVaultId(vId);
+        failedAttempts = 0;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ sp_failed_attempts: 0 });
+        }
+        renderAuthScreen();
+      } else {
+        if (vaultSelect) vaultSelect.classList.remove('open');
+      }
+    });
+  });
 
   const unlockInp = document.getElementById('sp-unlock-pwd');
   if (unlockInp) {
@@ -2272,6 +2507,20 @@ function renderSettingsView() {
         Standard: W3C Web Cryptography API
       </p>
     </div>
+
+    ${cachedVaultProfiles.length > 1 ? `
+    <div class="sp-setting-row" data-search="удалить текущую базу данных delete database">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label" style="color:var(--danger);">${t('settings.delete_current_vault_btn')}</span>
+      </div>
+      <p class="sp-setting-desc">${t('settings.delete_current_vault_desc')}</p>
+      <div class="sp-setting-control">
+        <button class="sp-btn-secondary" id="sp-btn-delete-current-vault" style="width:100%; justify-content:center; color:var(--danger); border-color:var(--danger);">
+          ${icons.iTrash} ${t('settings.delete_current_vault_btn')} (${cachedVaultProfiles.find(p => p.id === cachedActiveVaultId)?.name || ''})
+        </button>
+      </div>
+    </div>
+    ` : ''}
 
     <div class="sp-setting-row" data-search="сброс удалить все данные стереть очистить wipe danger reset">
       <div class="sp-setting-header">
@@ -3840,6 +4089,21 @@ function attachEventHandlers() {
         }
       };
       reader.readAsText(file);
+    });
+  }
+
+  const btnDeleteCurrentVault = document.getElementById('sp-btn-delete-current-vault');
+  if (btnDeleteCurrentVault) {
+    btnDeleteCurrentVault.addEventListener('click', async () => {
+      const activeId = await getActiveVaultId();
+      const profiles = await getVaultProfiles();
+      const currentProfile = profiles.find(p => p.id === activeId);
+      const name = currentProfile ? currentProfile.name : '';
+      if (confirm(`Удалить текущую базу «${name}»? Другие базы данных останутся сохранены.`)) {
+        await deleteVaultProfile(activeId);
+        await destroySession();
+        window.location.reload();
+      }
     });
   }
 
