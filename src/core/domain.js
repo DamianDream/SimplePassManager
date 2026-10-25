@@ -4,8 +4,33 @@
  */
 
 /**
+ * Checks if a domain, host, or URL belongs to a local or private network.
+ */
+export function isLocalOrPrivateHost(hostOrUrl) {
+  if (!hostOrUrl || typeof hostOrUrl !== 'string') return false;
+  const clean = hostOrUrl
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split(':')[0];
+  return (
+    clean === 'localhost' ||
+    clean === '127.0.0.1' ||
+    clean.startsWith('192.168.') ||
+    clean.startsWith('10.') ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(clean) ||
+    clean.endsWith('.local') ||
+    clean.endsWith('.test') ||
+    clean.endsWith('.internal') ||
+    clean.endsWith('.onion')
+  );
+}
+
+/**
  * Normalizes a URL or domain string into a clean hostname without www and protocol.
  * E.g., 'https://www.github.com/login' -> 'github.com'
+ * E.g., 'http://192.168.0.104:4321' -> '192.168.0.104:4321'
  */
 export function extractCleanDomain(urlOrDomain) {
   if (!urlOrDomain || typeof urlOrDomain !== 'string') return '';
@@ -21,12 +46,17 @@ export function extractCleanDomain(urlOrDomain) {
   }
 
   try {
+    const isLocal = isLocalOrPrivateHost(trimmed);
     const withProto =
       trimmed.startsWith('http://') || trimmed.startsWith('https://')
         ? trimmed
-        : `https://${trimmed}`;
+        : (isLocal ? `http://${trimmed}` : `https://${trimmed}`);
     const parsed = new URL(withProto);
-    return parsed.hostname.replace(/^www\./, '').toLowerCase();
+    const cleanHost = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    if (parsed.port && parsed.port !== '80' && parsed.port !== '443') {
+      return `${cleanHost}:${parsed.port}`;
+    }
+    return cleanHost;
   } catch (_) {
     return trimmed.split('/')[0].replace(/^www\./, '').toLowerCase();
   }
@@ -48,16 +78,23 @@ export function isItemMatchingDomain(item, activeDomain) {
   if (item.url) {
     const itemHost = extractCleanDomain(item.url);
     if (itemHost) {
+      const itemHostNoPort = itemHost.split(':')[0];
+      const targetHostNoPort = targetHost.split(':')[0];
       if (
         itemHost === targetHost ||
         itemHost.endsWith('.' + targetHost) ||
-        targetHost.endsWith('.' + itemHost)
+        targetHost.endsWith('.' + itemHost) ||
+        (itemHostNoPort && targetHostNoPort && (
+          itemHostNoPort === targetHostNoPort ||
+          itemHostNoPort.endsWith('.' + targetHostNoPort) ||
+          targetHostNoPort.endsWith('.' + itemHostNoPort)
+        ))
       ) {
         return true;
       }
     }
     const itemUrlLower = item.url.toLowerCase();
-    if (itemUrlLower.includes(targetHost)) {
+    if (itemUrlLower.includes(targetHost) || itemUrlLower.includes(targetHost.split(':')[0])) {
       return true;
     }
   }

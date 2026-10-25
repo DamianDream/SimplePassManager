@@ -47,5 +47,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DO_AUTOFILL') {
     const filled = autofillCredentials(message.username, message.password);
     sendResponse({ success: filled });
+  } else if (message.type === 'GET_PAGE_FAVICON') {
+    const iconLink = document.querySelector(
+      'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel*="icon"]'
+    );
+    const iconUrl = iconLink ? iconLink.href : (window.location.origin + '/favicon.ico');
+    sendResponse({ faviconUrl: iconUrl, origin: window.location.origin, host: window.location.host });
   }
 });

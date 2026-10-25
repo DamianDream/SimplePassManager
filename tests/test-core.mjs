@@ -525,8 +525,10 @@ async function runTests() {
     getCachedFavicon,
     setCachedFavicon,
     getFaviconCache,
-    resolveFavicon
+    resolveFavicon,
+    parseUrlDetails
   } = await import('../src/core/favicon.js');
+  const { isLocalOrPrivateHost } = await import('../src/core/domain.js');
 
   const testDomain = 'example-service.com';
   const dummyFavicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
@@ -547,12 +549,33 @@ async function runTests() {
   const resolvedItem2 = await resolveFavicon(`https://sub.${testDomain}/settings`, { forceRefresh: false });
   assert.strictEqual(resolvedItem2.domain, `sub.${testDomain}`);
 
-  // 4. Verify translation keys for favicon features
+  // 4. Test Local Network IPs and custom ports (e.g. 192.168.0.104:4321 / localhost:3000)
+  assert.strictEqual(isLocalOrPrivateHost('192.168.0.104:4321'), true, '192.168.0.104:4321 must be recognized as local IP');
+  assert.strictEqual(isLocalOrPrivateHost('http://192.168.0.104:4321/demo'), true);
+  assert.strictEqual(isLocalOrPrivateHost('localhost:3000'), true);
+  assert.strictEqual(isLocalOrPrivateHost('github.com'), false);
+
+  const localDetails = parseUrlDetails('192.168.0.104:4321');
+  assert.strictEqual(localDetails.origin, 'http://192.168.0.104:4321');
+  assert.strictEqual(localDetails.host, '192.168.0.104:4321');
+  assert.strictEqual(localDetails.isLocal, true);
+
+  // 5. Test active tab favIconUrl resolution on local dev servers
+  const localResolved = await resolveFavicon('192.168.0.104:4321', {
+    forceRefresh: true,
+    activeTabFavIconUrl: dummyFavicon
+  });
+  assert.strictEqual(localResolved.domain, '192.168.0.104:4321');
+  assert.strictEqual(localResolved.favicon, dummyFavicon);
+  assert.strictEqual(await getCachedFavicon('192.168.0.104:4321'), dummyFavicon);
+  assert.strictEqual(await getCachedFavicon('192.168.0.104'), dummyFavicon);
+
+  // 6. Verify translation keys for favicon features
   assert(t('form.refresh_favicon_title'), 'Refresh favicon title translation must exist');
   assert(t('toasts.favicon_updated'), 'Favicon updated toast must exist');
   assert(t('toasts.favicon_empty_url'), 'Favicon empty url toast must exist');
   assert(t('toasts.favicon_fetch_failed'), 'Favicon fetch failed toast must exist');
-  console.log('   ✓ Favicon Cache & Multi-Item Re-use verified');
+  console.log('   ✓ Favicon Cache, Local IP:Port & Multi-Item Re-use verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

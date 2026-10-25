@@ -56,7 +56,8 @@ import {
 import {
   extractCleanDomain,
   isItemMatchingDomain,
-  sortItemsByDomainMatch
+  sortItemsByDomainMatch,
+  isLocalOrPrivateHost
 } from '../core/domain.js';
 import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES, LANGUAGE_OPTIONS } from '../core/i18n.js';
 import {
@@ -77,6 +78,7 @@ const rootEl = document.getElementById('sp-app-root');
 
 // Active tab information (queried on launch)
 let activeTabDomain = '';
+let activeTabFavicon = '';
 let activeTabId = null;
 let cachedFavicons = {};
 
@@ -171,11 +173,38 @@ function applyTheme(theme) {
 // ─── ACTIVE TAB AUTO-DETECTION ─────────────────────────────────────────────
 
 function updateActiveTabDomain() {
-  const applyTab = (url, tabId) => {
+  const applyTab = (url, tabId, favIconUrl) => {
     const clean = extractCleanDomain(url);
-    if (clean !== activeTabDomain || tabId !== activeTabId) {
+    if (favIconUrl) {
+      activeTabFavicon = favIconUrl;
+    }
+    const cleanChanged = clean !== activeTabDomain;
+    const tabChanged = tabId !== activeTabId;
+    const needsFavicon = clean && !cachedFavicons[clean];
+
+    if (cleanChanged || tabChanged || needsFavicon) {
       activeTabDomain = clean;
       activeTabId = tabId;
+
+      if (clean) {
+        resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: favIconUrl || activeTabFavicon })
+          .then(res => {
+            if (res && res.favicon) {
+              cachedFavicons[clean] = res.favicon;
+              if (res.domain) cachedFavicons[res.domain] = res.favicon;
+              const hostNoPort = clean.split(':')[0];
+              cachedFavicons[hostNoPort] = res.favicon;
+
+              const preview = document.getElementById('sp-form-favicon-preview');
+              if (preview && (!preview.src || preview.style.display === 'none')) {
+                preview.src = res.favicon;
+                preview.style.display = 'inline-block';
+              }
+            }
+          })
+          .catch(() => {});
+      }
+
       if (state.isUnlocked) {
         if (state.activeTab === 'item-details') {
           saveFormDraftFromDOM();
@@ -189,17 +218,17 @@ function updateActiveTabDomain() {
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
       if (tabs && tabs[0]) {
-        applyTab(tabs[0].url, tabs[0].id);
+        applyTab(tabs[0].url, tabs[0].id, tabs[0].favIconUrl);
       } else {
         chrome.tabs.query({ active: true, currentWindow: true }, tabs2 => {
-          if (tabs2 && tabs2[0]) applyTab(tabs2[0].url, tabs2[0].id);
+          if (tabs2 && tabs2[0]) applyTab(tabs2[0].url, tabs2[0].id, tabs2[0].favIconUrl);
         });
       }
     });
   } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage({ type: 'GET_ACTIVE_TAB_INFO' }, response => {
       if (response && response.domain) {
-        applyTab(response.domain, response.tabId);
+        applyTab(response.domain, response.tabId, response.favIconUrl);
       }
     });
   }
@@ -215,7 +244,7 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
     }
     if (chrome.tabs.onUpdated) {
       chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-        if (changeInfo.status === 'complete' || changeInfo.url) {
+        if (changeInfo.status === 'complete' || changeInfo.url || changeInfo.favIconUrl) {
           updateActiveTabDomain();
         }
       });
@@ -641,9 +670,15 @@ async function saveItem(itemData) {
   let updatedItems = [...state.items];
 
   const domain = extractCleanDomain(itemData.url);
+  const domainNoPort = domain ? domain.split(':')[0] : '';
   let favicon = itemData.favicon || '';
   if (!favicon && domain) {
-    favicon = cachedFavicons[domain] || await getCachedFavicon(domain) || '';
+    favicon =
+      cachedFavicons[domain] ||
+      cachedFavicons[domainNoPort] ||
+      (await getCachedFavicon(domain)) ||
+      (await getCachedFavicon(domainNoPort)) ||
+      '';
   }
 
   let itemToSave = {
@@ -656,6 +691,7 @@ async function saveItem(itemData) {
 
   if (itemToSave.domain && itemToSave.favicon) {
     cachedFavicons[itemToSave.domain] = itemToSave.favicon;
+    if (domainNoPort) cachedFavicons[domainNoPort] = itemToSave.favicon;
   }
 
   if (existingIdx >= 0) {
@@ -670,10 +706,11 @@ async function saveItem(itemData) {
 
   // If favicon wasn't cached yet, fetch in background and persist
   if (domain && !itemToSave.favicon) {
-    resolveFavicon(itemData.url, { forceRefresh: false })
+    resolveFavicon(itemData.url, { forceRefresh: false, activeTabFavIconUrl: activeTabFavicon })
       .then(async res => {
         if (res && res.favicon) {
           cachedFavicons[domain] = res.favicon;
+          if (domainNoPort) cachedFavicons[domainNoPort] = res.favicon;
           const idx = state.items.findIndex(i => i.id === itemToSave.id);
           if (idx >= 0) {
             state.items[idx].favicon = res.favicon;
@@ -1323,7 +1360,8 @@ function renderVaultView() {
             const letter = item.title ? item.title[0] : '?';
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
             const itemDomain = item.domain || extractCleanDomain(item.url);
-            const itemFavicon = item.favicon || (itemDomain && cachedFavicons[itemDomain]);
+            const itemDomainNoPort = itemDomain ? itemDomain.split(':')[0] : '';
+            const itemFavicon = item.favicon || (itemDomain && cachedFavicons[itemDomain]) || (itemDomainNoPort && cachedFavicons[itemDomainNoPort]);
             const avatarContent = itemFavicon
               ? `<img src="${escapeHtml(itemFavicon)}" class="sp-card-favicon" alt="" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline';" /><span style="display:none;">${letter}</span>`
               : `<span>${letter}</span>`;
@@ -1717,9 +1755,11 @@ function renderItemFormView() {
     title: '',
     username: '',
     password: '',
-    url: activeTabDomain ? `https://${activeTabDomain}` : '',
+    url: activeTabDomain
+      ? (activeTabDomain.includes(':') || isLocalOrPrivateHost(activeTabDomain) ? `http://${activeTabDomain}` : `https://${activeTabDomain}`)
+      : '',
     domain: activeTabDomain || '',
-    favicon: '',
+    favicon: (activeTabDomain && cachedFavicons[activeTabDomain]) || (activeTabDomain && cachedFavicons[activeTabDomain.split(':')[0]]) || '',
     category: '',
     notes: ''
   };
@@ -1741,7 +1781,8 @@ function renderItemFormView() {
   const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
 
   const formDomain = item.domain || extractCleanDomain(item.url);
-  const formFavicon = item.favicon || (formDomain && cachedFavicons[formDomain]) || '';
+  const formDomainNoPort = formDomain ? formDomain.split(':')[0] : '';
+  const formFavicon = item.favicon || (formDomain && cachedFavicons[formDomain]) || (formDomainNoPort && cachedFavicons[formDomainNoPort]) || '';
 
   return `
     <div class="sp-view-container">
@@ -2883,13 +2924,32 @@ function attachEventHandlers() {
       const url = urlInput.value.trim();
       const domain = extractCleanDomain(url);
       if (!domain) return;
+      const hostNoPort = domain.split(':')[0];
 
-      let fav = cachedFavicons[domain] || await getCachedFavicon(domain);
+      let fav =
+        cachedFavicons[domain] ||
+        cachedFavicons[hostNoPort] ||
+        (await getCachedFavicon(domain)) ||
+        (await getCachedFavicon(hostNoPort));
+
       if (!fav) {
-        const res = await resolveFavicon(url, { forceRefresh: false });
+        let currentTabFavicon = activeTabFavicon;
+        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+          try {
+            const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
+            if (tabs && tabs[0] && tabs[0].favIconUrl) {
+              const tabHost = extractCleanDomain(tabs[0].url);
+              if (tabHost === domain || tabHost.split(':')[0] === hostNoPort) {
+                currentTabFavicon = tabs[0].favIconUrl;
+              }
+            }
+          } catch (_) {}
+        }
+        const res = await resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: currentTabFavicon });
         if (res && res.favicon) {
           fav = res.favicon;
           cachedFavicons[domain] = fav;
+          if (hostNoPort) cachedFavicons[hostNoPort] = fav;
         }
       }
       if (fav) {
@@ -2924,9 +2984,34 @@ function attachEventHandlers() {
       refreshFaviconBtn.disabled = true;
 
       try {
-        const res = await resolveFavicon(url, { forceRefresh: true });
+        let currentTabFavicon = activeTabFavicon;
+        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
+          try {
+            const tabs = await new Promise(r => chrome.tabs.query({ active: true, currentWindow: true }, r));
+            if (tabs && tabs[0]) {
+              if (tabs[0].favIconUrl) currentTabFavicon = tabs[0].favIconUrl;
+              const tabHost = extractCleanDomain(tabs[0].url);
+              if (tabHost === domain || tabHost.split(':')[0] === domain.split(':')[0]) {
+                try {
+                  const contentResp = await new Promise(res => {
+                    chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_PAGE_FAVICON' }, res);
+                  });
+                  if (contentResp && contentResp.faviconUrl) {
+                    currentTabFavicon = contentResp.faviconUrl;
+                  }
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
+        }
+
+        const res = await resolveFavicon(url, { forceRefresh: true, activeTabFavIconUrl: currentTabFavicon });
         if (res && res.favicon) {
+          const hostNoPort = domain.split(':')[0];
           cachedFavicons[domain] = res.favicon;
+          if (res.domain) cachedFavicons[res.domain] = res.favicon;
+          if (hostNoPort) cachedFavicons[hostNoPort] = res.favicon;
+
           if (formDraft) {
             formDraft.domain = domain;
             formDraft.favicon = res.favicon;
