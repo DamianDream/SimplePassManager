@@ -1259,20 +1259,6 @@ function renderVaultView() {
           .map(item => {
             const letter = item.title ? item.title[0] : '?';
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
-            const itemTags = getItemTags(item);
-            const tagsHtml = itemTags
-              .map(tName => {
-                const colorDef = getCategoryColorDef(tName, state.categoryColors);
-                const cssVars = getCategoryCssVars(colorDef);
-                const label = tName === 'Work' ? t('categories.Work') : (tName === 'Personal' ? t('categories.Personal') : tName);
-                return `
-                  <span class="sp-pill sp-pill-tag-card" data-color-pill="true" style="${cssVars}; pointer-events:none;">
-                    <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
-                    <span>${escapeHtml(label)}</span>
-                  </span>
-                `;
-              })
-              .join('');
 
             return `
         <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
@@ -1282,7 +1268,6 @@ function renderVaultView() {
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
                 ${isMatched ? `<span class="sp-matched-pill" title="${t('vault.current_site')}">${icons.iGlobe} ${t('vault.site_pill')}</span>` : ''}
-                ${tagsHtml}
               </div>
               <span class="sp-card-sub">${escapeHtml(item.username || item.url || t('vault.no_login'))}</span>
             </div>
