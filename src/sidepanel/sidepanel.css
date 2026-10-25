@@ -617,6 +617,24 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   text-transform: uppercase;
 }
 
+.sp-card-favicon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+  display: block;
+}
+
+@keyframes spSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sp-spin {
+  animation: spSpin 0.75s linear infinite;
+  transform-origin: center center;
+}
+
 .sp-card-meta {
   display: flex;
   flex-direction: column;

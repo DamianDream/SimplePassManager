@@ -519,6 +519,41 @@ async function runTests() {
   assert(t('toasts.card_tags_hidden'), 'Toast hidden translation must exist');
   console.log('   ✓ Show/Hide Card Tags Setting & Translations verified');
 
+  // Test 16: Favicon Cache & Re-use across matching domains
+  console.log('16. Testing Favicon Cache & Multi-Item Re-use for Same Domain...');
+  const {
+    getCachedFavicon,
+    setCachedFavicon,
+    getFaviconCache,
+    resolveFavicon
+  } = await import('../src/core/favicon.js');
+
+  const testDomain = 'example-service.com';
+  const dummyFavicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+  // 1. Initial state must be null for new domain
+  assert.strictEqual(await getCachedFavicon(testDomain), null, 'Initial cached favicon must be null');
+
+  // 2. Set cached favicon
+  await setCachedFavicon(testDomain, dummyFavicon);
+  assert.strictEqual(await getCachedFavicon(testDomain), dummyFavicon, 'Cached favicon must be saved');
+
+  // 3. Resolve for identical domain URL (e.g. 2nd password item created for same domain)
+  const resolvedItem1 = await resolveFavicon(`https://${testDomain}/login`, { forceRefresh: false });
+  assert.strictEqual(resolvedItem1.domain, testDomain);
+  assert.strictEqual(resolvedItem1.favicon, dummyFavicon);
+  assert.strictEqual(resolvedItem1.fromCache, true, 'Second password item must reuse existing cached favicon');
+
+  const resolvedItem2 = await resolveFavicon(`https://sub.${testDomain}/settings`, { forceRefresh: false });
+  assert.strictEqual(resolvedItem2.domain, `sub.${testDomain}`);
+
+  // 4. Verify translation keys for favicon features
+  assert(t('form.refresh_favicon_title'), 'Refresh favicon title translation must exist');
+  assert(t('toasts.favicon_updated'), 'Favicon updated toast must exist');
+  assert(t('toasts.favicon_empty_url'), 'Favicon empty url toast must exist');
+  assert(t('toasts.favicon_fetch_failed'), 'Favicon fetch failed toast must exist');
+  console.log('   ✓ Favicon Cache & Multi-Item Re-use verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

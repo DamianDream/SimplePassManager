@@ -9,6 +9,7 @@ const STORAGE_VAULT_KEY = 'sp_encrypted_vault';
 const STORAGE_CONFIG_KEY = 'sp_user_config';
 export const STORAGE_VAULT_PROFILES_KEY = 'sp_vault_profiles';
 export const STORAGE_ACTIVE_VAULT_ID_KEY = 'sp_active_vault_id';
+export const STORAGE_FAVICON_CACHE_KEY = 'sp_favicon_cache';
 
 export const DEFAULT_CONFIG = {
   activeProjectId: 'proj_default',
@@ -304,6 +305,35 @@ export function saveStoredConfig(config) {
       resolve();
     });
   });
+}
+
+export function getFaviconCache() {
+  return new Promise(resolve => {
+    storageAPI.get(STORAGE_FAVICON_CACHE_KEY, res => {
+      resolve(res[STORAGE_FAVICON_CACHE_KEY] || {});
+    });
+  });
+}
+
+export function saveFaviconCache(cache) {
+  return new Promise(resolve => {
+    storageAPI.set({ [STORAGE_FAVICON_CACHE_KEY]: cache }, () => {
+      resolve();
+    });
+  });
+}
+
+export async function getCachedFavicon(domain) {
+  if (!domain || typeof domain !== 'string') return null;
+  const cache = await getFaviconCache();
+  return cache[domain.toLowerCase().trim()] || null;
+}
+
+export async function setCachedFavicon(domain, dataUrl) {
+  if (!domain || !dataUrl) return;
+  const cache = await getFaviconCache();
+  cache[domain.toLowerCase().trim()] = dataUrl;
+  await saveFaviconCache(cache);
 }
 
 /**

@@ -67,12 +67,18 @@ import {
   validateTagName,
   getItemTags
 } from '../core/categories.js';
+import {
+  resolveFavicon,
+  getCachedFavicon,
+  getFaviconCache
+} from '../core/favicon.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
 // Active tab information (queried on launch)
 let activeTabDomain = '';
 let activeTabId = null;
+let cachedFavicons = {};
 
 // Drawer / Menu state (mySmart style)
 let isDrawerOpen = false;
@@ -139,6 +145,8 @@ function saveFormDraftFromDOM() {
     projectId: projEl ? projEl.value : '',
     title: titleEl ? titleEl.value : '',
     url: urlEl ? urlEl.value : '',
+    domain: formDraft?.domain || (urlEl ? extractCleanDomain(urlEl.value) : ''),
+    favicon: formDraft?.favicon || '',
     username: userEl ? userEl.value : '',
     password: passEl ? passEl.value : '',
     notes: notesEl ? notesEl.value : '',
@@ -226,9 +234,25 @@ if (typeof window !== 'undefined') {
 
 // ─── INITIALIZATION ──────────────────────────────────────────────────────────
 
+function syncCachedFaviconsFromItems(items) {
+  if (!Array.isArray(items)) return;
+  items.forEach(item => {
+    const domain = item.domain || extractCleanDomain(item.url);
+    if (domain && item.favicon) {
+      cachedFavicons[domain] = item.favicon;
+    }
+  });
+}
+
 async function init() {
   // Auto-detect active website domain immediately
   updateActiveTabDomain();
+
+  try {
+    cachedFavicons = await getFaviconCache();
+  } catch (_) {
+    cachedFavicons = {};
+  }
 
   cachedVaultProfiles = await getVaultProfiles();
   cachedActiveVaultId = await getActiveVaultId();
@@ -275,6 +299,7 @@ async function init() {
       try {
         const decrypted = await decryptVault(storedVault, session.masterPassword);
         const normalized = normalizeVaultData(decrypted);
+        syncCachedFaviconsFromItems(normalized.items);
 
         const initialProjectId =
           storedConfig.latestProjectId && normalized.projects.some(p => p.id === storedConfig.latestProjectId)
@@ -344,6 +369,7 @@ async function handleUnlock(password) {
     const envelope = await getStoredVault();
     const decrypted = await decryptVault(envelope, password);
     const normalized = normalizeVaultData(decrypted);
+    syncCachedFaviconsFromItems(normalized.items);
     const storedConfig = await getStoredConfig();
 
     const initialProjectId =
@@ -556,6 +582,7 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
     const envelope = await getStoredVault();
     const { vaultData } = await decryptVaultWithRecovery(envelope, normPhrase);
     const normalized = normalizeVaultData(vaultData);
+    syncCachedFaviconsFromItems(normalized.items);
 
     // Re-encrypt vault with new password and new recovery phrase
     const newRecoveryPhrase = generateRecoveryPhrase();
@@ -612,7 +639,24 @@ async function saveItem(itemData) {
 
   const existingIdx = state.items.findIndex(i => i.id === itemData.id);
   let updatedItems = [...state.items];
-  let itemToSave = { ...itemData, projectId, updatedAt: new Date().toISOString() };
+
+  const domain = extractCleanDomain(itemData.url);
+  let favicon = itemData.favicon || '';
+  if (!favicon && domain) {
+    favicon = cachedFavicons[domain] || await getCachedFavicon(domain) || '';
+  }
+
+  let itemToSave = {
+    ...itemData,
+    domain: domain || itemData.domain || '',
+    favicon: favicon || (existingIdx >= 0 ? state.items[existingIdx].favicon : '') || '',
+    projectId,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (itemToSave.domain && itemToSave.favicon) {
+    cachedFavicons[itemToSave.domain] = itemToSave.favicon;
+  }
 
   if (existingIdx >= 0) {
     updatedItems[existingIdx] = itemToSave;
@@ -623,6 +667,24 @@ async function saveItem(itemData) {
 
   updateState({ items: updatedItems, activeTab: 'vault', selectedItem: null, isEditing: false });
   await persistVaultChanges();
+
+  // If favicon wasn't cached yet, fetch in background and persist
+  if (domain && !itemToSave.favicon) {
+    resolveFavicon(itemData.url, { forceRefresh: false })
+      .then(async res => {
+        if (res && res.favicon) {
+          cachedFavicons[domain] = res.favicon;
+          const idx = state.items.findIndex(i => i.id === itemToSave.id);
+          if (idx >= 0) {
+            state.items[idx].favicon = res.favicon;
+            state.items[idx].domain = domain;
+            await persistVaultChanges();
+            render();
+          }
+        }
+      })
+      .catch(() => {});
+  }
 
   if (proj && proj.type === 'pass_cli') {
     try {
@@ -1260,6 +1322,11 @@ function renderVaultView() {
           .map(item => {
             const letter = item.title ? item.title[0] : '?';
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
+            const itemDomain = item.domain || extractCleanDomain(item.url);
+            const itemFavicon = item.favicon || (itemDomain && cachedFavicons[itemDomain]);
+            const avatarContent = itemFavicon
+              ? `<img src="${escapeHtml(itemFavicon)}" class="sp-card-favicon" alt="" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline';" /><span style="display:none;">${letter}</span>`
+              : `<span>${letter}</span>`;
             let tagsHtml = '';
             if (state.showCardTags) {
               const itemTags = getItemTags(item);
@@ -1276,7 +1343,7 @@ function renderVaultView() {
             return `
         <div class="sp-card ${isMatched ? 'sp-card-matched' : ''}" data-id="${item.id}">
           <div class="sp-card-left" data-action="view">
-            <div class="sp-card-avatar ${isMatched ? 'matched' : ''}">${letter}</div>
+            <div class="sp-card-avatar ${isMatched ? 'matched' : ''}">${avatarContent}</div>
             <div class="sp-card-meta">
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span class="sp-card-title">${escapeHtml(item.title)}</span>
@@ -1651,6 +1718,8 @@ function renderItemFormView() {
     username: '',
     password: '',
     url: activeTabDomain ? `https://${activeTabDomain}` : '',
+    domain: activeTabDomain || '',
+    favicon: '',
     category: '',
     notes: ''
   };
@@ -1662,12 +1731,17 @@ function renderItemFormView() {
     username: formDraft.username !== undefined ? formDraft.username : baseItem.username,
     password: formDraft.password !== undefined ? formDraft.password : baseItem.password,
     url: formDraft.url !== undefined ? formDraft.url : baseItem.url,
+    domain: formDraft.domain !== undefined ? formDraft.domain : (baseItem.domain || ''),
+    favicon: formDraft.favicon !== undefined ? formDraft.favicon : (baseItem.favicon || ''),
     category: formDraft.tags && formDraft.tags[0] ? formDraft.tags[0] : (baseItem.category || ''),
     notes: formDraft.notes !== undefined ? formDraft.notes : baseItem.notes
   } : baseItem;
 
   const currentProjId = item.projectId || defaultProjId;
   const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
+
+  const formDomain = item.domain || extractCleanDomain(item.url);
+  const formFavicon = item.favicon || (formDomain && cachedFavicons[formDomain]) || '';
 
   return `
     <div class="sp-view-container">
@@ -1735,8 +1809,19 @@ function renderItemFormView() {
         </div>
 
         <div class="sp-form-group">
-          <label class="sp-label">${t('form.url_label')}</label>
-          <input type="text" id="sp-item-url" class="sp-input" value="${escapeHtml(item.url || '')}" placeholder="${t('form.url_placeholder')}" />
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="sp-label" style="margin:0; display:flex; align-items:center; gap:6px;">
+              ${formFavicon ? `<img id="sp-form-favicon-preview" src="${escapeHtml(formFavicon)}" style="width:14px; height:14px; border-radius:3px; object-fit:contain;" alt="" />` : '<img id="sp-form-favicon-preview" style="width:14px; height:14px; border-radius:3px; object-fit:contain; display:none;" alt="" />'}
+              <span>${t('form.url_label')}</span>
+            </label>
+            ${formDomain ? `<span id="sp-form-domain-badge" style="font-size:10px; color:var(--text-dim);">${escapeHtml(formDomain)}</span>` : '<span id="sp-form-domain-badge" style="font-size:10px; color:var(--text-dim); display:none;"></span>'}
+          </div>
+          <div class="sp-input-with-action">
+            <input type="text" id="sp-item-url" class="sp-input" value="${escapeHtml(item.url || '')}" placeholder="${t('form.url_placeholder')}" style="padding-right: 36px;" />
+            <button type="button" class="sp-input-action-btn" id="sp-btn-refresh-favicon" title="${t('form.refresh_favicon_title')}">
+              ${icons.iRefresh}
+            </button>
+          </div>
         </div>
 
         <div class="sp-form-group">
@@ -2766,6 +2851,121 @@ function attachEventHandlers() {
     });
   }
 
+  // URL Input & Favicon Auto-resolution handlers
+  const urlInput = document.getElementById('sp-item-url');
+  if (urlInput) {
+    urlInput.addEventListener('input', () => {
+      const url = urlInput.value.trim();
+      const domain = extractCleanDomain(url);
+      const domainBadge = document.getElementById('sp-form-domain-badge');
+      if (domainBadge) {
+        if (domain) {
+          domainBadge.textContent = domain;
+          domainBadge.style.display = 'inline';
+        } else {
+          domainBadge.style.display = 'none';
+        }
+      }
+      if (domain && cachedFavicons[domain]) {
+        const preview = document.getElementById('sp-form-favicon-preview');
+        if (preview) {
+          preview.src = cachedFavicons[domain];
+          preview.style.display = 'inline-block';
+        }
+        if (formDraft) {
+          formDraft.domain = domain;
+          formDraft.favicon = cachedFavicons[domain];
+        }
+      }
+    });
+
+    urlInput.addEventListener('blur', async () => {
+      const url = urlInput.value.trim();
+      const domain = extractCleanDomain(url);
+      if (!domain) return;
+
+      let fav = cachedFavicons[domain] || await getCachedFavicon(domain);
+      if (!fav) {
+        const res = await resolveFavicon(url, { forceRefresh: false });
+        if (res && res.favicon) {
+          fav = res.favicon;
+          cachedFavicons[domain] = fav;
+        }
+      }
+      if (fav) {
+        if (formDraft) {
+          formDraft.domain = domain;
+          formDraft.favicon = fav;
+        }
+        const preview = document.getElementById('sp-form-favicon-preview');
+        if (preview) {
+          preview.src = fav;
+          preview.style.display = 'inline-block';
+        }
+      }
+    });
+  }
+
+  // Refresh favicon icon button
+  const refreshFaviconBtn = document.getElementById('sp-btn-refresh-favicon');
+  if (refreshFaviconBtn) {
+    refreshFaviconBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentUrlInput = document.getElementById('sp-item-url');
+      const url = currentUrlInput ? currentUrlInput.value.trim() : '';
+      const domain = extractCleanDomain(url);
+      if (!domain) {
+        showToast(t('toasts.favicon_empty_url'));
+        return;
+      }
+
+      refreshFaviconBtn.classList.add('sp-spin');
+      refreshFaviconBtn.disabled = true;
+
+      try {
+        const res = await resolveFavicon(url, { forceRefresh: true });
+        if (res && res.favicon) {
+          cachedFavicons[domain] = res.favicon;
+          if (formDraft) {
+            formDraft.domain = domain;
+            formDraft.favicon = res.favicon;
+          }
+
+          const domainBadge = document.getElementById('sp-form-domain-badge');
+          if (domainBadge) {
+            domainBadge.textContent = domain;
+            domainBadge.style.display = 'inline';
+          }
+          const preview = document.getElementById('sp-form-favicon-preview');
+          if (preview) {
+            preview.src = res.favicon;
+            preview.style.display = 'inline-block';
+          }
+
+          const itemId = document.getElementById('sp-item-id')?.value;
+          if (itemId) {
+            const itemIdx = state.items.findIndex(i => i.id === itemId);
+            if (itemIdx >= 0) {
+              state.items[itemIdx].domain = domain;
+              state.items[itemIdx].favicon = res.favicon;
+              await persistVaultChanges();
+            }
+          }
+
+          showToast(t('toasts.favicon_updated'));
+        } else {
+          showToast(t('toasts.favicon_fetch_failed'));
+        }
+      } catch (_) {
+        showToast(t('toasts.favicon_fetch_failed'));
+      } finally {
+        refreshFaviconBtn.classList.remove('sp-spin');
+        refreshFaviconBtn.disabled = false;
+      }
+    });
+  }
+
   // Project custom dropdown in Item Form
   const projectSelectWrap = document.getElementById('sp-project-select-wrap');
   const projectSelectTrigger = document.getElementById('sp-project-select-trigger');
@@ -3103,11 +3303,15 @@ function attachEventHandlers() {
     itemForm.addEventListener('submit', e => {
       e.preventDefault();
       const tags = [...formSelectedTags];
+      const url = document.getElementById('sp-item-url').value.trim();
+      const domain = extractCleanDomain(url);
       saveItem({
         id: document.getElementById('sp-item-id').value,
         projectId: document.getElementById('sp-item-project').value,
         title: document.getElementById('sp-item-title').value.trim(),
-        url: document.getElementById('sp-item-url').value.trim(),
+        url,
+        domain,
+        favicon: formDraft?.favicon || (domain && cachedFavicons[domain]) || '',
         username: document.getElementById('sp-item-username').value.trim(),
         password: document.getElementById('sp-item-password').value,
         category: tags[0] || '',
