@@ -36,6 +36,8 @@ import {
   passFormatToItem,
   itemsToCsv,
   csvToItems,
+  bitwardenJsonToItems,
+  itemsToBitwardenJson,
   getVaultProfiles,
   getActiveVaultId,
   setActiveVaultId,
@@ -2210,14 +2212,17 @@ function renderSettingsView() {
 
   // 4. Accordion: Backup & Data Transfer
   const backupHtml = `
-    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать backup export">
+    <div class="sp-setting-row" data-search="экспорт бэкап json резервная копия скачать backup export bitwarden битварден">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.export_json_label')}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.export_json_desc')}</p>
-      <div class="sp-setting-control">
-        <button class="sp-btn-secondary" id="sp-btn-export-json" style="width:100%; justify-content:center;">
+      <div class="sp-setting-control" style="display:flex; gap:8px;">
+        <button class="sp-btn-secondary" id="sp-btn-export-json" style="flex:1; justify-content:center;">
           ${t('settings.export_json_btn')}
+        </button>
+        <button class="sp-btn-secondary" id="sp-btn-export-bitwarden" style="flex:1; justify-content:center;">
+          ${t('settings.export_bitwarden_btn')}
         </button>
       </div>
     </div>
@@ -3578,6 +3583,24 @@ function attachEventHandlers() {
     });
   }
 
+  const btnExportBitwarden = document.getElementById('sp-btn-export-bitwarden');
+  if (btnExportBitwarden) {
+    btnExportBitwarden.addEventListener('click', () => {
+      const activeProj = getActiveProject();
+      const projectItems = getActiveProjectItems();
+      const itemsToExport = projectItems.length > 0 ? projectItems : state.items;
+      const jsonContent = itemsToBitwardenJson(itemsToExport);
+      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bitwarden-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(t('toasts.bitwarden_export_success'));
+    });
+  }
+
   const btnExportCsv = document.getElementById('sp-btn-export-csv');
   if (btnExportCsv) {
     btnExportCsv.addEventListener('click', () => {
@@ -3673,18 +3696,19 @@ function attachEventHandlers() {
   const importFileInput = document.getElementById('sp-import-file-input');
   if (btnTriggerImport && importFileInput) {
     btnTriggerImport.addEventListener('click', () => {
+      importFileInput.value = '';
       importFileInput.click();
     });
 
     importFileInput.addEventListener('change', async e => {
-      const file = e.target.files[0];
+      const file = e.target.files && e.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = async evt => {
         try {
           const content = evt.target.result;
-          if (file.name.endsWith('.json')) {
+          if (file.name.endsWith('.json') || file.name.endsWith('.txt')) {
             const parsed = JSON.parse(content);
             if (parsed.iv && parsed.salt && parsed.ciphertext) {
               const decrypted = await decryptVault(parsed, state.masterPassword);
@@ -3695,6 +3719,43 @@ function attachEventHandlers() {
               });
               await persistVaultChanges();
               showToast('Импорт зашифрованного JSON выполнен');
+              render();
+            } else if (parsed.encrypted === true && Array.isArray(parsed.items)) {
+              alert(t('toasts.bitwarden_encrypted_err'));
+            } else if (Array.isArray(parsed.items) && (parsed.encrypted === false || parsed.folders !== undefined || parsed.items.some(i => i.login || i.type !== undefined))) {
+              const activeProj = getActiveProject();
+              const targetProjId = activeProj ? activeProj.id : (state.projects[0]?.id || 'proj_default');
+              const { items: importedItems, newCategories } = bitwardenJsonToItems(parsed, targetProjId);
+
+              if (!importedItems || importedItems.length === 0) {
+                alert('В файле Bitwarden не найдено паролей');
+                return;
+              }
+
+              // Register newly discovered categories/folders
+              if (newCategories && newCategories.length > 0) {
+                let catsChanged = false;
+                newCategories.forEach(tag => {
+                  if (!state.categories.some(c => c.toLowerCase() === tag.toLowerCase())) {
+                    state.categories.push(tag);
+                    catsChanged = true;
+                  }
+                });
+                if (catsChanged) {
+                  const cfg = await getStoredConfig();
+                  await saveStoredConfig({
+                    ...cfg,
+                    categories: state.categories.filter(c => c !== 'All')
+                  });
+                }
+              }
+
+              const updatedItems = [...state.items, ...importedItems];
+              updateState({ items: updatedItems });
+              await persistVaultChanges();
+
+              showToast(t('toasts.bitwarden_import_success', { count: importedItems.length }));
+              render();
             } else if (parsed.projects && parsed.items) {
               const normalized = normalizeVaultData(parsed);
               updateState({
@@ -3703,6 +3764,7 @@ function attachEventHandlers() {
               });
               await persistVaultChanges();
               showToast('Импорт данных выполнен');
+              render();
             } else {
               alert('Неверный формат JSON файла');
             }

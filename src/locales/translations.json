@@ -1343,14 +1343,14 @@
       "hi": "JSON से वॉल्ट आयात करें"
     },
     "import_json_desc": {
-      "en": "Restore or merge passwords from an exported encrypted file.",
-      "ru": "Восстановление или объединение паролей из ранее экспортированного зашифрованного файла.",
-      "ua": "Відновлення або об'єднання паролів з раніше експортованого зашифрованого файлу.",
-      "be": "Аднаўленне або аб'яднанне пароляў з раней экспартаванага зашыфраванага файла.",
-      "kk": "Бұрын экспортталған шифрленген файлдан құпия сөздерді қалпына келтіру немесе біріктіру.",
-      "zh": "从之前导出的加密备份文件中恢复或合并数据。",
-      "ja": "エクスポートされた暗号化ファイルからパスワードを復元または統合します。",
-      "hi": "पहले से निर्यात की गई एन्क्रिप्टेड फ़ाइल से पासवर्ड पुनर्स्थापित या मर्ज करें।"
+      "en": "Restore from SimplePass backup or import unencrypted Bitwarden JSON.",
+      "ru": "Восстановление из бэкапа SimplePass или импорт паролей из незашифрованного JSON Bitwarden.",
+      "ua": "Відновлення з бекапу SimplePass або імпорт паролів із незашифрованого JSON Bitwarden.",
+      "be": "Аднаўленне з бэкапу SimplePass або імпарт пароляў з незашыфраванага JSON Bitwarden.",
+      "kk": "SimplePass сақтық көшірмесінен қалпына келтіру немесе шифрленбеген Bitwarden JSON импорттау.",
+      "zh": "从 SimplePass 备份恢复或从未加密的 Bitwarden JSON 导入密码。",
+      "ja": "SimplePassバックアップからの復元、または暗号化されていないBitwarden JSONからのインポート。",
+      "hi": "SimplePass बैकअप से पुनर्स्थापित करें या अनएन्क्रिप्टेड Bitwarden JSON आयात करें।"
     },
     "import_choose_file": {
       "en": "Choose file to import",
@@ -1511,6 +1511,16 @@
       "zh": "下载 CSV 导入模板",
       "ja": "CSVインポートテンプレートをダウンロード",
       "hi": "आयात के लिए CSV टेम्प्लेट डाउनलोड करें"
+    },
+    "export_bitwarden_btn": {
+      "en": "Export Bitwarden (JSON)",
+      "ru": "Экспорт Bitwarden (JSON)",
+      "ua": "Експорт Bitwarden (JSON)",
+      "be": "Экспарт Bitwarden (JSON)",
+      "kk": "Bitwarden экспорт (JSON)",
+      "zh": "导出 Bitwarden (JSON)",
+      "ja": "Bitwardenエクスポート (JSON)",
+      "hi": "Bitwarden निर्यात (JSON)"
     }
   },
   "auth": {
@@ -2083,6 +2093,36 @@
       "zh": "已导出为 CSV 文件",
       "ja": "CSVファイルをエクスポートしました",
       "hi": "CSV फ़ाइल निर्यात की गई"
+    },
+    "bitwarden_import_success": {
+      "en": "Imported {count} passwords from Bitwarden",
+      "ru": "Импортировано {count} паролей из Bitwarden",
+      "ua": "Імпортовано {count} паролів із Bitwarden",
+      "be": "Імпартавана {count} пароляў з Bitwarden",
+      "kk": "Bitwarden-нен {count} құпия сөз импортталды",
+      "zh": "已从 Bitwarden 导入 {count} 个密码",
+      "ja": "Bitwardenから {count} 件のパスワードをインポートしました",
+      "hi": "Bitwarden से {count} पासवर्ड आयात किए गए"
+    },
+    "bitwarden_export_success": {
+      "en": "Exported to Bitwarden JSON format",
+      "ru": "Экспортировано в формате Bitwarden JSON",
+      "ua": "Експортовано у форматі Bitwarden JSON",
+      "be": "Экспартавана ў фармаце Bitwarden JSON",
+      "kk": "Bitwarden JSON форматында экспортталды",
+      "zh": "已导出为 Bitwarden JSON 格式",
+      "ja": "Bitwarden JSON形式でエクスポートしました",
+      "hi": "Bitwarden JSON प्रारूप में निर्यात किया गया"
+    },
+    "bitwarden_encrypted_err": {
+      "en": "Bitwarden file is encrypted. Please export as unencrypted JSON.",
+      "ru": "Файл Bitwarden зашифрован. Экспортируйте из Bitwarden в формате JSON (не зашифровано).",
+      "ua": "Файл Bitwarden зашифрований. Будь ласка, експортуйте як незашифрований JSON.",
+      "be": "Файл Bitwarden зашыфраваны. Калі ласка, экспартуйце як незашыфраваны JSON.",
+      "kk": "Bitwarden файлы шифрленген. Шифрленбеген JSON ретінде экспорттаңыз.",
+      "zh": "Bitwarden 文件已加密。请导出为未加密的 JSON。",
+      "ja": "Bitwardenファイルは暗号化されています。暗号化されていないJSONとしてエクスポートしてください。",
+      "hi": "Bitwarden फ़ाइल एन्क्रिप्टेड है। कृपया अनएन्क्रिप्टेड JSON के रूप में निर्यात करें।"
     }
   }
 }

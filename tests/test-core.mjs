@@ -440,6 +440,73 @@ async function runTests() {
 
   console.log('   ✓ Multi-Vault Profiles & Retention on New Database Creation verified');
 
+  // Test 14: Bitwarden JSON 2-Way Compatibility (Import & Export)
+  console.log('14. Testing Bitwarden JSON 2-Way Compatibility (Import & Export)...');
+  const { bitwardenJsonToItems, itemsToBitwardenJson } = await import('../src/core/storage.js');
+
+  const sampleBwData = {
+    encrypted: false,
+    folders: [
+      { id: 'f_work', name: 'Work' },
+      { id: 'f_finance', name: 'Finance' }
+    ],
+    items: [
+      {
+        type: 1,
+        name: 'accounts.google.com',
+        favorite: true,
+        folderId: 'f_work',
+        login: {
+          uris: [{ uri: 'https://accounts.google.com/signin' }],
+          username: 'admin@google.com',
+          password: 'PassWordGoogle123!'
+        },
+        notes: 'Main work account'
+      },
+      {
+        type: 1,
+        name: 'bank.example.com',
+        favorite: false,
+        folderId: 'f_finance',
+        login: {
+          uris: [{ uri: 'https://bank.example.com/login' }],
+          username: 'client_777',
+          password: 'SecureBankPass#999'
+        },
+        notes: 'Banking portal'
+      }
+    ]
+  };
+
+  const { items: importedFromBw, newCategories: bwCategories } = bitwardenJsonToItems(sampleBwData, 'proj_test');
+  assert.strictEqual(importedFromBw.length, 2, 'Should parse 2 Bitwarden items');
+  assert.strictEqual(importedFromBw[0].title, 'accounts.google.com');
+  assert.strictEqual(importedFromBw[0].username, 'admin@google.com');
+  assert.strictEqual(importedFromBw[0].password, 'PassWordGoogle123!');
+  assert.strictEqual(importedFromBw[0].url, 'https://accounts.google.com/signin');
+  assert.strictEqual(importedFromBw[0].notes, 'Main work account');
+  assert.strictEqual(importedFromBw[0].tags[0], 'Work');
+  assert.strictEqual(importedFromBw[0].favorite, true);
+
+  assert.strictEqual(importedFromBw[1].title, 'bank.example.com');
+  assert.strictEqual(importedFromBw[1].username, 'client_777');
+  assert.strictEqual(importedFromBw[1].password, 'SecureBankPass#999');
+  assert.strictEqual(importedFromBw[1].tags[0], 'Finance');
+  assert(bwCategories.includes('Finance'), 'Discovered categories must contain Finance');
+
+  // Test Exporting back to Bitwarden JSON format
+  const exportedBwJsonStr = itemsToBitwardenJson(importedFromBw);
+  const parsedExported = JSON.parse(exportedBwJsonStr);
+  assert.strictEqual(parsedExported.encrypted, false, 'Must be unencrypted Bitwarden JSON');
+  assert(Array.isArray(parsedExported.folders), 'Folders must be an array');
+  assert(Array.isArray(parsedExported.items), 'Items must be an array');
+  assert.strictEqual(parsedExported.items.length, 2);
+  assert.strictEqual(parsedExported.items[0].name, 'accounts.google.com');
+  assert.strictEqual(parsedExported.items[0].login.username, 'admin@google.com');
+  assert.strictEqual(parsedExported.items[0].login.password, 'PassWordGoogle123!');
+  assert.strictEqual(parsedExported.items[0].login.uris[0].uri, 'https://accounts.google.com/signin');
+  console.log('   ✓ Bitwarden JSON 2-Way Compatibility verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

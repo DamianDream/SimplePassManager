@@ -631,3 +631,135 @@ export function csvToItems(csvText, projectId = 'proj_default') {
   return { items, newCategories: Array.from(discoveredTags) };
 }
 
+/**
+ * Converts a parsed Bitwarden JSON export object into SimplePass items and detected categories.
+ * Supports folders -> tags mapping, login credentials, URIs, notes, and timestamps.
+ * @param {any} bwData
+ * @param {string} [projectId='proj_default']
+ * @returns {{ items: Array<any>, newCategories: string[] }}
+ */
+export function bitwardenJsonToItems(bwData, projectId = 'proj_default') {
+  if (!bwData || !Array.isArray(bwData.items)) {
+    return { items: [], newCategories: [] };
+  }
+
+  const folderMap = new Map();
+  if (Array.isArray(bwData.folders)) {
+    bwData.folders.forEach(f => {
+      if (f && f.id && f.name) {
+        folderMap.set(f.id, f.name.trim());
+      }
+    });
+  }
+
+  const items = [];
+  const discoveredTags = new Set();
+  const now = new Date().toISOString();
+
+  for (let idx = 0; idx < bwData.items.length; idx++) {
+    const bwItem = bwData.items[idx];
+    if (!bwItem) continue;
+
+    let folderName = '';
+    if (bwItem.folderId && folderMap.has(bwItem.folderId)) {
+      folderName = folderMap.get(bwItem.folderId);
+    }
+
+    let tags = [];
+    if (folderName) {
+      const cleanTag = folderName.replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, '').trim().slice(0, 30);
+      if (cleanTag) {
+        tags = [cleanTag];
+        discoveredTags.add(cleanTag);
+      }
+    }
+    if (tags.length === 0) {
+      tags = ['Work'];
+    }
+
+    const title = (bwItem.name || '').trim() || (bwItem.login?.username || '').trim() || 'Untitled';
+    const username = bwItem.login?.username || '';
+    const password = bwItem.login?.password || '';
+
+    let url = '';
+    if (Array.isArray(bwItem.login?.uris) && bwItem.login.uris.length > 0) {
+      url = bwItem.login.uris[0]?.uri || '';
+    }
+
+    const notes = bwItem.notes || '';
+
+    items.push({
+      id: bwItem.id || `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_${idx}`,
+      projectId,
+      title,
+      username,
+      password,
+      url,
+      notes,
+      category: tags[0] || 'Work',
+      tags,
+      favorite: !!bwItem.favorite,
+      createdAt: bwItem.creationDate || now,
+      updatedAt: bwItem.revisionDate || now
+    });
+  }
+
+  return { items, newCategories: Array.from(discoveredTags) };
+}
+
+/**
+ * Converts SimplePass items into Bitwarden-compatible unencrypted JSON export string.
+ * Generates standard Bitwarden structure with folders and items.
+ * @param {Array<any>} items
+ * @returns {string}
+ */
+export function itemsToBitwardenJson(items = []) {
+  const folderNames = new Set();
+  items.forEach(i => {
+    const itemTags = Array.isArray(i.tags) && i.tags.length > 0 ? i.tags : (i.category ? [i.category] : []);
+    itemTags.forEach(t => {
+      if (t && t.trim() && t.trim() !== 'Work') folderNames.add(t.trim());
+    });
+  });
+
+  const folders = Array.from(folderNames).map((name, idx) => ({
+    id: `folder_${idx + 1}`,
+    name
+  }));
+  const folderNameToId = new Map(folders.map(f => [f.name, f.id]));
+
+  const bwItems = items.map((item, idx) => {
+    const itemTag = (Array.isArray(item.tags) && item.tags[0]) || item.category || '';
+    const folderId = folderNameToId.get(itemTag) || null;
+    const now = new Date().toISOString();
+
+    return {
+      type: 1, // Login
+      name: item.title || item.url || 'Untitled',
+      favorite: !!item.favorite,
+      reprompt: 0,
+      id: item.id || `bw_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_${idx}`,
+      folderId,
+      collectionIds: null,
+      fields: [],
+      notes: item.notes || '',
+      login: {
+        uris: item.url ? [{ uri: item.url }] : [],
+        fido2Credentials: [],
+        username: item.username || '',
+        password: item.password || ''
+      },
+      passwordHistory: [],
+      creationDate: item.createdAt || now,
+      revisionDate: item.updatedAt || now
+    };
+  });
+
+  return JSON.stringify({
+    encrypted: false,
+    folders,
+    items: bwItems
+  }, null, 2);
+}
+
+
