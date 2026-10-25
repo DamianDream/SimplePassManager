@@ -1955,19 +1955,6 @@ function renderSettingsView() {
         ${isDark ? t('settings.theme_dark_desc') : t('settings.theme_light_desc')}
       </p>
     </div>
-
-    <div class="sp-setting-row" data-search="метки теги карточки показывать скрывать отображение tags badge pills cards show hide">
-      <div class="sp-setting-header">
-        <span class="sp-setting-label">${t('settings.show_card_tags_label')}</span>
-        <label class="sp-liquid-switch">
-          <input type="checkbox" id="sp-show-card-tags-toggle" ${state.showCardTags ? 'checked' : ''} />
-          <span class="sp-liquid-slider"></span>
-        </label>
-      </div>
-      <p class="sp-setting-desc">
-        ${t('settings.show_card_tags_desc')}
-      </p>
-    </div>
   `;
 
   // 1. Accordion: Security & Session
@@ -2193,6 +2180,19 @@ function renderSettingsView() {
   }).join('');
 
   const catHtml = `
+    <div class="sp-setting-row" data-search="метки теги карточки показывать скрывать отображение tags badge pills cards show hide">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.show_card_tags_label')}</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-show-card-tags-toggle" ${state.showCardTags ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.show_card_tags_desc')}
+      </p>
+    </div>
+
     <div class="sp-setting-row" data-search="метки теги tags categories папки work personal создать добавить цвет tone переименовать">
       <p class="sp-setting-desc" style="margin-top:0;">${t('settings.categories_desc')}</p>
 
@@ -2330,7 +2330,7 @@ function renderSettingsView() {
       desc: t('settings.appearance_desc_short'),
       icon: icons.iMoon,
       content: appearanceHtml,
-      keywords: 'тема оформления темная светлая вид цвет метки теги карточки tags cards badge language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english'
+      keywords: 'тема оформления темная светлая вид цвет language язык мова беларуская қазақша 中文 日本語 हिन्दी hindi english'
     },
     {
       id: 'security',
@@ -2355,7 +2355,7 @@ function renderSettingsView() {
       icon: icons.iTag,
       badge: catItems.length,
       content: catHtml,
-      keywords: 'метки теги категории папки work personal создать добавить цвет tone'
+      keywords: 'метки теги категории папки work personal создать добавить цвет tone карточки badge pills cards show hide'
     },
     {
       id: 'backup',
