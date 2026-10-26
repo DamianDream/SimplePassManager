@@ -2503,7 +2503,7 @@ function renderSettingsView() {
     <div class="sp-setting-row" data-search="версия simplepass лицензия open source mit инфо about">
       <div class="sp-setting-header">
         <span class="sp-setting-label">SimplePass Manager</span>
-        <span class="sp-badge-info">v1.0.0</span>
+        <span class="sp-badge-info">v0.6</span>
       </div>
       <p class="sp-setting-desc">
         ${t('settings.about_desc')}

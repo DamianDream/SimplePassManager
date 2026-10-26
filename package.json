@@ -1,6 +1,6 @@
 {
   "name": "simple-pass-manager",
-  "version": "1.0.0",
+  "version": "0.6.0",
   "description": "A sleek, open-source password manager Chrome extension with AES-256 browser vault, native side panel, and pass CLI compatibility.",
   "type": "module",
   "scripts": {
