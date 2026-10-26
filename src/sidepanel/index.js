@@ -118,6 +118,8 @@ let isCustomSelectOpen = false;
 let isLangSelectOpen = false;
 let isExportFormatSelectOpen = false;
 let selectedExportFormat = 'json';
+let isExportAdvancedOpen = false;
+let exportSelectedTags = new Set();
 let selectedNewCatColor = 'amber';
 let activeColorPickerCat = null;
 let editingTagId = null;
@@ -2374,8 +2376,49 @@ function renderSettingsView() {
   `;
 
   // 4. Accordion: Backup & Data Transfer
+  const allProjectItems = getActiveProjectItems();
+  const availableExportTags = Array.from(new Set([
+    ...state.categories.filter(c => c !== 'All'),
+    ...allProjectItems.flatMap(i => getItemTags(i))
+  ])).filter(Boolean);
+
+  const availableExportTagsHtml = availableExportTags.length > 0
+    ? availableExportTags.map(tag => {
+        const isSelected = exportSelectedTags.has(tag);
+        const colorDef = getCategoryColorDef(tag, state.categoryColors);
+        const cssVars = getCategoryCssVars(colorDef);
+        const tagCount = allProjectItems.filter(i => getItemTags(i).includes(tag)).length;
+        const tagLabel = tag === 'Work' ? t('categories.Work') : (tag === 'Personal' ? t('categories.Personal') : tag);
+        return `
+          <button type="button"
+            class="sp-pill ${isSelected ? 'active' : ''}"
+            data-color-pill="true"
+            data-action="toggle-export-tag"
+            data-tag="${escapeHtml(tag)}"
+            style="${cssVars}; font-size:11px; padding:3px 8px; cursor:pointer;"
+            title="${tagCount}">
+            <span class="sp-pill-dot" style="background-color:${colorDef.color};"></span>
+            <span>${escapeHtml(tagLabel)}</span>
+            <span style="font-size:10px; opacity:0.75;">(${tagCount})</span>
+            ${isSelected ? `<span style="margin-left:2px; display:inline-flex; align-items:center;">${icons.iCheck}</span>` : ''}
+          </button>
+        `;
+      }).join('')
+    : `<span style="font-size:11px; color:var(--text-muted); font-style:italic;">${t('settings.export_no_tags_available')}</span>`;
+
+  let exportSummaryText = '';
+  if (exportSelectedTags.size === 0) {
+    exportSummaryText = t('settings.export_tags_none_selected', { count: allProjectItems.length });
+  } else {
+    const matchingCount = allProjectItems.filter(item => {
+      const itemTags = getItemTags(item);
+      return itemTags.some(t => exportSelectedTags.has(t));
+    }).length;
+    exportSummaryText = t('settings.export_tags_selected_count', { count: matchingCount, total: allProjectItems.length });
+  }
+
   const backupHtml = `
-    <div class="sp-setting-row" data-search="экспорт export json csv">
+    <div class="sp-setting-row" data-search="экспорт export json csv метки tags фильтр">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.export_title')}</span>
       </div>
@@ -2401,6 +2444,36 @@ function renderSettingsView() {
           </div>
         </div>
       </div>
+
+      <!-- Advanced Export Options Toggle Link -->
+      <div style="margin-top:8px;">
+        <button type="button" class="sp-export-advanced-toggle" id="sp-export-advanced-toggle" style="background:none; border:none; padding:0; display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--text-dim); cursor:pointer; text-decoration:none; transition:color 0.15s ease;">
+          <span class="sp-settings-item-arrow ${isExportAdvancedOpen ? 'open' : ''}" style="display:inline-flex; align-items:center; transform:${isExportAdvancedOpen ? 'rotate(180deg)' : 'rotate(0deg)'}; transition:transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);">${icons.iChevronDown}</span>
+          <span style="text-decoration:underline;">${t('settings.export_advanced_link')}</span>
+          ${exportSelectedTags.size > 0 ? `<span class="sp-badge-info" style="font-size:10px; padding:1px 5px; margin-left:2px;">${exportSelectedTags.size}</span>` : ''}
+        </button>
+      </div>
+
+      <!-- Collapsible Advanced Export Panel -->
+      ${isExportAdvancedOpen ? `
+        <div class="sp-export-advanced-panel" style="margin-top:10px; padding:12px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; font-weight:600; color:var(--text-main);">${t('settings.export_by_tags_title')}</span>
+            <div style="display:flex; gap:10px;">
+              <button type="button" id="sp-export-select-all-tags" style="background:none; border:none; padding:0; font-size:11px; color:var(--accent); cursor:pointer; text-decoration:underline;">${t('settings.export_select_all')}</button>
+              <button type="button" id="sp-export-clear-tags" style="background:none; border:none; padding:0; font-size:11px; color:var(--text-dim); cursor:pointer; text-decoration:underline;">${t('settings.export_clear_tags')}</button>
+            </div>
+          </div>
+
+          <div class="sp-export-tags-wrap" style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${availableExportTagsHtml}
+          </div>
+
+          <div style="font-size:11px; color:var(--text-dim); border-top:1px dashed var(--border-subtle); padding-top:8px;">
+            ${exportSummaryText}
+          </div>
+        </div>
+      ` : ''}
     </div>
 
     <div class="sp-setting-row" data-search="импорт import json csv bitwarden">
@@ -3970,14 +4043,76 @@ function attachEventHandlers() {
     });
   }
 
+  const btnExportAdvancedToggle = document.getElementById('sp-export-advanced-toggle');
+  if (btnExportAdvancedToggle) {
+    btnExportAdvancedToggle.addEventListener('click', e => {
+      e.preventDefault();
+      isExportAdvancedOpen = !isExportAdvancedOpen;
+      render();
+    });
+  }
+
+  const btnExportSelectAllTags = document.getElementById('sp-export-select-all-tags');
+  if (btnExportSelectAllTags) {
+    btnExportSelectAllTags.addEventListener('click', e => {
+      e.preventDefault();
+      const allProjectItems = getActiveProjectItems();
+      const tags = Array.from(new Set([
+        ...state.categories.filter(c => c !== 'All'),
+        ...allProjectItems.flatMap(i => getItemTags(i))
+      ])).filter(Boolean);
+      tags.forEach(t => exportSelectedTags.add(t));
+      render();
+    });
+  }
+
+  const btnExportClearTags = document.getElementById('sp-export-clear-tags');
+  if (btnExportClearTags) {
+    btnExportClearTags.addEventListener('click', e => {
+      e.preventDefault();
+      exportSelectedTags.clear();
+      render();
+    });
+  }
+
+  document.querySelectorAll('[data-action="toggle-export-tag"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const tag = btn.dataset.tag;
+      if (!tag) return;
+      if (exportSelectedTags.has(tag)) {
+        exportSelectedTags.delete(tag);
+      } else {
+        exportSelectedTags.add(tag);
+      }
+      render();
+    });
+  });
+
   const btnExportUnified = document.getElementById('sp-btn-export-unified');
   if (btnExportUnified) {
     btnExportUnified.addEventListener('click', () => {
       const format = selectedExportFormat || 'json';
       const activeProj = getActiveProject();
       const projectItems = getActiveProjectItems();
-      const itemsToExport = projectItems.length > 0 ? projectItems : state.items;
+      const allItems = projectItems.length > 0 ? projectItems : state.items;
+
+      let itemsToExport = allItems;
+      if (exportSelectedTags.size > 0) {
+        itemsToExport = allItems.filter(item => {
+          const itemTags = getItemTags(item);
+          return itemTags.some(t => exportSelectedTags.has(t));
+        });
+        if (itemsToExport.length === 0) {
+          showToast(t('settings.export_no_matching_items'));
+          return;
+        }
+      }
+
       const projName = activeProj?.name ? activeProj.name.replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_') : 'passwords';
+      const tagSuffix = exportSelectedTags.size === 1
+        ? `-${Array.from(exportSelectedTags)[0]}`
+        : (exportSelectedTags.size > 1 ? '-filtered' : '');
 
       if (format === 'csv') {
         const csvContent = itemsToCsv(itemsToExport);
@@ -3985,7 +4120,7 @@ function attachEventHandlers() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `passwords-${projName}.csv`;
+        a.download = `passwords-${projName}${tagSuffix}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(t('settings.export_csv_success'));
@@ -3995,7 +4130,7 @@ function attachEventHandlers() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `passwords-${projName}.json`;
+        a.download = `passwords-${projName}${tagSuffix}.json`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(t('settings.export_json_success'));

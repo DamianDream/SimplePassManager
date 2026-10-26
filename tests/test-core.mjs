@@ -597,6 +597,66 @@ async function runTests() {
   setLanguage('ru');
   console.log('   ✓ Show/Hide Favicons Setting & Multilingual Translations verified');
 
+  // Test 18: Advanced Export with Tag Filtering & Translations
+  console.log('18. Testing Advanced Export by Tags & Multilingual Translations...');
+  assert(t('settings.export_advanced_link'), 'export_advanced_link translation must exist');
+  assert(t('settings.export_by_tags_title'), 'export_by_tags_title translation must exist');
+  assert(t('settings.export_select_all'), 'export_select_all translation must exist');
+  assert(t('settings.export_clear_tags'), 'export_clear_tags translation must exist');
+  assert(t('settings.export_tags_none_selected', { count: 5 }), 'export_tags_none_selected translation must exist');
+  assert(t('settings.export_tags_selected_count', { count: 2, total: 5 }), 'export_tags_selected_count translation must exist');
+  assert(t('settings.export_no_matching_items'), 'export_no_matching_items translation must exist');
+  assert(t('settings.export_no_tags_available'), 'export_no_tags_available translation must exist');
+
+  for (const lang of supportedLanguages) {
+    setLanguage(lang);
+    assert(t('settings.export_advanced_link'), `export_advanced_link missing in lang: ${lang}`);
+    assert(t('settings.export_by_tags_title'), `export_by_tags_title missing in lang: ${lang}`);
+    assert(t('settings.export_select_all'), `export_select_all missing in lang: ${lang}`);
+    assert(t('settings.export_clear_tags'), `export_clear_tags missing in lang: ${lang}`);
+  }
+  setLanguage('ru');
+
+  // Verify item tag filtering logic for export
+  const sampleItems = [
+    { id: '1', title: 'Work Tool', username: 'u1', password: 'p1', tags: ['Work'] },
+    { id: '2', title: 'Crypto Wallet', username: 'u2', password: 'p2', tags: ['Personal', 'Crypto'] },
+    { id: '3', title: 'Bank Account', username: 'u3', password: 'p3', tags: ['Finance'] }
+  ];
+
+  const filterByTags = (items, selectedTags) => {
+    if (!selectedTags || selectedTags.size === 0) return items;
+    return items.filter(item => {
+      const tags = getItemTags(item);
+      return tags.some(t => selectedTags.has(t));
+    });
+  };
+
+  const workFiltered = filterByTags(sampleItems, new Set(['Work']));
+  assert.strictEqual(workFiltered.length, 1);
+  assert.strictEqual(workFiltered[0].title, 'Work Tool');
+
+  const cryptoFiltered = filterByTags(sampleItems, new Set(['Crypto']));
+  assert.strictEqual(cryptoFiltered.length, 1);
+  assert.strictEqual(cryptoFiltered[0].title, 'Crypto Wallet');
+
+  const multiFiltered = filterByTags(sampleItems, new Set(['Work', 'Finance']));
+  assert.strictEqual(multiFiltered.length, 2);
+  assert.deepStrictEqual(multiFiltered.map(i => i.title), ['Work Tool', 'Bank Account']);
+
+  // CSV export with tag filter
+  const filteredCsv = itemsToCsv(multiFiltered);
+  assert(filteredCsv.includes('Work Tool'));
+  assert(filteredCsv.includes('Bank Account'));
+  assert(!filteredCsv.includes('Crypto Wallet'));
+
+  // Bitwarden JSON export with tag filter
+  const filteredBwJson = JSON.parse(itemsToBitwardenJson(cryptoFiltered));
+  assert.strictEqual(filteredBwJson.items.length, 1);
+  assert.strictEqual(filteredBwJson.items[0].name, 'Crypto Wallet');
+
+  console.log('   ✓ Advanced Export by Tags & Multilingual Translations verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
