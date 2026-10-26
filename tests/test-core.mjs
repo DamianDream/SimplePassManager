@@ -577,6 +577,26 @@ async function runTests() {
   assert(t('toasts.favicon_fetch_failed'), 'Favicon fetch failed toast must exist');
   console.log('   ✓ Favicon Cache, Local IP:Port & Multi-Item Re-use verified');
 
+  // Test 17: Show/Hide Favicons Setting & Translations across all languages
+  console.log('17. Testing Show/Hide Favicons Setting & Multilingual Translations...');
+  assert.strictEqual(DEFAULT_CONFIG.showFavicons, true, 'DEFAULT_CONFIG.showFavicons must default to true');
+  assert.strictEqual(state.showFavicons, true, 'state.showFavicons must default to true');
+  assert(t('settings.show_favicons_label'), 'Favicons label translation must exist');
+  assert(t('settings.show_favicons_desc'), 'Favicons desc translation must exist');
+  assert(t('toasts.favicons_shown'), 'Favicons shown toast must exist');
+  assert(t('toasts.favicons_hidden'), 'Favicons hidden toast must exist');
+
+  const supportedLanguages = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'hi'];
+  for (const lang of supportedLanguages) {
+    setLanguage(lang);
+    assert(t('settings.show_favicons_label'), `show_favicons_label missing in lang: ${lang}`);
+    assert(t('settings.show_favicons_desc'), `show_favicons_desc missing in lang: ${lang}`);
+    assert(t('toasts.favicons_shown'), `favicons_shown missing in lang: ${lang}`);
+    assert(t('toasts.favicons_hidden'), `favicons_hidden missing in lang: ${lang}`);
+  }
+  setLanguage('ru');
+  console.log('   ✓ Show/Hide Favicons Setting & Multilingual Translations verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

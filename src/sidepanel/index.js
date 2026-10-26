@@ -180,13 +180,13 @@ function updateActiveTabDomain() {
     }
     const cleanChanged = clean !== activeTabDomain;
     const tabChanged = tabId !== activeTabId;
-    const needsFavicon = clean && !cachedFavicons[clean];
+    const needsFavicon = state.showFavicons && clean && !cachedFavicons[clean];
 
     if (cleanChanged || tabChanged || needsFavicon) {
       activeTabDomain = clean;
       activeTabId = tabId;
 
-      if (clean) {
+      if (clean && state.showFavicons) {
         resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: favIconUrl || activeTabFavicon })
           .then(res => {
             if (res && res.favicon) {
@@ -274,9 +274,6 @@ function syncCachedFaviconsFromItems(items) {
 }
 
 async function init() {
-  // Auto-detect active website domain immediately
-  updateActiveTabDomain();
-
   try {
     cachedFavicons = await getFaviconCache();
   } catch (_) {
@@ -317,9 +314,13 @@ async function init() {
     theme: currentTheme,
     language: currentLang,
     showCardTags: storedConfig.showCardTags === true,
+    showFavicons: storedConfig.showFavicons !== false,
     categories: fullCategories,
     categoryColors: userCategoryColors
   });
+
+  // Auto-detect active website domain immediately after config is restored
+  updateActiveTabDomain();
 
   // Attempt to restore active session (e.g. valid within 3 days)
   if (storedVault) {
@@ -705,7 +706,7 @@ async function saveItem(itemData) {
   await persistVaultChanges();
 
   // If favicon wasn't cached yet, fetch in background and persist
-  if (domain && !itemToSave.favicon) {
+  if (state.showFavicons && domain && !itemToSave.favicon) {
     resolveFavicon(itemData.url, { forceRefresh: false, activeTabFavIconUrl: activeTabFavicon })
       .then(async res => {
         if (res && res.favicon) {
@@ -1361,7 +1362,9 @@ function renderVaultView() {
             const isMatched = isItemMatchingDomain(item, activeTabDomain);
             const itemDomain = item.domain || extractCleanDomain(item.url);
             const itemDomainNoPort = itemDomain ? itemDomain.split(':')[0] : '';
-            const itemFavicon = item.favicon || (itemDomain && cachedFavicons[itemDomain]) || (itemDomainNoPort && cachedFavicons[itemDomainNoPort]);
+            const itemFavicon = state.showFavicons
+              ? (item.favicon || (itemDomain && cachedFavicons[itemDomain]) || (itemDomainNoPort && cachedFavicons[itemDomainNoPort]))
+              : null;
             const avatarContent = itemFavicon
               ? `<img src="${escapeHtml(itemFavicon)}" class="sp-card-favicon" alt="" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline';" /><span style="display:none;">${letter}</span>`
               : `<span>${letter}</span>`;
@@ -1781,7 +1784,9 @@ function renderItemFormView() {
 
   const formDomain = item.domain || extractCleanDomain(item.url);
   const formDomainNoPort = formDomain ? formDomain.split(':')[0] : '';
-  const formFavicon = item.favicon || (formDomain && cachedFavicons[formDomain]) || (formDomainNoPort && cachedFavicons[formDomainNoPort]) || '';
+  const formFavicon = state.showFavicons
+    ? (item.favicon || (formDomain && cachedFavicons[formDomain]) || (formDomainNoPort && cachedFavicons[formDomainNoPort]) || '')
+    : '';
 
   return `
     <div class="sp-view-container">
@@ -1857,10 +1862,16 @@ function renderItemFormView() {
             ${formDomain ? `<span id="sp-form-domain-badge" style="font-size:10px; color:var(--text-dim);">${escapeHtml(formDomain)}</span>` : '<span id="sp-form-domain-badge" style="font-size:10px; color:var(--text-dim); display:none;"></span>'}
           </div>
           <div class="sp-input-with-action">
-            <input type="text" id="sp-item-url" class="sp-input" value="${escapeHtml(item.url || '')}" placeholder="${t('form.url_placeholder')}" style="padding-right: 36px;" />
+            <input type="text" id="sp-item-url" class="sp-input" value="${escapeHtml(item.url || '')}" placeholder="${t('form.url_placeholder')}" style="padding-right: ${state.showFavicons ? '36px' : '10px'};" />
+            ${
+              state.showFavicons
+                ? `
             <button type="button" class="sp-input-action-btn" id="sp-btn-refresh-favicon" title="${t('form.refresh_favicon_title')}">
               ${icons.iRefresh}
             </button>
+            `
+                : ''
+            }
           </div>
         </div>
 
@@ -2078,6 +2089,19 @@ function renderSettingsView() {
       </div>
       <p class="sp-setting-desc">
         ${isDark ? t('settings.theme_dark_desc') : t('settings.theme_light_desc')}
+      </p>
+    </div>
+
+    <div class="sp-setting-row" data-search="фавикон favicon иконки сайтов карточки отображение favicons icons cards show hide">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.show_favicons_label')}</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-show-favicons-toggle" ${state.showFavicons ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.show_favicons_desc')}
       </p>
     </div>
   `;
@@ -2906,7 +2930,7 @@ function attachEventHandlers() {
           domainBadge.style.display = 'none';
         }
       }
-      if (domain && cachedFavicons[domain]) {
+      if (state.showFavicons && domain && cachedFavicons[domain]) {
         const preview = document.getElementById('sp-form-favicon-preview');
         if (preview) {
           preview.src = cachedFavicons[domain];
@@ -2920,6 +2944,7 @@ function attachEventHandlers() {
     });
 
     urlInput.addEventListener('blur', async () => {
+      if (!state.showFavicons) return;
       const url = urlInput.value.trim();
       const domain = extractCleanDomain(url);
       if (!domain) return;
@@ -3516,6 +3541,18 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, theme: newTheme });
       showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
+    });
+  }
+
+  // Show Favicons Toggle Handler in Settings
+  const faviconsToggle = document.getElementById('sp-show-favicons-toggle');
+  if (faviconsToggle) {
+    faviconsToggle.addEventListener('change', async e => {
+      const showFavicons = e.target.checked;
+      updateState({ showFavicons });
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({ ...cfg, showFavicons });
+      showToast(showFavicons ? t('toasts.favicons_shown') : t('toasts.favicons_hidden'));
     });
   }
 

@@ -20,7 +20,8 @@ export const DEFAULT_CONFIG = {
   language: 'ru',
   defaultCategory: 'Work',
   categories: ['Work', 'Personal'],
-  showCardTags: false
+  showCardTags: false,
+  showFavicons: true
 };
 
 const memoryStore = new Map();

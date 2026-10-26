@@ -24,6 +24,7 @@ export const state = {
   theme: 'light',
   language: 'ru',
   showCardTags: false,
+  showFavicons: true,
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,
