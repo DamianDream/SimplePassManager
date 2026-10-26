@@ -63,6 +63,20 @@ export function extractCleanDomain(urlOrDomain) {
 }
 
 /**
+ * Extracts pure domain name or host IP without port and without path/breadcrumbs.
+ * E.g., '192.168.0.104:4321' -> '192.168.0.104'
+ * E.g., 'http://192.168.0.104:4321/dashboard/items' -> '192.168.0.104'
+ * E.g., 'https://www.github.com/login/oauth' -> 'github.com'
+ * E.g., 'localhost:3000' -> 'localhost'
+ */
+export function extractDomainName(urlOrDomain) {
+  if (!urlOrDomain || typeof urlOrDomain !== 'string') return '';
+  const clean = extractCleanDomain(urlOrDomain);
+  if (!clean) return '';
+  return clean.split(':')[0].toLowerCase();
+}
+
+/**
  * Checks whether an item matches the target domain.
  * Supports:
  * - Direct domain or subdomain match (e.g. gist.github.com matches github.com and vice versa)

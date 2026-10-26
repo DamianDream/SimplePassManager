@@ -55,6 +55,7 @@ import {
 } from '../core/pass-native.js';
 import {
   extractCleanDomain,
+  extractDomainName,
   isItemMatchingDomain,
   sortItemsByDomainMatch,
   isLocalOrPrivateHost
@@ -1307,6 +1308,7 @@ function renderVaultView() {
     const matchesQuery =
       !query ||
       item.title.toLowerCase().includes(query) ||
+      (item.domain && item.domain.toLowerCase().includes(query)) ||
       (item.username && item.username.toLowerCase().includes(query)) ||
       (item.url && item.url.toLowerCase().includes(query)) ||
       itemTags.some(t => t.toLowerCase().includes(query));
@@ -1319,11 +1321,12 @@ function renderVaultView() {
   let activeDomainNotice = '';
   if (activeTabDomain) {
     const domainMatches = projectItems.filter(i => isItemMatchingDomain(i, activeTabDomain));
-    if (domainMatches.length > 0) {
+    const displayDomain = extractDomainName(activeTabDomain);
+    if (domainMatches.length > 0 && displayDomain) {
       activeDomainNotice = `
-        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 6px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
+        <div id="sp-active-domain-banner" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); padding: 6px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s ease;" title="${t('vault.filter_domain_title')}">
           <span style="color: var(--text-main); font-weight: 600; display:flex; align-items:center; gap:6px;">
-            <span style="color:var(--accent);">${icons.iGlobe}</span> ${t('vault.current_site')}: <b>${escapeHtml(activeTabDomain)}</b> (${domainMatches.length})
+            <span style="color:var(--accent);">${icons.iGlobe}</span> ${t('vault.current_site')}: <b>${escapeHtml(displayDomain)}</b> (${domainMatches.length})
           </span>
           <button class="sp-btn-icon" id="sp-filter-domain" style="width:20px;height:20px;" title="${t('vault.filter_domain_title')}">${icons.iSearch}</button>
         </div>
@@ -1762,7 +1765,7 @@ function renderItemFormView() {
     url: activeTabDomain
       ? (activeTabDomain.includes(':') || isLocalOrPrivateHost(activeTabDomain) ? `http://${activeTabDomain}` : `https://${activeTabDomain}`)
       : '',
-    domain: activeTabDomain || '',
+    domain: extractDomainName(activeTabDomain) || '',
     favicon: (activeTabDomain && cachedFavicons[activeTabDomain]) || (activeTabDomain && cachedFavicons[activeTabDomain.split(':')[0]]) || '',
     category: '',
     notes: ''
@@ -1784,7 +1787,7 @@ function renderItemFormView() {
   const currentProjId = item.projectId || defaultProjId;
   const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
 
-  const formDomain = item.domain || extractCleanDomain(item.url);
+  const formDomain = extractDomainName(item.domain || item.url);
   const formDomainNoPort = formDomain ? formDomain.split(':')[0] : '';
   const formFavicon = state.showFavicons
     ? (item.favicon || (formDomain && cachedFavicons[formDomain]) || (formDomainNoPort && cachedFavicons[formDomainNoPort]) || '')
@@ -2909,11 +2912,25 @@ function attachEventHandlers() {
     });
   });
 
+  const filterDomain = () => {
+    const targetDomain = extractDomainName(activeTabDomain);
+    if (!targetDomain) return;
+    const isAlreadyFiltered = state.searchQuery.toLowerCase().trim() === targetDomain.toLowerCase();
+    updateState({ searchQuery: isAlreadyFiltered ? '' : targetDomain });
+  };
+
   const filterDomainBtn = document.getElementById('sp-filter-domain');
   if (filterDomainBtn) {
-    filterDomainBtn.addEventListener('click', () => {
-      const isAlreadyFiltered = state.searchQuery === activeTabDomain;
-      updateState({ searchQuery: isAlreadyFiltered ? '' : activeTabDomain });
+    filterDomainBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      filterDomain();
+    });
+  }
+
+  const activeDomainBanner = document.getElementById('sp-active-domain-banner');
+  if (activeDomainBanner) {
+    activeDomainBanner.addEventListener('click', () => {
+      filterDomain();
     });
   }
 
@@ -2994,10 +3011,11 @@ function attachEventHandlers() {
     urlInput.addEventListener('input', () => {
       const url = urlInput.value.trim();
       const domain = extractCleanDomain(url);
+      const displayDomain = extractDomainName(url);
       const domainBadge = document.getElementById('sp-form-domain-badge');
       if (domainBadge) {
-        if (domain) {
-          domainBadge.textContent = domain;
+        if (displayDomain) {
+          domainBadge.textContent = displayDomain;
           domainBadge.style.display = 'inline';
         } else {
           domainBadge.style.display = 'none';
@@ -3010,7 +3028,7 @@ function attachEventHandlers() {
           preview.style.display = 'inline-block';
         }
         if (formDraft) {
-          formDraft.domain = domain;
+          formDraft.domain = displayDomain;
           formDraft.favicon = cachedFavicons[domain];
         }
       }
@@ -3109,14 +3127,15 @@ function attachEventHandlers() {
           if (res.domain) cachedFavicons[res.domain] = res.favicon;
           if (hostNoPort) cachedFavicons[hostNoPort] = res.favicon;
 
+          const displayDomain = hostNoPort || domain;
           if (formDraft) {
-            formDraft.domain = domain;
+            formDraft.domain = displayDomain;
             formDraft.favicon = res.favicon;
           }
 
           const domainBadge = document.getElementById('sp-form-domain-badge');
           if (domainBadge) {
-            domainBadge.textContent = domain;
+            domainBadge.textContent = displayDomain;
             domainBadge.style.display = 'inline';
           }
           const preview = document.getElementById('sp-form-favicon-preview');
@@ -3129,7 +3148,7 @@ function attachEventHandlers() {
           if (itemId) {
             const itemIdx = state.items.findIndex(i => i.id === itemId);
             if (itemIdx >= 0) {
-              state.items[itemIdx].domain = domain;
+              state.items[itemIdx].domain = displayDomain;
               state.items[itemIdx].favicon = res.favicon;
               await persistVaultChanges();
             }

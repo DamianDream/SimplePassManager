@@ -151,11 +151,17 @@ async function runTests() {
 
   // Test 8: Active Tab Domain Auto-detection & Priority Sorting
   console.log('8. Testing Domain Auto-Detection & Priority Card Sorting...');
-  const { isItemMatchingDomain, sortItemsByDomainMatch, extractCleanDomain } = await import('../src/core/domain.js');
+  const { isItemMatchingDomain, sortItemsByDomainMatch, extractCleanDomain, extractDomainName } = await import('../src/core/domain.js');
 
   assert.strictEqual(extractCleanDomain('https://www.github.com/settings'), 'github.com');
   assert.strictEqual(extractCleanDomain('gist.github.com'), 'gist.github.com');
   assert.strictEqual(extractCleanDomain('chrome://extensions'), '');
+
+  // Verify pure domain name extraction without ports and breadcrumbs
+  assert.strictEqual(extractDomainName('192.168.0.104:4321'), '192.168.0.104');
+  assert.strictEqual(extractDomainName('http://192.168.0.104:4321/dashboard/items'), '192.168.0.104');
+  assert.strictEqual(extractDomainName('https://www.github.com/user/repo/pulls?tab=files'), 'github.com');
+  assert.strictEqual(extractDomainName('localhost:3000/app'), 'localhost');
 
   const itemsList = [
     { id: '1', title: 'Google Mail', url: 'https://mail.google.com' },
