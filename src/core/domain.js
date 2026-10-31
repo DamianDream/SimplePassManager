@@ -76,60 +76,45 @@ export function extractDomainName(urlOrDomain) {
   return clean.split(':')[0].toLowerCase();
 }
 
+import { getRegistrableDomain } from './psl.js';
+
+export { getRegistrableDomain };
+
 /**
- * Checks whether an item matches the target domain.
- * Supports:
- * - Direct domain or subdomain match (e.g. gist.github.com matches github.com and vice versa)
- * - URL substring match
- * - Title match against root domain (e.g., title 'GitHub' matches 'github.com')
+ * Checks whether an item strictly matches the target domain (anti-phishing eTLD+1 matching).
+ * Matches iff getRegistrableDomain(item.url) === getRegistrableDomain(activeDomain).
+ * For localhost / private IPs, compares exact host and port if provided.
+ * Prevents phishing attacks like deceptive subdomains or substring titles.
  */
 export function isItemMatchingDomain(item, activeDomain) {
   if (!item || !activeDomain) return false;
   const targetHost = extractCleanDomain(activeDomain);
   if (!targetHost) return false;
 
-  // 1. Match item.url
-  if (item.url) {
-    const itemHost = extractCleanDomain(item.url);
-    if (itemHost) {
-      const itemHostNoPort = itemHost.split(':')[0];
-      const targetHostNoPort = targetHost.split(':')[0];
-      if (
-        itemHost === targetHost ||
-        itemHost.endsWith('.' + targetHost) ||
-        targetHost.endsWith('.' + itemHost) ||
-        (itemHostNoPort && targetHostNoPort && (
-          itemHostNoPort === targetHostNoPort ||
-          itemHostNoPort.endsWith('.' + targetHostNoPort) ||
-          targetHostNoPort.endsWith('.' + itemHostNoPort)
-        ))
-      ) {
-        return true;
-      }
+  const targetReg = getRegistrableDomain(targetHost);
+  if (!targetReg) return false;
+
+  const itemUrl = item.url || item.domain || '';
+  if (!itemUrl) return false;
+
+  const itemHost = extractCleanDomain(itemUrl);
+  if (!itemHost) return false;
+
+  const itemReg = getRegistrableDomain(itemHost);
+  if (!itemReg) return false;
+
+  // Local or private network host check (IPs, localhost, .local)
+  if (isLocalOrPrivateHost(targetHost) || isLocalOrPrivateHost(itemHost)) {
+    const targetPort = targetHost.includes(':') ? targetHost.split(':')[1] : '';
+    const itemPort = itemHost.includes(':') ? itemHost.split(':')[1] : '';
+    if (targetPort && itemPort) {
+      return itemHost.toLowerCase() === targetHost.toLowerCase();
     }
-    const itemUrlLower = item.url.toLowerCase();
-    if (itemUrlLower.includes(targetHost) || itemUrlLower.includes(targetHost.split(':')[0])) {
-      return true;
-    }
+    return itemReg === targetReg;
   }
 
-  // 2. Match item.title
-  if (item.title) {
-    const titleLower = item.title.toLowerCase().trim();
-    if (titleLower === targetHost || titleLower.includes(targetHost)) {
-      return true;
-    }
-    // Extract base domain name without TLD (e.g., "github" from "github.com")
-    const targetParts = targetHost.split('.');
-    const targetBase = targetParts[0];
-    if (targetBase && targetBase.length >= 3) {
-      if (titleLower === targetBase || titleLower.startsWith(targetBase)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  // Strict eTLD+1 matching
+  return itemReg === targetReg;
 }
 
 /**

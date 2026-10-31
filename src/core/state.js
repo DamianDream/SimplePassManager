@@ -10,6 +10,8 @@ export const state = {
   isInitialized: false,
   isUnlocked: false,
   masterPassword: null,
+  rawMek: null,
+  keySlots: null,
   projects: [],
   activeProjectId: null,
   items: [],
@@ -160,8 +162,13 @@ export async function deleteProjectCascade(projectId, enteredPassword, typedProj
  */
 export async function lockVault() {
   await destroySession();
+  if (state.rawMek && state.rawMek.fill) {
+    try { state.rawMek.fill(0); } catch (_) {}
+  }
   state.isUnlocked = false;
   state.masterPassword = null;
+  state.rawMek = null;
+  state.keySlots = null;
   state.projects = [];
   state.items = [];
   state.activeProjectId = null;

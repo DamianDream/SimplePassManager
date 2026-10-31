@@ -11,7 +11,21 @@ chmod +x "$SCRIPT_PATH"
 echo "=== SimplePass Manager Native Host Installer ==="
 echo "Script path: $SCRIPT_PATH"
 
-# Prepare JSON manifest with absolute script path
+EXTENSION_ID="$1"
+if [ -z "$EXTENSION_ID" ]; then
+  echo "Notice: Chrome requires the explicit Extension ID for allowed_origins."
+  echo "You can find your ID at chrome://extensions with Developer mode enabled."
+  read -p "Enter Chrome Extension ID: " EXTENSION_ID
+fi
+
+if [ -z "$EXTENSION_ID" ]; then
+  echo "Error: Extension ID is required. Example: ./install.sh <EXTENSION_ID>"
+  exit 1
+fi
+
+echo "Registering host for extension ID: $EXTENSION_ID"
+
+# Prepare JSON manifest with absolute script path and scoped extension origin
 MANIFEST_CONTENT=$(cat <<EOF
 {
   "name": "$HOST_NAME",
@@ -19,7 +33,7 @@ MANIFEST_CONTENT=$(cat <<EOF
   "path": "$SCRIPT_PATH",
   "type": "stdio",
   "allowed_origins": [
-    "chrome-extension://*"
+    "chrome-extension://$EXTENSION_ID/"
   ]
 }
 EOF

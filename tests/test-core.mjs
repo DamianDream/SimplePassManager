@@ -45,10 +45,12 @@ async function runTests() {
   console.log('   ✓ Multi-project normalization verified');
 
   // Test 3: Lock intervals
-  console.log('3. Testing Lock Intervals definitions...');
-  assert.strictEqual(LOCK_INTERVALS['3days'].ms, 3 * 24 * 60 * 60 * 1000, '3days must equal 72h');
+  console.log('3. Testing Lock Intervals definitions (secure session & durations)...');
+  assert.strictEqual(LOCK_INTERVALS['session'].ms, 0, 'session must be 0 ms');
+  assert.strictEqual(LOCK_INTERVALS['15m'].ms, 15 * 60 * 1000, '15m must equal 15 mins');
+  assert.strictEqual(LOCK_INTERVALS['1h'].ms, 60 * 60 * 1000, '1h must equal 60 mins');
+  assert.strictEqual(LOCK_INTERVALS['8h'].ms, 8 * 60 * 60 * 1000, '8h must equal 8 hours');
   assert.strictEqual(LOCK_INTERVALS['1day'].ms, 24 * 60 * 60 * 1000, '1day must equal 24h');
-  assert.strictEqual(LOCK_INTERVALS['1week'].ms, 7 * 24 * 60 * 60 * 1000, '1week must equal 7d');
   console.log('   ✓ Lock intervals verified');
 
   // Test 4: UNIX pass format serialization & deserialization
@@ -173,6 +175,12 @@ async function runTests() {
   assert(isItemMatchingDomain(itemsList[1], 'github.com'), 'GitHub must match github.com');
   assert(isItemMatchingDomain(itemsList[3], 'github.com'), 'Subdomain gist.github.com must match github.com');
   assert(!isItemMatchingDomain(itemsList[0], 'github.com'), 'Google must not match github.com');
+
+  // Anti-phishing security tests
+  assert(!isItemMatchingDomain(itemsList[1], 'github.phish-login.io'), 'GitHub item must NOT match phishing domain github.phish-login.io');
+  assert(!isItemMatchingDomain({ title: 'GitHub', url: '' }, 'github.phish-login.io'), 'Title match must not falsely trigger domain match');
+  assert(isItemMatchingDomain({ url: 'http://192.168.0.104:4321' }, '192.168.0.104:4321'), 'Exact IP:port match');
+  assert(!isItemMatchingDomain({ url: 'http://192.168.0.104:8080' }, '192.168.0.104:4321'), 'Different port must not match');
 
   const sortedByDomain = sortItemsByDomainMatch(itemsList, 'github.com');
   assert.strictEqual(sortedByDomain[0].title, 'GitHub', 'Matched item must be first');
@@ -698,6 +706,65 @@ async function runTests() {
   assert.deepStrictEqual(validateItemFormFields('GitHub', 'pass123'), { isValid: true, titleError: false, passwordError: false });
 
   console.log('   ✓ Form Validation & Tag Creation UX verified');
+
+  // Test 20: MEK Wrapping, Unwrapping & Zero Degradation Across Saves
+  console.log('20. Testing MEK Dual-Key Envelope, Unwrapping & Zero Degradation...');
+  const {
+    generateMek,
+    wrapMek,
+    unwrapMekWithPassword,
+    unwrapMekWithRecovery,
+    encryptVaultWithMek,
+    decryptVaultWithMek
+  } = await import('../src/core/crypto.js');
+
+  const sampleMek = generateMek();
+  assert(sampleMek instanceof Uint8Array && sampleMek.length === 32, 'MEK must be 32 bytes Uint8Array');
+
+  const testPass = 'SecureMasterPass!2026';
+  const testPhrase = 'abandon ability able about above absent absorb abstract absurd abuse access accident';
+
+  const pwdSlot = await wrapMek(sampleMek, testPass);
+  const recSlot = await wrapMek(sampleMek, testPhrase);
+
+  const initialPayload = { secretData: 'v2-vault-initial-state', timestamp: Date.now() };
+  const v2Envelope = await encryptVaultWithMek(initialPayload, sampleMek, { keyByPassword: pwdSlot, keyByRecovery: recSlot });
+
+  assert.strictEqual(v2Envelope.version, 2);
+  assert(v2Envelope.keyByPassword && v2Envelope.keyByRecovery, 'Must retain both key slots');
+
+  // Verify unwrapping from both slots yields identical MEK bytes
+  const unwrappedMekFromPwd = await unwrapMekWithPassword(v2Envelope, testPass);
+  const unwrappedMekFromRec = await unwrapMekWithRecovery(v2Envelope, testPhrase);
+  assert.deepStrictEqual(Array.from(unwrappedMekFromPwd), Array.from(sampleMek));
+  assert.deepStrictEqual(Array.from(unwrappedMekFromRec), Array.from(sampleMek));
+
+  // Edit/persist: encrypt updated data with MEK preserving existing key slots
+  const updatedPayload = { secretData: 'v2-vault-after-first-edit', edited: true };
+  const updatedEnvelope = await encryptVaultWithMek(updatedPayload, sampleMek, {
+    keyByPassword: v2Envelope.keyByPassword,
+    keyByRecovery: v2Envelope.keyByRecovery
+  });
+
+  // Verify 12-word recovery phrase can STILL decrypt the updated data! (Zero degradation)
+  const recoveryResult = await decryptVaultWithRecovery(updatedEnvelope, testPhrase);
+  assert.strictEqual(recoveryResult.vaultData.secretData, 'v2-vault-after-first-edit', 'Recovery key must decrypt updated vault data');
+
+  // Change password: wrap MEK with new password in keyByPassword only
+  const newPass = 'BrandNewMasterPass#2027';
+  const newPwdSlot = await wrapMek(sampleMek, newPass);
+  const rekeyedEnvelope = await encryptVaultWithMek(updatedPayload, sampleMek, {
+    keyByPassword: newPwdSlot,
+    keyByRecovery: v2Envelope.keyByRecovery
+  });
+
+  const pwdDecrypted = await decryptVault(rekeyedEnvelope, newPass);
+  assert.strictEqual(pwdDecrypted.secretData, 'v2-vault-after-first-edit');
+
+  const recDecryptedAfterPwdChange = await decryptVaultWithRecovery(rekeyedEnvelope, testPhrase);
+  assert.strictEqual(recDecryptedAfterPwdChange.vaultData.secretData, 'v2-vault-after-first-edit', 'Recovery phrase must still work after password change');
+
+  console.log('   ✓ MEK Dual-Key Envelope, Unwrapping & Zero Degradation verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

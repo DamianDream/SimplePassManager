@@ -11,8 +11,15 @@ function triggerInputEvents(element, value) {
 }
 
 function autofillCredentials(username, password) {
+  // Security guard: do not fill credentials in hidden or background tabs
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+    return false;
+  }
+
   const passwordInputs = Array.from(document.querySelectorAll('input[type="password"]')).filter(
-    el => !el.disabled && el.offsetParent !== null
+    el => !el.disabled &&
+      el.offsetParent !== null &&
+      el.getAttribute('autocomplete') !== 'one-time-code'
   );
 
   let success = false;
@@ -26,7 +33,7 @@ function autofillCredentials(username, password) {
     const form = pwdInput.closest('form') || document.body;
     const candidates = Array.from(
       form.querySelectorAll('input[type="text"], input[type="email"], input[autocomplete*="username"], input:not([type])')
-    ).filter(el => !el.disabled && el.offsetParent !== null && el !== pwdInput);
+    ).filter(el => !el.disabled && el.offsetParent !== null && el !== pwdInput && el.getAttribute('autocomplete') !== 'one-time-code');
 
     if (username && candidates.length > 0) {
       // Pick the candidate immediately preceding the password input or matching username/login/email
@@ -44,6 +51,11 @@ function autofillCredentials(username, password) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Reject messages from other web pages or other tabs
+  if (sender.id !== chrome.runtime.id || sender.tab) {
+    return;
+  }
+
   if (message.type === 'DO_AUTOFILL') {
     const filled = autofillCredentials(message.username, message.password);
     sendResponse({ success: filled });

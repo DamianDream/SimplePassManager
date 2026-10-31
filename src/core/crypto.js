@@ -117,71 +117,170 @@ export function normalizeRecoveryPhrase(phrase) {
 }
 
 /**
+ * Generates a random 256-bit Master Encryption Key (MEK).
+ */
+export function generateMek() {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+/**
+ * Wraps (encrypts) the raw MEK with a secret (master password or recovery phrase).
+ * Derives an AES-GCM key from secret using PBKDF2 with SHA-256 and 600,000 iterations.
+ */
+export async function wrapMek(rawMek, secret) {
+  const encSecret = typeof secret === 'string' ? secret : '';
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const derKey = await deriveKey(encSecret, salt);
+  const encMek = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    derKey,
+    rawMek
+  );
+  return {
+    salt: bufferToBase64(salt),
+    iv: bufferToBase64(iv),
+    data: bufferToBase64(encMek)
+  };
+}
+
+/**
+ * Unwraps the raw MEK from a v2 envelope using the master password.
+ */
+export async function unwrapMekWithPassword(envelope, masterPassword) {
+  if (!envelope || envelope.version !== 2 || !envelope.keyByPassword) {
+    throw new Error('Invalid vault envelope structure');
+  }
+  try {
+    const pwdKeyInfo = envelope.keyByPassword;
+    const pwdSalt = new Uint8Array(base64ToBuffer(pwdKeyInfo.salt));
+    const pwdIv = new Uint8Array(base64ToBuffer(pwdKeyInfo.iv));
+    const encMek = base64ToBuffer(pwdKeyInfo.data);
+
+    const derKey = await deriveKey(masterPassword, pwdSalt);
+    const rawMekBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: pwdIv },
+      derKey,
+      encMek
+    );
+    return new Uint8Array(rawMekBuffer);
+  } catch (_) {
+    throw new Error('Invalid master password or corrupted vault.');
+  }
+}
+
+/**
+ * Unwraps the raw MEK from a v2 envelope using the 12-word recovery phrase.
+ */
+export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
+  if (!envelope || envelope.version !== 2 || !envelope.keyByRecovery) {
+    throw new Error('Восстановление по 12 словам не поддерживается для этой версии хранилища.');
+  }
+  const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
+  if (!normPhrase || normPhrase.split(' ').length !== 12) {
+    throw new Error('Ключ восстановления должен содержать ровно 12 слов.');
+  }
+  try {
+    const recKeyInfo = envelope.keyByRecovery;
+    const recSalt = new Uint8Array(base64ToBuffer(recKeyInfo.salt));
+    const recIv = new Uint8Array(base64ToBuffer(recKeyInfo.iv));
+    const encMek = base64ToBuffer(recKeyInfo.data);
+
+    const recDerKey = await deriveKey(normPhrase, recSalt);
+    const rawMekBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: recIv },
+      recDerKey,
+      encMek
+    );
+    return new Uint8Array(rawMekBuffer);
+  } catch (_) {
+    throw new Error('Неверный ключ восстановления или поврежденное хранилище.');
+  }
+}
+
+/**
+ * Encrypts arbitrary JavaScript data with the raw MEK and returns a v2 envelope,
+ * preserving existing key slots (keyByPassword, keyByRecovery).
+ */
+export async function encryptVaultWithMek(data, rawMek, existingKeySlots = null) {
+  const enc = new TextEncoder();
+  const plaintext = enc.encode(JSON.stringify(data));
+
+  const mekKey = await crypto.subtle.importKey(
+    'raw',
+    rawMek,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+
+  const vaultIv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const encryptedData = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: vaultIv },
+    mekKey,
+    plaintext
+  );
+
+  const envelope = {
+    version: 2,
+    iv: bufferToBase64(vaultIv),
+    data: bufferToBase64(encryptedData)
+  };
+
+  if (existingKeySlots) {
+    if (existingKeySlots.keyByPassword) {
+      envelope.keyByPassword = existingKeySlots.keyByPassword;
+    }
+    if (existingKeySlots.keyByRecovery) {
+      envelope.keyByRecovery = existingKeySlots.keyByRecovery;
+    }
+  }
+
+  return envelope;
+}
+
+/**
+ * Decrypts a v2 envelope using the raw MEK directly.
+ */
+export async function decryptVaultWithMek(envelope, rawMek) {
+  if (!envelope || !envelope.data || !envelope.iv) {
+    throw new Error('Invalid vault envelope structure');
+  }
+  const dec = new TextDecoder();
+  const mekKey = await crypto.subtle.importKey(
+    'raw',
+    rawMek,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+  const vaultIv = new Uint8Array(base64ToBuffer(envelope.iv));
+  const ciphertext = base64ToBuffer(envelope.data);
+  const decryptedBuffer = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: vaultIv },
+    mekKey,
+    ciphertext
+  );
+  return JSON.parse(dec.decode(decryptedBuffer));
+}
+
+/**
  * Encrypts arbitrary JavaScript data with the master password.
  * If recoveryPhrase is provided, generates a Master Encryption Key (MEK)
  * and encrypts MEK with both masterPassword and recoveryPhrase (Dual-Key Envelope).
  */
 export async function encryptVault(data, masterPassword, recoveryPhrase = null) {
-  const enc = new TextEncoder();
-  const plaintext = enc.encode(JSON.stringify(data));
-
-  // If a recovery phrase is provided, generate a 256-bit random MEK
   if (recoveryPhrase) {
-    const rawMek = crypto.getRandomValues(new Uint8Array(32));
-    const mekKey = await crypto.subtle.importKey(
-      'raw',
-      rawMek,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt', 'decrypt']
-    );
-
-    const vaultIv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-    const encryptedData = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: vaultIv },
-      mekKey,
-      plaintext
-    );
-
-    // Encrypt MEK with masterPassword
-    const pwdSalt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-    const pwdIv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-    const pwdDerKey = await deriveKey(masterPassword, pwdSalt);
-    const encMekByPwd = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: pwdIv },
-      pwdDerKey,
-      rawMek
-    );
-
-    // Encrypt MEK with normalized recoveryPhrase
+    const rawMek = generateMek();
+    const keyByPassword = await wrapMek(rawMek, masterPassword);
     const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
-    const recSalt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-    const recIv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-    const recDerKey = await deriveKey(normPhrase, recSalt);
-    const encMekByRec = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: recIv },
-      recDerKey,
-      rawMek
-    );
-
-    return {
-      version: 2,
-      iv: bufferToBase64(vaultIv),
-      data: bufferToBase64(encryptedData),
-      keyByPassword: {
-        salt: bufferToBase64(pwdSalt),
-        iv: bufferToBase64(pwdIv),
-        data: bufferToBase64(encMekByPwd)
-      },
-      keyByRecovery: {
-        salt: bufferToBase64(recSalt),
-        iv: bufferToBase64(recIv),
-        data: bufferToBase64(encMekByRec)
-      }
-    };
+    const keyByRecovery = await wrapMek(rawMek, normPhrase);
+    return await encryptVaultWithMek(data, rawMek, { keyByPassword, keyByRecovery });
   }
 
   // Fallback / legacy v1 direct encryption
+  const enc = new TextEncoder();
+  const plaintext = enc.encode(JSON.stringify(data));
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const key = await deriveKey(masterPassword, salt);
@@ -209,48 +308,17 @@ export async function decryptVault(envelope, masterPassword) {
     throw new Error('Invalid vault envelope structure');
   }
 
-  const dec = new TextDecoder();
-
   // Version 2: Dual-key envelope (MEK encrypted by password)
   if (envelope.version === 2 && envelope.keyByPassword) {
-    try {
-      const pwdKeyInfo = envelope.keyByPassword;
-      const pwdSalt = new Uint8Array(base64ToBuffer(pwdKeyInfo.salt));
-      const pwdIv = new Uint8Array(base64ToBuffer(pwdKeyInfo.iv));
-      const encMek = base64ToBuffer(pwdKeyInfo.data);
-
-      const derKey = await deriveKey(masterPassword, pwdSalt);
-      const rawMek = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: pwdIv },
-        derKey,
-        encMek
-      );
-
-      const mekKey = await crypto.subtle.importKey(
-        'raw',
-        rawMek,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-      );
-
-      const vaultIv = new Uint8Array(base64ToBuffer(envelope.iv));
-      const ciphertext = base64ToBuffer(envelope.data);
-      const decryptedBuffer = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: vaultIv },
-        mekKey,
-        ciphertext
-      );
-      return JSON.parse(dec.decode(decryptedBuffer));
-    } catch (_) {
-      throw new Error('Invalid master password or corrupted vault.');
-    }
+    const rawMek = await unwrapMekWithPassword(envelope, masterPassword);
+    return await decryptVaultWithMek(envelope, rawMek);
   }
 
   // Version 1 fallback: direct key derivation
   if (!envelope.salt || !envelope.iv) {
     throw new Error('Invalid vault envelope structure');
   }
+  const dec = new TextDecoder();
   const salt = new Uint8Array(base64ToBuffer(envelope.salt));
   const iv = new Uint8Array(base64ToBuffer(envelope.iv));
   const ciphertext = base64ToBuffer(envelope.data);
@@ -274,50 +342,9 @@ export async function decryptVault(envelope, masterPassword) {
  * Extracts the MEK and decrypts the vault payload.
  */
 export async function decryptVaultWithRecovery(envelope, recoveryPhrase) {
-  if (!envelope || envelope.version !== 2 || !envelope.keyByRecovery || !envelope.data) {
-    throw new Error('Восстановление по 12 словам не поддерживается для этой версии хранилища.');
-  }
-
-  const dec = new TextDecoder();
-  const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
-  if (!normPhrase || normPhrase.split(' ').length !== 12) {
-    throw new Error('Ключ восстановления должен содержать ровно 12 слов.');
-  }
-
-  try {
-    const recKeyInfo = envelope.keyByRecovery;
-    const recSalt = new Uint8Array(base64ToBuffer(recKeyInfo.salt));
-    const recIv = new Uint8Array(base64ToBuffer(recKeyInfo.iv));
-    const encMek = base64ToBuffer(recKeyInfo.data);
-
-    const recDerKey = await deriveKey(normPhrase, recSalt);
-    const rawMek = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: recIv },
-      recDerKey,
-      encMek
-    );
-
-    const mekKey = await crypto.subtle.importKey(
-      'raw',
-      rawMek,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const vaultIv = new Uint8Array(base64ToBuffer(envelope.iv));
-    const ciphertext = base64ToBuffer(envelope.data);
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: vaultIv },
-      mekKey,
-      ciphertext
-    );
-
-    const vaultData = JSON.parse(dec.decode(decryptedBuffer));
-    return { vaultData, rawMek };
-  } catch (err) {
-    throw new Error('Неверный ключ восстановления или поврежденное хранилище.');
-  }
+  const rawMek = await unwrapMekWithRecovery(envelope, recoveryPhrase);
+  const vaultData = await decryptVaultWithMek(envelope, rawMek);
+  return { vaultData, rawMek };
 }
 
 /**

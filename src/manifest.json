@@ -5,12 +5,14 @@
   "description": "Sleek, modern Open-Source password manager with AES-256 encrypted vault, side panel UI, and pass CLI compatibility.",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "sidePanel",
     "tabs",
     "activeTab",
     "scripting",
     "clipboardWrite",
-    "nativeMessaging"
+    "nativeMessaging",
+    "favicon"
   ],
   "host_permissions": [
     "<all_urls>"

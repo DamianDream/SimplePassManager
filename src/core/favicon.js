@@ -184,9 +184,10 @@ async function fetchFaviconFromHtml(targetUrl, timeoutMs = 3000) {
 
 /**
  * Fetches a favicon for a domain or URL, converting it into a persistent Base64 Data URL.
- * Handles local network IPs, ports (e.g. 192.168.0.104:4321), SVG icons, HTML links, and public APIs.
+ * Prefers Chrome local _favicon API (zero network leaks).
+ * External Google/DuckDuckGo queries are opt-in only.
  */
-export async function fetchFaviconAsDataUrl(domainOrUrl) {
+export async function fetchFaviconAsDataUrl(domainOrUrl, { useExternalServices = false } = {}) {
   if (!domainOrUrl || typeof domainOrUrl !== 'string') return null;
 
   // 1. Direct Data URL check
@@ -197,7 +198,16 @@ export async function fetchFaviconAsDataUrl(domainOrUrl) {
   const details = parseUrlDetails(domainOrUrl);
   if (!details) return null;
 
-  // 2. If given URL was already a direct path to an icon file:
+  // 2. Chrome Native Local Favicon API (no external network leaks)
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL && !details.isLocal) {
+    try {
+      const localChromeFavicon = chrome.runtime.getURL('/_favicon/?pageUrl=' + encodeURIComponent(details.url || details.origin) + '&size=32');
+      const dataUrl = await fetchImageCandidate(localChromeFavicon, 1500);
+      if (dataUrl) return dataUrl;
+    } catch (_) {}
+  }
+
+  // 3. If given URL was already a direct path to an icon file:
   if (/\.(ico|svg|png|jpg|jpeg|webp)($|\?)/i.test(details.url)) {
     const directData = await fetchImageCandidate(details.url);
     if (directData) return directData;
@@ -207,7 +217,7 @@ export async function fetchFaviconAsDataUrl(domainOrUrl) {
   const host = details.host;
   const hostname = details.hostname;
 
-  // 3. Direct endpoint candidates
+  // 4. Direct origin endpoint candidates
   const candidates = [
     `${origin}/favicon.ico`,
     `${origin}/favicon.svg`,
@@ -223,8 +233,8 @@ export async function fetchFaviconAsDataUrl(domainOrUrl) {
     candidates.push(`${altProto}//${host}/favicon.svg`);
   }
 
-  // 4. If public domain, also query Google & DuckDuckGo APIs
-  if (!details.isLocal) {
+  // 5. Opt-in: Query Google & DuckDuckGo APIs only if explicitly enabled
+  if (!details.isLocal && useExternalServices) {
     candidates.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`);
     candidates.push(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`);
     if (hostname !== host) {
@@ -237,7 +247,7 @@ export async function fetchFaviconAsDataUrl(domainOrUrl) {
     if (dataUrl) return dataUrl;
   }
 
-  // 5. Fallback: Parse HTML <link rel="icon"> from the page
+  // 6. Fallback: Parse HTML <link rel="icon"> from the page
   const htmlFavicon = await fetchFaviconFromHtml(details.url || details.origin);
   if (htmlFavicon) return htmlFavicon;
 
@@ -251,7 +261,7 @@ export async function fetchFaviconAsDataUrl(domainOrUrl) {
  * - If activeTabFavIconUrl is provided, attempts to use it as primary candidate.
  * - Otherwise fetches fresh favicon, caches it under host & hostname, and returns it.
  */
-export async function resolveFavicon(domainOrUrl, { forceRefresh = false, activeTabFavIconUrl = null } = {}) {
+export async function resolveFavicon(domainOrUrl, { forceRefresh = false, activeTabFavIconUrl = null, useExternalServices = false } = {}) {
   const details = parseUrlDetails(domainOrUrl);
   if (!details) {
     const fallbackDomain = extractCleanDomain(domainOrUrl);
@@ -282,7 +292,7 @@ export async function resolveFavicon(domainOrUrl, { forceRefresh = false, active
   }
 
   // 3. Fetch from site / candidate endpoints
-  const fresh = await fetchFaviconAsDataUrl(domainOrUrl);
+  const fresh = await fetchFaviconAsDataUrl(domainOrUrl, { useExternalServices });
   if (fresh) {
     await setCachedFavicon(hostKey, fresh);
     if (hostnameKey !== hostKey) await setCachedFavicon(hostnameKey, fresh);

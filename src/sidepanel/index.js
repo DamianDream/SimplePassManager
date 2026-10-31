@@ -21,8 +21,15 @@ import {
   decryptVault,
   validateMasterPassword,
   generateRecoveryPhrase,
+  normalizeRecoveryPhrase,
   decryptVaultWithRecovery,
-  rekeyVault
+  rekeyVault,
+  generateMek,
+  wrapMek,
+  unwrapMekWithPassword,
+  unwrapMekWithRecovery,
+  encryptVaultWithMek,
+  decryptVaultWithMek
 } from '../core/crypto.js';
 import {
   getStoredVault,
@@ -297,11 +304,18 @@ async function init() {
   const currentLang = storedConfig.language || 'ru';
   setLanguage(currentLang);
 
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get('sp_failed_attempts', res => {
-      failedAttempts = res.sp_failed_attempts || 0;
-      if (!state.isUnlocked) render();
-    });
+  // Clean up legacy local storage key and restore in-session lockout state
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    if (chrome.storage.local) {
+      chrome.storage.local.remove('sp_failed_attempts');
+    }
+    if (chrome.storage.session) {
+      chrome.storage.session.get(['sp_failed_attempts', 'sp_lockout_until'], res => {
+        failedAttempts = res.sp_failed_attempts || 0;
+        lockoutUntil = res.sp_lockout_until || 0;
+        if (!state.isUnlocked) render();
+      });
+    }
   }
 
   const userCategories = storedConfig.categories || ['Work', 'Personal'];
@@ -311,9 +325,13 @@ async function init() {
     ...(storedConfig.categoryColors || {})
   };
 
+  const initialLockInterval = storedConfig.lockInterval === '3days' || storedConfig.lockInterval === '1week' || storedConfig.lockInterval === '1month'
+    ? 'session'
+    : (storedConfig.lockInterval || 'session');
+
   updateState({
     isInitialized: storedVault !== null,
-    lockInterval: storedConfig.lockInterval || '3days',
+    lockInterval: initialLockInterval,
     theme: currentTheme,
     language: currentLang,
     showCardTags: storedConfig.showCardTags === true,
@@ -325,28 +343,54 @@ async function init() {
   // Auto-detect active website domain immediately after config is restored
   updateActiveTabDomain();
 
-  // Attempt to restore active session (e.g. valid within 3 days)
+  // Attempt to restore active session (via MEK in storage.session or memory)
   if (storedVault) {
     const session = await restoreSession();
-    if (session && session.masterPassword) {
+    if (session && (session.rawMek || session.masterPassword)) {
       try {
-        const decrypted = await decryptVault(storedVault, session.masterPassword);
-        const normalized = normalizeVaultData(decrypted);
-        syncCachedFaviconsFromItems(normalized.items);
+        let decrypted = null;
+        let rawMek = session.rawMek || null;
+        let keySlots = null;
 
-        const initialProjectId =
-          storedConfig.latestProjectId && normalized.projects.some(p => p.id === storedConfig.latestProjectId)
-            ? storedConfig.latestProjectId
-            : normalized.projects[0].id;
+        if (rawMek && storedVault.version === 2 && storedVault.data) {
+          decrypted = await decryptVaultWithMek(storedVault, rawMek);
+          keySlots = {
+            keyByPassword: storedVault.keyByPassword,
+            keyByRecovery: storedVault.keyByRecovery
+          };
+        } else if (session.masterPassword) {
+          if (storedVault.version === 2 && storedVault.keyByPassword) {
+            rawMek = await unwrapMekWithPassword(storedVault, session.masterPassword);
+            decrypted = await decryptVaultWithMek(storedVault, rawMek);
+            keySlots = {
+              keyByPassword: storedVault.keyByPassword,
+              keyByRecovery: storedVault.keyByRecovery
+            };
+          } else {
+            decrypted = await decryptVault(storedVault, session.masterPassword);
+          }
+        }
 
-        updateState({
-          isUnlocked: true,
-          masterPassword: session.masterPassword,
-          projects: normalized.projects,
-          items: normalized.items,
-          activeProjectId: initialProjectId,
-          sessionExpiresAt: session.expiresAt
-        });
+        if (decrypted) {
+          const normalized = normalizeVaultData(decrypted);
+          syncCachedFaviconsFromItems(normalized.items);
+
+          const initialProjectId =
+            storedConfig.latestProjectId && normalized.projects.some(p => p.id === storedConfig.latestProjectId)
+              ? storedConfig.latestProjectId
+              : normalized.projects[0].id;
+
+          updateState({
+            isUnlocked: true,
+            masterPassword: session.masterPassword || null,
+            rawMek,
+            keySlots,
+            projects: normalized.projects,
+            items: normalized.items,
+            activeProjectId: initialProjectId,
+            sessionExpiresAt: session.expiresAt
+          });
+        }
       } catch (err) {
         console.warn('Session restoration failed:', err);
         await destroySession();
@@ -385,22 +429,57 @@ function clearFieldErrors() {
   });
 }
 
+let lockoutUntil = 0;
+let lockoutTimer = null;
+
+function getRemainingLockoutSeconds() {
+  if (lockoutUntil && Date.now() < lockoutUntil) {
+    return Math.ceil((lockoutUntil - Date.now()) / 1000);
+  }
+  return 0;
+}
+
 async function handleUnlock(password) {
   clearFieldErrors();
-  if (failedAttempts >= 3) {
-    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Ввод пароля заблокирован после 3 неверных попыток. Используйте ключ восстановления.');
+  const remainingSec = getRemainingLockoutSeconds();
+  if (remainingSec > 0) {
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', `Слишком много неверных попыток. Подождите ${remainingSec} сек.`);
     renderAuthScreen();
     return;
   }
 
   if (!password) {
-    showFieldError('sp-unlock-pwd', 'sp-err-unlock', 'Введите мастер-пароль');
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', t('auth.empty_password') || 'Введите мастер-пароль');
     return;
   }
 
   try {
     const envelope = await getStoredVault();
-    const decrypted = await decryptVault(envelope, password);
+    let rawMek = null;
+    let keySlots = null;
+    let decrypted = null;
+
+    if (envelope.version === 2 && envelope.keyByPassword) {
+      rawMek = await unwrapMekWithPassword(envelope, password);
+      keySlots = {
+        keyByPassword: envelope.keyByPassword,
+        keyByRecovery: envelope.keyByRecovery
+      };
+      decrypted = await decryptVaultWithMek(envelope, rawMek);
+    } else {
+      // Legacy v1 envelope: decrypt and migrate to v2 dual-key envelope!
+      decrypted = await decryptVault(envelope, password);
+      rawMek = generateMek();
+      const newRecPhrase = generateRecoveryPhrase();
+      const keyByPwd = await wrapMek(rawMek, password);
+      const keyByRec = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecPhrase));
+      keySlots = { keyByPassword: keyByPwd, keyByRecovery: keyByRec };
+      const v2Envelope = await encryptVaultWithMek(decrypted, rawMek, keySlots);
+      await saveStoredVault(v2Envelope);
+      newlyCreatedRecoveryPhrase = newRecPhrase;
+      showToast('Хранилище обновлено до v2. Сохраните новый ключ восстановления!');
+    }
+
     const normalized = normalizeVaultData(decrypted);
     syncCachedFaviconsFromItems(normalized.items);
     const storedConfig = await getStoredConfig();
@@ -412,16 +491,19 @@ async function handleUnlock(password) {
 
     // Reset failed attempts counter on success
     failedAttempts = 0;
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ sp_failed_attempts: 0 });
+    lockoutUntil = 0;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+      chrome.storage.session.remove(['sp_failed_attempts', 'sp_lockout_until']);
     }
 
-    // Create session (default 3 days or configured interval)
-    const session = await createSession(password, state.lockInterval || '3days');
+    // Create session holding MEK (default session interval)
+    const session = await createSession(rawMek, state.lockInterval || 'session');
 
     updateState({
       isUnlocked: true,
       masterPassword: password,
+      rawMek,
+      keySlots,
       projects: normalized.projects,
       items: normalized.items,
       activeProjectId: initialProjectId,
@@ -429,11 +511,19 @@ async function handleUnlock(password) {
     });
   } catch (err) {
     failedAttempts++;
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ sp_failed_attempts: failedAttempts });
+    if (failedAttempts >= 3) {
+      const delaySec = Math.min(600, 30 * Math.pow(2, failedAttempts - 3));
+      lockoutUntil = Date.now() + delaySec * 1000;
+    }
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+      chrome.storage.session.set({
+        sp_failed_attempts: failedAttempts,
+        sp_lockout_until: lockoutUntil
+      });
     }
 
-    if (failedAttempts >= 3) {
+    const remaining = getRemainingLockoutSeconds();
+    if (remaining > 0) {
       renderAuthScreen();
     } else {
       showFieldError('sp-unlock-pwd', 'sp-err-unlock', `Неверный мастер-пароль. Попытка ${failedAttempts} из 3.`);
@@ -488,22 +578,28 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     ]
   };
 
-  // Generate 12-word recovery phrase and encrypt with Dual-Key Envelope
+  // Generate 12-word recovery phrase, MEK, and encrypt with Dual-Key Envelope
   const recoveryPhrase = generateRecoveryPhrase();
-  const encrypted = await encryptVault(initialData, password, recoveryPhrase);
+  const rawMek = generateMek();
+  const keyByPassword = await wrapMek(rawMek, password);
+  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase));
+  const keySlots = { keyByPassword, keyByRecovery };
+  const encrypted = await encryptVaultWithMek(initialData, rawMek, keySlots);
   await saveStoredVault(encrypted);
+
   cachedVaultProfiles = await getVaultProfiles();
   cachedActiveVaultId = await getActiveVaultId();
   await saveStoredConfig({
     activeProjectId: projId,
     latestProjectId: projId,
-    lockInterval: '3days'
+    lockInterval: 'session'
   });
 
-  const session = await createSession(password, '3days');
+  const session = await createSession(rawMek, 'session');
   failedAttempts = 0;
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.set({ sp_failed_attempts: 0 });
+  lockoutUntil = 0;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+    chrome.storage.session.remove(['sp_failed_attempts', 'sp_lockout_until']);
   }
 
   // Display 12-word recovery phrase modal to user before final unlock
@@ -512,6 +608,8 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     isInitialized: true,
     isUnlocked: true,
     masterPassword: password,
+    rawMek,
+    keySlots,
     projects: initialData.projects,
     items: initialData.items,
     activeProjectId: projId,
@@ -565,17 +663,22 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
   };
 
   const recoveryPhrase = generateRecoveryPhrase();
-  const encrypted = await encryptVault(initialData, password, recoveryPhrase);
+  const rawMek = generateMek();
+  const keyByPassword = await wrapMek(rawMek, password);
+  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase));
+  const keySlots = { keyByPassword, keyByRecovery };
+  const encrypted = await encryptVaultWithMek(initialData, rawMek, keySlots);
 
   // Creates separate vault profile without touching existing vaults
   const newProfile = await createVaultProfile(dbName, encrypted);
   cachedVaultProfiles = await getVaultProfiles();
   cachedActiveVaultId = newProfile.id;
 
-  const session = await createSession(password, '3days');
+  const session = await createSession(rawMek, 'session');
   failedAttempts = 0;
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.set({ sp_failed_attempts: 0 });
+  lockoutUntil = 0;
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+    chrome.storage.session.remove(['sp_failed_attempts', 'sp_lockout_until']);
   }
 
   isCreatingNewVaultFromLock = false;
@@ -586,6 +689,8 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
     isInitialized: true,
     isUnlocked: true,
     masterPassword: password,
+    rawMek,
+    keySlots,
     projects: initialData.projects,
     items: initialData.items,
     activeProjectId: projId,
@@ -613,28 +718,34 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
 
   try {
     const envelope = await getStoredVault();
-    const { vaultData } = await decryptVaultWithRecovery(envelope, normPhrase);
+    const { vaultData, rawMek } = await decryptVaultWithRecovery(envelope, normPhrase);
     const normalized = normalizeVaultData(vaultData);
     syncCachedFaviconsFromItems(normalized.items);
 
-    // Re-encrypt vault with new password and new recovery phrase
+    // Re-wrap keyByPassword with new master password, keeping rawMek and new recovery key!
+    const keyByPassword = await wrapMek(rawMek, newPassword);
     const newRecoveryPhrase = generateRecoveryPhrase();
-    const rekeyedEnvelope = await encryptVault(normalized, newPassword, newRecoveryPhrase);
+    const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecoveryPhrase));
+    const keySlots = { keyByPassword, keyByRecovery };
+    const rekeyedEnvelope = await encryptVaultWithMek(normalized, rawMek, keySlots);
     await saveStoredVault(rekeyedEnvelope);
 
-    // Reset failed attempts
+    // Reset failed attempts & lockout
     failedAttempts = 0;
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ sp_failed_attempts: 0 });
+    lockoutUntil = 0;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+      chrome.storage.session.remove(['sp_failed_attempts', 'sp_lockout_until']);
     }
 
-    const session = await createSession(newPassword, '3days');
+    const session = await createSession(rawMek, 'session');
     isRecoveryViewActive = false;
     newlyCreatedRecoveryPhrase = newRecoveryPhrase;
 
     updateState({
       isUnlocked: true,
       masterPassword: newPassword,
+      rawMek,
+      keySlots,
       projects: normalized.projects,
       items: normalized.items,
       activeProjectId: normalized.projects[0].id,
@@ -647,14 +758,27 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
 }
 
 async function persistVaultChanges() {
-  if (!state.masterPassword) return;
+  if (!state.rawMek || !state.keySlots) {
+    if (state.masterPassword) {
+      const envelope = await getStoredVault();
+      if (envelope && envelope.version === 2 && envelope.keyByPassword) {
+        state.rawMek = await unwrapMekWithPassword(envelope, state.masterPassword);
+        state.keySlots = {
+          keyByPassword: envelope.keyByPassword,
+          keyByRecovery: envelope.keyByRecovery
+        };
+      }
+    }
+  }
+  if (!state.rawMek || !state.keySlots) return;
+
   const vaultData = {
     version: 2,
     updatedAt: new Date().toISOString(),
     projects: state.projects,
     items: state.items
   };
-  const encrypted = await encryptVault(vaultData, state.masterPassword);
+  const encrypted = await encryptVaultWithMek(vaultData, state.rawMek, state.keySlots);
   await saveStoredVault(encrypted);
 
   const cfg = await getStoredConfig();
@@ -762,27 +886,37 @@ async function deleteItem(id) {
   }
 }
 
-function triggerAutofill(item) {
+function triggerAutofill(item, forceFill = false) {
+  const itemUrl = item.url || item.domain || '';
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage && activeTabId) {
     chrome.runtime.sendMessage(
       {
         type: 'AUTOFILL_LOGIN',
         tabId: activeTabId,
+        itemUrl,
         username: item.username,
-        password: item.password
+        password: item.password,
+        forceFill
       },
       response => {
         if (response && response.success) {
-          showToast('Форма успешно заполнена!');
+          showToast(t('toasts.form_autofilled') || 'Форма успешно заполнена!');
+        } else if (response && response.reason === 'domain_mismatch') {
+          const tabDomain = response.tabDomain || 'текущего сайта';
+          const itemDomain = response.itemDomain || 'этой записи';
+          const warnMsg = `Внимание! Возможен фишинг:\nЗапись предназначена для «${itemDomain}», а активная страница — «${tabDomain}».\n\nЗаполнить форму всё равно?`;
+          if (window.confirm(warnMsg)) {
+            triggerAutofill(item, true);
+          }
         } else {
-          showToast('Скопировано в буфер (поля не найдены)');
+          showToast(t('toasts.autofill_copied') || 'Скопировано в буфер (поля не найдены)');
           copyToClipboard(item.password);
         }
       }
     );
   } else {
     copyToClipboard(item.password);
-    showToast('Пароль скопирован в буфер');
+    showToast(t('toasts.copied') || 'Пароль скопирован в буфер');
   }
 }
 
@@ -1192,8 +1326,13 @@ function renderAuthScreen() {
     return;
   }
 
-  // 5. Normal Lock Screen with lockout prevention, "Забыли пароль?" and "Войти в другой профиль"
-  const isLockedOut = failedAttempts >= 3;
+  // 5. Normal Lock Screen with exponential delay lockout, "Забыли пароль?" and "Войти в другой профиль"
+  if (lockoutTimer) {
+    clearInterval(lockoutTimer);
+    lockoutTimer = null;
+  }
+  const remSec = getRemainingLockoutSeconds();
+  const isLockedOut = remSec > 0;
 
   rootEl.innerHTML = `
     <div class="sp-auth-screen">
@@ -1203,37 +1342,42 @@ function renderAuthScreen() {
         <p class="sp-auth-desc">${t('auth.locked_desc')}</p>
 
         ${isLockedOut ? `
-          <div class="sp-lockout-alert">
-            ${t('auth.lockout_warning')}
+          <div class="sp-lockout-alert" id="sp-lockout-msg">
+            Слишком много неверных попыток. Подождите <span id="sp-lockout-seconds" style="font-weight:bold;">${remSec}</span> сек.
           </div>
         ` : ''}
 
         <form class="sp-auth-form" id="sp-unlock-form" novalidate>
           <div>
             <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
-            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? t('auth.lockout_attempt_error', { current: failedAttempts, max: 3 }) : ''}</div>
+            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? `Неверный мастер-пароль. Попытка ${failedAttempts}.` : ''}</div>
           </div>
 
-          ${isLockedOut ? `
-            <button type="button" class="sp-btn-primary" id="sp-btn-goto-recovery" style="justify-content:center; margin-top: 6px;">
-              ${icons.iKey} ${t('auth.restore_by_key_btn')}
-            </button>
-            <div id="sp-auth-links-wrap" style="text-align:center; margin-top: 10px; display:flex; flex-direction:column; gap:6px; align-items:center;">
-              <button type="button" class="sp-link-btn" id="sp-switch-profile" style="font-size:12px;">${t('auth.switch_profile_btn')}</button>
-            </div>
-          ` : `
-            <button type="submit" class="sp-btn-primary" style="justify-content:center; margin-top: 6px;">
-              ${icons.iUnlock} ${t('auth.unlock_btn')}
-            </button>
-            <div id="sp-auth-links-wrap" style="text-align:center; margin-top: 10px; display:flex; flex-direction:column; gap:6px; align-items:center;">
-              <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
-              <button type="button" class="sp-link-btn" id="sp-switch-profile" style="color:var(--text-dim); font-size:12px;">${t('auth.switch_profile_btn')}</button>
-            </div>
-          `}
+          <button type="submit" class="sp-btn-primary" ${isLockedOut ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="justify-content:center; margin-top: 6px;">
+            ${icons.iUnlock} ${t('auth.unlock_btn')}
+          </button>
+
+          <div id="sp-auth-links-wrap" style="text-align:center; margin-top: 10px; display:flex; flex-direction:column; gap:6px; align-items:center;">
+            <button type="button" class="sp-link-btn" id="sp-forgot-pwd">${t('auth.forgot_pwd_btn')}</button>
+            <button type="button" class="sp-link-btn" id="sp-switch-profile" style="color:var(--text-dim); font-size:12px;">${t('auth.switch_profile_btn')}</button>
+          </div>
         </form>
       </div>
     </div>
   `;
+
+  if (isLockedOut) {
+    lockoutTimer = setInterval(() => {
+      const currentRem = getRemainingLockoutSeconds();
+      const secEl = document.getElementById('sp-lockout-seconds');
+      if (secEl) secEl.innerText = currentRem;
+      if (currentRem <= 0) {
+        clearInterval(lockoutTimer);
+        lockoutTimer = null;
+        renderAuthScreen();
+      }
+    }, 1000);
+  }
 
   const switchProfileBtn = document.getElementById('sp-switch-profile');
   if (switchProfileBtn) {
@@ -1258,14 +1402,6 @@ function renderAuthScreen() {
   const forgotBtn = document.getElementById('sp-forgot-pwd');
   if (forgotBtn) {
     forgotBtn.addEventListener('click', () => {
-      isRecoveryViewActive = true;
-      renderAuthScreen();
-    });
-  }
-
-  const gotoRecoveryBtn = document.getElementById('sp-btn-goto-recovery');
-  if (gotoRecoveryBtn) {
-    gotoRecoveryBtn.addEventListener('click', () => {
       isRecoveryViewActive = true;
       renderAuthScreen();
     });
@@ -1378,7 +1514,7 @@ function renderVaultView() {
               ? (item.favicon || (itemDomain && cachedFavicons[itemDomain]) || (itemDomainNoPort && cachedFavicons[itemDomainNoPort]))
               : null;
             const avatarContent = itemFavicon
-              ? `<img src="${escapeHtml(itemFavicon)}" class="sp-card-favicon" alt="" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline';" /><span style="display:none;">${letter}</span>`
+              ? `<img src="${escapeHtml(itemFavicon)}" class="sp-card-favicon" alt="" /><span class="sp-card-fallback-letter" style="display:none;">${letter}</span>`
               : `<span>${letter}</span>`;
             let tagsHtml = '';
             if (state.showCardTags) {
@@ -2974,6 +3110,15 @@ function attachEventHandlers() {
     });
   });
 
+  // Delegated favicon error handling without inline onerror
+  document.querySelectorAll('.sp-card-favicon').forEach(img => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const fallback = img.nextElementSibling;
+      if (fallback) fallback.style.display = 'inline';
+    });
+  });
+
   // Item form back & delete
   const btnBack = document.getElementById('sp-form-back');
   if (btnBack) {
@@ -4110,13 +4255,19 @@ function attachEventHandlers() {
       const newPwd2 = document.getElementById('sp-pwd-new2').value;
       const errBox = document.getElementById('sp-change-pwd-err');
 
-      if (oldPwd !== state.masterPassword) {
+      // Verify old password cryptographically via MEK unwrap
+      const envelope = await getStoredVault();
+      let currentMek = state.rawMek;
+      try {
+        currentMek = await unwrapMekWithPassword(envelope, oldPwd);
+      } catch (_) {
         if (errBox) {
-          errBox.innerText = 'Неверный текущий мастер-пароль';
+          errBox.innerText = t('errors.invalid_master_pwd') || 'Неверный текущий мастер-пароль';
           errBox.style.display = 'block';
         }
         return;
       }
+
       const pwdVal = validateMasterPassword(newPwd);
       if (!pwdVal.valid) {
         if (errBox) {
@@ -4127,22 +4278,42 @@ function attachEventHandlers() {
       }
       if (newPwd !== newPwd2) {
         if (errBox) {
-          errBox.innerText = 'Введенные новые пароли не совпадают';
+          errBox.innerText = t('errors.pwd_mismatch') || 'Введенные новые пароли не совпадают';
           errBox.style.display = 'block';
         }
         return;
       }
 
       try {
-        state.masterPassword = newPwd;
-        await persistVaultChanges();
-        const session = await createSession(newPwd, state.lockInterval || '3days');
+        // Re-wrap only the keyByPassword slot!
+        const newKeyByPassword = await wrapMek(currentMek, newPwd);
+        state.rawMek = currentMek;
+        if (!state.keySlots) {
+          state.keySlots = {
+            keyByPassword: envelope.keyByPassword,
+            keyByRecovery: envelope.keyByRecovery
+          };
+        }
+        state.keySlots.keyByPassword = newKeyByPassword;
+
+        const vaultData = {
+          version: 2,
+          updatedAt: new Date().toISOString(),
+          projects: state.projects,
+          items: state.items
+        };
+        const updatedEnvelope = await encryptVaultWithMek(vaultData, currentMek, state.keySlots);
+        await saveStoredVault(updatedEnvelope);
+
+        const session = await createSession(currentMek, state.lockInterval || 'session');
         isChangePwdOpen = false;
         updateState({
           masterPassword: newPwd,
+          rawMek: currentMek,
+          keySlots: state.keySlots,
           sessionExpiresAt: session.expiresAt
         });
-        showToast('Мастер-пароль успешно изменён');
+        showToast(t('toasts.pwd_changed_success') || 'Мастер-пароль успешно изменён');
       } catch (err) {
         if (errBox) {
           errBox.innerText = 'Ошибка: ' + err.message;

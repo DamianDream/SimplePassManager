@@ -77,6 +77,22 @@ def handle_check():
         'version': '1.0.0'
     }
 
+def sanitize_entry_path(entry_path):
+    """Guards against path traversal attacks and validates path inside store."""
+    if not entry_path or not isinstance(entry_path, str):
+        return None
+    cleaned = entry_path.strip()
+    if not cleaned or cleaned.startswith(('/', '~')) or '\\' in cleaned or '..' in cleaned:
+        return None
+    try:
+        store = Path(PASSWORD_STORE_DIR).resolve()
+        target = (store / cleaned).resolve()
+        if store not in target.parents and target != store:
+            return None
+        return cleaned
+    except Exception:
+        return None
+
 def handle_list():
     entries = list_pass_entries()
     return {
@@ -86,44 +102,68 @@ def handle_list():
     }
 
 def handle_get(entry_path):
+    sanitized = sanitize_entry_path(entry_path)
+    if not sanitized:
+        return {'ok': False, 'error': 'Invalid entry path'}
+
     pass_bin = get_pass_executable()
     if pass_bin:
-        res = subprocess.run([pass_bin, 'show', entry_path], capture_output=True, text=True)
-        if res.returncode == 0:
-            return {'ok': True, 'path': entry_path, 'content': res.stdout}
-        return {'ok': False, 'error': res.stderr.strip() or 'Failed to read entry from pass'}
+        try:
+            res = subprocess.run([pass_bin, 'show', sanitized], capture_output=True, text=True, timeout=15)
+            if res.returncode == 0:
+                return {'ok': True, 'path': sanitized, 'content': res.stdout}
+            return {'ok': False, 'error': res.stderr.strip() or 'Failed to read entry from pass'}
+        except subprocess.TimeoutExpired:
+            return {'ok': False, 'error': 'Operation timed out (pass CLI)'}
 
     # Fallback to direct gpg
     gpg_bin = get_gpg_executable()
-    file_path = os.path.join(PASSWORD_STORE_DIR, f"{entry_path}.gpg")
+    file_path = os.path.join(PASSWORD_STORE_DIR, f"{sanitized}.gpg")
     if gpg_bin and os.path.exists(file_path):
-        res = subprocess.run([gpg_bin, '--decrypt', '--quiet', file_path], capture_output=True, text=True)
-        if res.returncode == 0:
-            return {'ok': True, 'path': entry_path, 'content': res.stdout}
-        return {'ok': False, 'error': res.stderr.strip() or 'Failed to decrypt entry with gpg'}
+        try:
+            res = subprocess.run([gpg_bin, '--decrypt', '--quiet', file_path], capture_output=True, text=True, timeout=15)
+            if res.returncode == 0:
+                return {'ok': True, 'path': sanitized, 'content': res.stdout}
+            return {'ok': False, 'error': res.stderr.strip() or 'Failed to decrypt entry with gpg'}
+        except subprocess.TimeoutExpired:
+            return {'ok': False, 'error': 'Operation timed out (gpg decrypt)'}
 
     return {'ok': False, 'error': 'Neither pass nor gpg executable found'}
 
 def handle_insert(entry_path, content):
+    sanitized = sanitize_entry_path(entry_path)
+    if not sanitized:
+        return {'ok': False, 'error': 'Invalid entry path'}
+
     pass_bin = get_pass_executable()
     if not pass_bin:
         return {'ok': False, 'error': 'pass executable not found in PATH'}
 
     # Use 'pass insert -m -f <entry_path>'
-    res = subprocess.run([pass_bin, 'insert', '-m', '-f', entry_path], input=content, capture_output=True, text=True)
-    if res.returncode == 0:
-        return {'ok': True, 'path': entry_path}
-    return {'ok': False, 'error': res.stderr.strip() or 'Failed to insert entry into pass'}
+    try:
+        res = subprocess.run([pass_bin, 'insert', '-m', '-f', sanitized], input=content, capture_output=True, text=True, timeout=15)
+        if res.returncode == 0:
+            return {'ok': True, 'path': sanitized}
+        return {'ok': False, 'error': res.stderr.strip() or 'Failed to insert entry into pass'}
+    except subprocess.TimeoutExpired:
+        return {'ok': False, 'error': 'Operation timed out (pass insert)'}
 
 def handle_delete(entry_path):
+    sanitized = sanitize_entry_path(entry_path)
+    if not sanitized:
+        return {'ok': False, 'error': 'Invalid entry path'}
+
     pass_bin = get_pass_executable()
     if not pass_bin:
         return {'ok': False, 'error': 'pass executable not found in PATH'}
 
-    res = subprocess.run([pass_bin, 'rm', '-f', entry_path], capture_output=True, text=True)
-    if res.returncode == 0:
-        return {'ok': True, 'path': entry_path}
-    return {'ok': False, 'error': res.stderr.strip() or 'Failed to delete entry from pass'}
+    try:
+        res = subprocess.run([pass_bin, 'rm', '-f', sanitized], capture_output=True, text=True, timeout=15)
+        if res.returncode == 0:
+            return {'ok': True, 'path': sanitized}
+        return {'ok': False, 'error': res.stderr.strip() or 'Failed to delete entry from pass'}
+    except subprocess.TimeoutExpired:
+        return {'ok': False, 'error': 'Operation timed out (pass delete)'}
 
 def handle_sync_all():
     entries = list_pass_entries()
