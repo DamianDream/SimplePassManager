@@ -352,7 +352,7 @@ async function init() {
   // Attempt to restore active session (via MEK in storage.session or memory)
   if (storedVault) {
     const session = await restoreSession();
-    if (session && session.rawMek && storedVault.version === 2 && storedVault.data) {
+    if (session && session.rawMek && (storedVault.version === 2 || storedVault.version === 3) && storedVault.data) {
       try {
         const rawMek = session.rawMek;
         const decrypted = await decryptVaultWithMek(storedVault, rawMek);
@@ -478,25 +478,36 @@ async function handleUnlock(password) {
     let keySlots = null;
     let decrypted = null;
 
-    if (envelope.version === 2 && envelope.keyByPassword) {
+    if ((envelope.version === 2 || envelope.version === 3) && envelope.keyByPassword) {
       rawMek = await unwrapMekWithPassword(envelope, password);
-      keySlots = {
-        keyByPassword: envelope.keyByPassword,
-        keyByRecovery: envelope.keyByRecovery
-      };
       decrypted = await decryptVaultWithMek(envelope, rawMek);
+      if (envelope.version === 2) {
+        // Upgrade v2 to v3: wrap keyByPassword with AAD ('mek-pwd'), carry keyByRecovery as-is with aad: false
+        const keyByPassword = await wrapMek(rawMek, password, 'mek-pwd');
+        const keyByRecovery = envelope.keyByRecovery
+          ? { ...envelope.keyByRecovery, aad: false }
+          : null;
+        keySlots = { keyByPassword, keyByRecovery };
+        const v3Envelope = await encryptVaultWithMek(decrypted, rawMek, keySlots);
+        await saveStoredVault(v3Envelope);
+      } else {
+        keySlots = {
+          keyByPassword: envelope.keyByPassword,
+          keyByRecovery: envelope.keyByRecovery
+        };
+      }
     } else {
-      // Legacy v1 envelope: decrypt and migrate to v2 dual-key envelope!
+      // Legacy v1 envelope: decrypt and migrate to v3 dual-key envelope!
       decrypted = await decryptVault(envelope, password);
       rawMek = generateMek();
       const newRecPhrase = generateRecoveryPhrase();
-      const keyByPwd = await wrapMek(rawMek, password);
-      const keyByRec = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecPhrase));
+      const keyByPwd = await wrapMek(rawMek, password, 'mek-pwd');
+      const keyByRec = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecPhrase), 'mek-rec');
       keySlots = { keyByPassword: keyByPwd, keyByRecovery: keyByRec };
-      const v2Envelope = await encryptVaultWithMek(decrypted, rawMek, keySlots);
-      await saveStoredVault(v2Envelope);
+      const v3Envelope = await encryptVaultWithMek(decrypted, rawMek, keySlots);
+      await saveStoredVault(v3Envelope);
       newlyCreatedRecoveryPhrase = newRecPhrase;
-      showToast('Хранилище обновлено до v2. Сохраните новый ключ восстановления!');
+      showToast('Хранилище обновлено до v3. Сохраните новый ключ восстановления!');
     }
 
     const normalized = normalizeVaultData(decrypted);
@@ -596,11 +607,11 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     ]
   };
 
-  // Generate 12-word recovery phrase, MEK, and encrypt with Dual-Key Envelope
+  // Generate 12-word recovery phrase, MEK, and encrypt with Dual-Key Envelope (v3)
   const recoveryPhrase = generateRecoveryPhrase();
   const rawMek = generateMek();
-  const keyByPassword = await wrapMek(rawMek, password);
-  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase));
+  const keyByPassword = await wrapMek(rawMek, password, 'mek-pwd');
+  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase), 'mek-rec');
   const keySlots = { keyByPassword, keyByRecovery };
   const encrypted = await encryptVaultWithMek(initialData, rawMek, keySlots);
   await saveStoredVault(encrypted);
@@ -681,8 +692,8 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
 
   const recoveryPhrase = generateRecoveryPhrase();
   const rawMek = generateMek();
-  const keyByPassword = await wrapMek(rawMek, password);
-  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase));
+  const keyByPassword = await wrapMek(rawMek, password, 'mek-pwd');
+  const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(recoveryPhrase), 'mek-rec');
   const keySlots = { keyByPassword, keyByRecovery };
   const encrypted = await encryptVaultWithMek(initialData, rawMek, keySlots);
 
@@ -739,9 +750,9 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
     syncCachedFaviconsFromItems(normalized.items);
 
     // Re-wrap keyByPassword with new master password, keeping rawMek and new recovery key!
-    const keyByPassword = await wrapMek(rawMek, newPassword);
+    const keyByPassword = await wrapMek(rawMek, newPassword, 'mek-pwd');
     const newRecoveryPhrase = generateRecoveryPhrase();
-    const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecoveryPhrase));
+    const keyByRecovery = await wrapMek(rawMek, normalizeRecoveryPhrase(newRecoveryPhrase), 'mek-rec');
     const keySlots = { keyByPassword, keyByRecovery };
     const rekeyedEnvelope = await encryptVaultWithMek(normalized, rawMek, keySlots);
     await saveStoredVault(rekeyedEnvelope);
@@ -779,8 +790,9 @@ async function persistVaultChanges() {
     return;
   }
 
+  const isV3 = Boolean(state.keySlots && state.keySlots.keyByPassword && state.keySlots.keyByPassword.aad);
   const vaultData = {
-    version: 2,
+    version: isV3 ? 3 : 2,
     updatedAt: new Date().toISOString(),
     projects: state.projects,
     items: state.items
@@ -4393,19 +4405,19 @@ function attachEventHandlers() {
       }
 
       try {
-        // Re-wrap only the keyByPassword slot!
-        const newKeyByPassword = await wrapMek(currentMek, newPwd);
+        // Re-wrap only the keyByPassword slot with AAD!
+        const newKeyByPassword = await wrapMek(currentMek, newPwd, 'mek-pwd');
         state.rawMek = currentMek;
         if (!state.keySlots) {
           state.keySlots = {
             keyByPassword: envelope.keyByPassword,
-            keyByRecovery: envelope.keyByRecovery
+            keyByRecovery: envelope.keyByRecovery ? { ...envelope.keyByRecovery, aad: envelope.keyByRecovery.aad ?? false } : null
           };
         }
         state.keySlots.keyByPassword = newKeyByPassword;
 
         const vaultData = {
-          version: 2,
+          version: 3,
           updatedAt: new Date().toISOString(),
           projects: state.projects,
           items: state.items

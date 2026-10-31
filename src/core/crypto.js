@@ -123,32 +123,50 @@ export function generateMek() {
   return crypto.getRandomValues(new Uint8Array(32));
 }
 
+const AAD_PAYLOAD = new TextEncoder().encode('simplepass|v3|payload');
+const AAD_MEK_PWD = new TextEncoder().encode('simplepass|v3|mek-pwd');
+const AAD_MEK_REC = new TextEncoder().encode('simplepass|v3|mek-rec');
+
 /**
  * Wraps (encrypts) the raw MEK with a secret (master password or recovery phrase).
  * Derives an AES-GCM key from secret using PBKDF2 with SHA-256 and 600,000 iterations.
+ * In v3, binds each key slot to its unique AAD name ('mek-pwd' or 'mek-rec').
  */
-export async function wrapMek(rawMek, secret) {
+export async function wrapMek(rawMek, secret, slotName = null) {
   const encSecret = typeof secret === 'string' ? secret : '';
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const derKey = await deriveKey(encSecret, salt);
+
+  const encParams = { name: 'AES-GCM', iv: iv };
+  if (slotName === 'mek-pwd') {
+    encParams.additionalData = AAD_MEK_PWD;
+  } else if (slotName === 'mek-rec') {
+    encParams.additionalData = AAD_MEK_REC;
+  }
+
   const encMek = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv },
+    encParams,
     derKey,
     rawMek
   );
-  return {
+  const slot = {
     salt: bufferToBase64(salt),
     iv: bufferToBase64(iv),
     data: bufferToBase64(encMek)
   };
+  if (slotName) {
+    slot.aad = true;
+    slot.slot = slotName;
+  }
+  return slot;
 }
 
 /**
- * Unwraps the raw MEK from a v2 envelope using the master password.
+ * Unwraps the raw MEK from a v2/v3 envelope using the master password.
  */
 export async function unwrapMekWithPassword(envelope, masterPassword) {
-  if (!envelope || envelope.version !== 2 || !envelope.keyByPassword) {
+  if (!envelope || (envelope.version !== 2 && envelope.version !== 3) || !envelope.keyByPassword) {
     throw new Error('Invalid vault envelope structure');
   }
   try {
@@ -158,8 +176,13 @@ export async function unwrapMekWithPassword(envelope, masterPassword) {
     const encMek = base64ToBuffer(pwdKeyInfo.data);
 
     const derKey = await deriveKey(masterPassword, pwdSalt);
+    const decParams = { name: 'AES-GCM', iv: pwdIv };
+    if (pwdKeyInfo.aad === true || (envelope.version >= 3 && pwdKeyInfo.aad !== false)) {
+      decParams.additionalData = AAD_MEK_PWD;
+    }
+
     const rawMekBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: pwdIv },
+      decParams,
       derKey,
       encMek
     );
@@ -170,10 +193,10 @@ export async function unwrapMekWithPassword(envelope, masterPassword) {
 }
 
 /**
- * Unwraps the raw MEK from a v2 envelope using the 12-word recovery phrase.
+ * Unwraps the raw MEK from a v2/v3 envelope using the 12-word recovery phrase.
  */
 export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
-  if (!envelope || envelope.version !== 2 || !envelope.keyByRecovery) {
+  if (!envelope || (envelope.version !== 2 && envelope.version !== 3) || !envelope.keyByRecovery) {
     throw new Error('Восстановление по 12 словам не поддерживается для этой версии хранилища.');
   }
   const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
@@ -187,8 +210,13 @@ export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
     const encMek = base64ToBuffer(recKeyInfo.data);
 
     const recDerKey = await deriveKey(normPhrase, recSalt);
+    const decParams = { name: 'AES-GCM', iv: recIv };
+    if (recKeyInfo.aad === true) {
+      decParams.additionalData = AAD_MEK_REC;
+    }
+
     const rawMekBuffer = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: recIv },
+      decParams,
       recDerKey,
       encMek
     );
@@ -199,7 +227,7 @@ export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
 }
 
 /**
- * Encrypts arbitrary JavaScript data with the raw MEK and returns a v2 envelope,
+ * Encrypts arbitrary JavaScript data with the raw MEK and returns a v3 envelope,
  * preserving existing key slots (keyByPassword, keyByRecovery).
  */
 export async function encryptVaultWithMek(data, rawMek, existingKeySlots = null) {
@@ -214,15 +242,23 @@ export async function encryptVaultWithMek(data, rawMek, existingKeySlots = null)
     ['encrypt']
   );
 
+  const isV3 = !existingKeySlots || Boolean(existingKeySlots.keyByPassword && existingKeySlots.keyByPassword.aad);
+  const version = isV3 ? 3 : 2;
+
   const vaultIv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const encParams = { name: 'AES-GCM', iv: vaultIv };
+  if (version === 3) {
+    encParams.additionalData = AAD_PAYLOAD;
+  }
+
   const encryptedData = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: vaultIv },
+    encParams,
     mekKey,
     plaintext
   );
 
   const envelope = {
-    version: 2,
+    version,
     iv: bufferToBase64(vaultIv),
     data: bufferToBase64(encryptedData)
   };
@@ -240,7 +276,7 @@ export async function encryptVaultWithMek(data, rawMek, existingKeySlots = null)
 }
 
 /**
- * Decrypts a v2 envelope using the raw MEK directly.
+ * Decrypts a v2/v3 envelope using the raw MEK directly.
  */
 export async function decryptVaultWithMek(envelope, rawMek) {
   if (!envelope || !envelope.data || !envelope.iv) {
@@ -256,8 +292,12 @@ export async function decryptVaultWithMek(envelope, rawMek) {
   );
   const vaultIv = new Uint8Array(base64ToBuffer(envelope.iv));
   const ciphertext = base64ToBuffer(envelope.data);
+  const decParams = { name: 'AES-GCM', iv: vaultIv };
+  if (envelope.version === 3) {
+    decParams.additionalData = AAD_PAYLOAD;
+  }
   const decryptedBuffer = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: vaultIv },
+    decParams,
     mekKey,
     ciphertext
   );
@@ -272,9 +312,9 @@ export async function decryptVaultWithMek(envelope, rawMek) {
 export async function encryptVault(data, masterPassword, recoveryPhrase = null) {
   if (recoveryPhrase) {
     const rawMek = generateMek();
-    const keyByPassword = await wrapMek(rawMek, masterPassword);
+    const keyByPassword = await wrapMek(rawMek, masterPassword, 'mek-pwd');
     const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
-    const keyByRecovery = await wrapMek(rawMek, normPhrase);
+    const keyByRecovery = await wrapMek(rawMek, normPhrase, 'mek-rec');
     return await encryptVaultWithMek(data, rawMek, { keyByPassword, keyByRecovery });
   }
 
@@ -308,8 +348,8 @@ export async function decryptVault(envelope, masterPassword) {
     throw new Error('Invalid vault envelope structure');
   }
 
-  // Version 2: Dual-key envelope (MEK encrypted by password)
-  if (envelope.version === 2 && envelope.keyByPassword) {
+  // Version 2 & 3: Dual-key envelope (MEK encrypted by password)
+  if ((envelope.version === 2 || envelope.version === 3) && envelope.keyByPassword) {
     const rawMek = await unwrapMekWithPassword(envelope, masterPassword);
     return await decryptVaultWithMek(envelope, rawMek);
   }

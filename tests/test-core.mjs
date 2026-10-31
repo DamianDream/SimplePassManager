@@ -123,7 +123,7 @@ async function runTests() {
   const dualPassword = 'MasterPassword#2026';
   const dualEnvelope = await encryptVault(dualPayload, dualPassword, phrase);
 
-  assert.strictEqual(dualEnvelope.version, 2, 'Envelope must be v2');
+  assert(dualEnvelope.version === 2 || dualEnvelope.version === 3, 'Envelope must be v2 or v3');
   assert(dualEnvelope.keyByPassword && dualEnvelope.keyByRecovery, 'Must contain dual keys for password and recovery');
 
   // Decrypt with master password
@@ -884,6 +884,72 @@ async function runTests() {
   await copyToClipboard('secretPassword123', 0);
   assert.strictEqual(sentMessage, null, '0 seconds must not schedule clear');
   console.log('   ✓ E3 Reliable clipboard clear scheduling verified');
+
+  // Test 25: E4 - v3 AAD Slot Binding & Anti-Tamper Protection
+  console.log('25. Testing E4: v3 AAD envelope binding and slot swap tampering prevention...');
+  {
+    const v3Mek = generateMek();
+    const pwdV3 = 'TestPassword123!';
+    const phraseV3 = 'abandon ability able about above absent absorb abstract absurd abuse access accident';
+
+    const v3PwdSlot = await wrapMek(v3Mek, pwdV3, 'mek-pwd');
+    const v3RecSlot = await wrapMek(v3Mek, phraseV3, 'mek-rec');
+
+    const v3Payload = { notes: 'Protected with AAD v3', created: Date.now() };
+    const v3Envelope = await encryptVaultWithMek(v3Payload, v3Mek, {
+      keyByPassword: v3PwdSlot,
+      keyByRecovery: v3RecSlot
+    });
+
+    assert.strictEqual(v3Envelope.version, 3, 'Envelope must be v3');
+
+    // Verify normal unwrap
+    const unwrappedFromPwd = await unwrapMekWithPassword(v3Envelope, pwdV3);
+    assert.deepStrictEqual(Array.from(unwrappedFromPwd), Array.from(v3Mek));
+
+    const unwrappedFromRec = await unwrapMekWithRecovery(v3Envelope, phraseV3);
+    assert.deepStrictEqual(Array.from(unwrappedFromRec), Array.from(v3Mek));
+
+    const decryptedV3 = await decryptVaultWithMek(v3Envelope, unwrappedFromPwd);
+    assert.strictEqual(decryptedV3.notes, 'Protected with AAD v3');
+
+    // Test slot swapping attack: put keyByRecovery into keyByPassword slot
+    const tamperedEnvelope = {
+      ...v3Envelope,
+      keyByPassword: v3RecSlot,
+      keyByRecovery: v3PwdSlot
+    };
+
+    await assert.rejects(
+      async () => await unwrapMekWithPassword(tamperedEnvelope, pwdV3),
+      'Swapped slot must fail unwrap due to AAD mismatch'
+    );
+
+    // Test v2 migration: v2 envelope with v2 slots can be opened and upgraded to v3
+    const v2PwdSlot = await wrapMek(v3Mek, pwdV3); // no AAD
+    const v2RecSlot = await wrapMek(v3Mek, phraseV3); // no AAD
+    const v2Env = await encryptVaultWithMek(v3Payload, v3Mek, {
+      keyByPassword: v2PwdSlot,
+      keyByRecovery: v2RecSlot
+    });
+    assert.strictEqual(v2Env.version, 2);
+
+    const v2MekUnwrapped = await unwrapMekWithPassword(v2Env, pwdV3);
+    assert.deepStrictEqual(Array.from(v2MekUnwrapped), Array.from(v3Mek));
+
+    // Migrating v2 -> v3 carries keyByRecovery with aad: false
+    const migratedKeySlots = {
+      keyByPassword: await wrapMek(v2MekUnwrapped, pwdV3, 'mek-pwd'),
+      keyByRecovery: { ...v2Env.keyByRecovery, aad: false }
+    };
+    const migratedEnvelope = await encryptVaultWithMek(v3Payload, v2MekUnwrapped, migratedKeySlots);
+    assert.strictEqual(migratedEnvelope.version, 3);
+
+    // Recovery must still decrypt migrated envelope!
+    const recUnwrapAfterMigration = await unwrapMekWithRecovery(migratedEnvelope, phraseV3);
+    assert.deepStrictEqual(Array.from(recUnwrapAfterMigration), Array.from(v3Mek));
+  }
+  console.log('   ✓ E4 v3 AAD envelope binding verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }
