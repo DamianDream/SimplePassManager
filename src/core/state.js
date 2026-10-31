@@ -22,6 +22,7 @@ export const state = {
   selectedItem: null,
   isEditing: false,
   lockInterval: 'session',
+  autolockMinutes: 15,
   theme: 'light',
   language: 'ru',
   showCardTags: false,

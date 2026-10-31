@@ -10,6 +10,15 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session &&
   chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
 }
 
+// Clear in-memory session key when OS locks
+if (typeof chrome !== 'undefined' && chrome.idle && chrome.idle.onStateChanged) {
+  chrome.idle.onStateChanged.addListener(state => {
+    if (state === 'locked' && chrome.storage && chrome.storage.session) {
+      chrome.storage.session.remove('sp_active_session').catch(() => {});
+    }
+  });
+}
+
 // Enable side panel to open on toolbar icon click
 chrome.runtime.onInstalled.addListener(() => {
   if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {

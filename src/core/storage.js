@@ -15,6 +15,7 @@ export const DEFAULT_CONFIG = {
   activeProjectId: 'proj_default',
   latestProjectId: 'proj_default',
   lockInterval: 'session',
+  autolockMinutes: 15,
   clipboardClearSeconds: 30,
   theme: 'light',
   language: 'ru',

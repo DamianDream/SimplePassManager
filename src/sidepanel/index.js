@@ -81,6 +81,7 @@ import {
   getCachedFavicon,
   getFaviconCache
 } from '../core/favicon.js';
+import { startAutolock, stopAutolock } from './autolock.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -123,6 +124,7 @@ let settingsSearchQuery = '';
 let openSections = new Set();
 let isChangePwdOpen = false;
 let isCustomSelectOpen = false;
+let isAutolockSelectOpen = false;
 let isLangSelectOpen = false;
 let isExportFormatSelectOpen = false;
 let selectedExportFormat = 'json';
@@ -328,10 +330,14 @@ async function init() {
   const initialLockInterval = storedConfig.lockInterval === '3days' || storedConfig.lockInterval === '1week' || storedConfig.lockInterval === '1month'
     ? 'session'
     : (storedConfig.lockInterval || 'session');
+  const initialAutolockMinutes = storedConfig.autolockMinutes !== undefined
+    ? Number(storedConfig.autolockMinutes)
+    : 15;
 
   updateState({
     isInitialized: storedVault !== null,
     lockInterval: initialLockInterval,
+    autolockMinutes: initialAutolockMinutes,
     theme: currentTheme,
     language: currentLang,
     showCardTags: storedConfig.showCardTags === true,
@@ -386,7 +392,37 @@ async function init() {
     updateState({ passHostStatus: status });
   }).catch(() => {});
 
-  subscribe(() => render());
+  let previousUnlocked = false;
+  subscribe(() => {
+    if (state.isUnlocked !== previousUnlocked) {
+      previousUnlocked = state.isUnlocked;
+      if (state.isUnlocked) {
+        startAutolock({
+          idleMinutes: state.autolockMinutes !== undefined ? state.autolockMinutes : 15,
+          onLock: () => lockVault()
+        });
+      } else {
+        stopAutolock();
+      }
+    }
+    render();
+  });
+
+  if (state.isUnlocked) {
+    previousUnlocked = true;
+    startAutolock({
+      idleMinutes: state.autolockMinutes !== undefined ? state.autolockMinutes : 15,
+      onLock: () => lockVault()
+    });
+  }
+
+  // Periodic expiration guard: check every 30 seconds
+  setInterval(() => {
+    if (state.isUnlocked && state.sessionExpiresAt > 0 && Date.now() > state.sessionExpiresAt) {
+      lockVault();
+    }
+  }, 30000);
+
   render();
 }
 
@@ -2166,6 +2202,16 @@ function renderSettingsView() {
   };
   const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['session'];
 
+  const autolockVal = state.autolockMinutes !== undefined ? Number(state.autolockMinutes) : 15;
+  const autolockLabels = {
+    0: t('settings.autolock_off'),
+    1: t('settings.autolock_1m'),
+    5: t('settings.autolock_5m'),
+    15: t('settings.autolock_15m'),
+    30: t('settings.autolock_30m')
+  };
+  const selectedAutolockLabel = autolockLabels[autolockVal] || autolockLabels[15];
+
   // 0. Accordion: Appearance & Theme
   const isDark = state.theme === 'dark';
   const currentLang = getLanguage();
@@ -2266,6 +2312,44 @@ function renderSettingsView() {
           </div>
         </div>
         ${state.lockInterval === '1day' ? `<p style="font-size:10px; color:var(--text-dim); margin-top:5px; line-height:1.3;">⚠️ ${t('settings.interval_1day_warning')}</p>` : ''}
+      </div>
+    </div>
+
+    <div class="sp-setting-row" data-search="автоблокировка бездействие inactivity autolock security">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.autolock_title')}</span>
+        <span class="sp-badge-info">${autolockVal === 0 ? 'off' : autolockVal + 'm'}</span>
+      </div>
+      <p class="sp-setting-desc">${t('settings.autolock_desc')}</p>
+      <div class="sp-setting-control">
+        <div class="sp-custom-select ${isAutolockSelectOpen ? 'open' : ''}" id="sp-setting-autolock-dropdown">
+          <button type="button" class="sp-custom-select-trigger" id="sp-custom-autolock-trigger">
+            <span class="sp-custom-select-value">${selectedAutolockLabel}</span>
+            <span class="sp-custom-select-arrow">${icons.iChevronDown}</span>
+          </button>
+          <div class="sp-custom-select-dropdown">
+            <div class="sp-custom-select-option ${autolockVal === 1 ? 'selected' : ''}" data-val="1">
+              <span>${t('settings.autolock_1m')}</span>
+              ${autolockVal === 1 ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${autolockVal === 5 ? 'selected' : ''}" data-val="5">
+              <span>${t('settings.autolock_5m')}</span>
+              ${autolockVal === 5 ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${autolockVal === 15 ? 'selected' : ''}" data-val="15">
+              <span>${t('settings.autolock_15m')}</span>
+              ${autolockVal === 15 ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${autolockVal === 30 ? 'selected' : ''}" data-val="30">
+              <span>${t('settings.autolock_30m')}</span>
+              ${autolockVal === 30 ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${autolockVal === 0 ? 'selected' : ''}" data-val="0">
+              <span>${t('settings.autolock_off')}</span>
+              ${autolockVal === 0 ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3934,6 +4018,51 @@ function attachEventHandlers() {
         } else {
           showToast(t('toasts.interval_updated') || 'Периодичность проверки обновлена');
         }
+        render();
+      });
+    });
+  }
+
+  // Custom Select Dropdown for Inactivity Autolock
+  const customAutolockSelect = document.getElementById('sp-setting-autolock-dropdown');
+  const customAutolockTrigger = document.getElementById('sp-custom-autolock-trigger');
+  if (customAutolockSelect && customAutolockTrigger) {
+    customAutolockTrigger.addEventListener('click', e => {
+      e.stopPropagation();
+      isAutolockSelectOpen = !isAutolockSelectOpen;
+      customAutolockSelect.classList.toggle('open', isAutolockSelectOpen);
+      const lockDrop = document.getElementById('sp-setting-lock-interval-dropdown');
+      if (lockDrop && isCustomSelectOpen) {
+        isCustomSelectOpen = false;
+        lockDrop.classList.remove('open');
+      }
+      const langDrop = document.getElementById('sp-setting-lang-dropdown');
+      if (langDrop && isLangSelectOpen) {
+        isLangSelectOpen = false;
+        langDrop.classList.remove('open');
+      }
+      const exportDrop = document.getElementById('sp-export-format-dropdown');
+      if (exportDrop && isExportFormatSelectOpen) {
+        isExportFormatSelectOpen = false;
+        exportDrop.classList.remove('open');
+      }
+    });
+
+    customAutolockSelect.querySelectorAll('.sp-custom-select-option').forEach(opt => {
+      opt.addEventListener('click', async e => {
+        e.stopPropagation();
+        const val = Number(opt.dataset.val);
+        state.autolockMinutes = val;
+        isAutolockSelectOpen = false;
+        const cfg = await getStoredConfig();
+        await saveStoredConfig({ ...cfg, autolockMinutes: val });
+        if (state.isUnlocked) {
+          startAutolock({
+            idleMinutes: val,
+            onLock: () => lockVault()
+          });
+        }
+        showToast(t('toasts.interval_updated') || 'Периодичность проверки обновлена');
         render();
       });
     });

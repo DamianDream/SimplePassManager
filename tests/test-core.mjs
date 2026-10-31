@@ -843,6 +843,28 @@ async function runTests() {
   assert.strictEqual(localStore.has('sp_active_session'), false, 'Legacy session must be wiped from disk storage');
   console.log('   ✓ V2/V3 storage tiering & legacy session ejection verified');
 
+  // Test 23: E2 Inactivity Autolock Module
+  console.log('23. Testing E2: Inactivity autolock lifecycle and triggers...');
+  const { startAutolock, stopAutolock } = await import('../src/sidepanel/autolock.js');
+  let lockTriggered = false;
+  const autolockInstance = startAutolock({
+    idleMinutes: 0.001,
+    onLock: () => { lockTriggered = true; }
+  });
+  assert(autolockInstance && typeof autolockInstance.stop === 'function');
+  stopAutolock();
+  await new Promise(r => setTimeout(r, 100));
+  assert.strictEqual(lockTriggered, false, 'Stopped autolock must not trigger onLock');
+
+  startAutolock({
+    idleMinutes: 0.0005,
+    onLock: () => { lockTriggered = true; }
+  });
+  await new Promise(r => setTimeout(r, 80));
+  assert.strictEqual(lockTriggered, true, 'Active autolock must fire onLock after expiration');
+  stopAutolock();
+  console.log('   ✓ E2 Inactivity autolock verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

@@ -12,7 +12,8 @@
     "scripting",
     "clipboardWrite",
     "nativeMessaging",
-    "favicon"
+    "favicon",
+    "idle"
   ],
   "host_permissions": [
     "<all_urls>"
