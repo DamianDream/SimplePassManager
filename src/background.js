@@ -123,4 +123,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true; // async response
   }
+
+  if (message.type === 'SCHEDULE_CLIPBOARD_CLEAR') {
+    const seconds = Number(message.seconds) || 0;
+    if (seconds > 0 && chrome.alarms) {
+      chrome.alarms.create('sp-clear-clipboard', {
+        when: Date.now() + seconds * 1000
+      });
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false });
+    }
+    return false;
+  }
 });
+
+async function clearClipboardOffscreen() {
+  const offscreenUrl = 'offscreen.html';
+  if (typeof chrome !== 'undefined' && chrome.offscreen) {
+    try {
+      let hasDoc = false;
+      if (chrome.runtime.getContexts) {
+        const contexts = await chrome.runtime.getContexts({
+          contextTypes: ['OFFSCREEN_DOCUMENT'],
+          documentUrls: [chrome.runtime.getURL(offscreenUrl)]
+        }).catch(() => []);
+        hasDoc = Boolean(contexts && contexts.length > 0);
+      }
+      if (!hasDoc) {
+        await chrome.offscreen.createDocument({
+          url: offscreenUrl,
+          reasons: ['CLIPBOARD'],
+          justification: 'Clear copied password from clipboard'
+        });
+      }
+      try {
+        await chrome.runtime.sendMessage({ type: 'EXEC_CLEAR_CLIPBOARD' });
+      } catch (_) {}
+      await chrome.offscreen.closeDocument().catch(() => {});
+    } catch (err) {
+      console.warn('Offscreen clear clipboard failed:', err);
+    }
+  }
+}
+
+if (typeof chrome !== 'undefined' && chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener(async alarm => {
+    if (alarm.name === 'sp-clear-clipboard') {
+      await clearClipboardOffscreen();
+    }
+  });
+}

@@ -865,6 +865,26 @@ async function runTests() {
   stopAutolock();
   console.log('   ✓ E2 Inactivity autolock verified');
 
+  // Test 24: E3 Reliable Clipboard Clear via Alarms
+  console.log('24. Testing E3: Reliable clipboard clear scheduling via alarms...');
+  const { copyToClipboard } = await import('../src/core/state.js');
+  let sentMessage = null;
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    value: { writeText: async () => {} },
+    configurable: true
+  });
+  global.chrome.runtime = {
+    sendMessage: async (msg) => { sentMessage = msg; }
+  };
+
+  await copyToClipboard('secretPassword123', 45);
+  assert.deepStrictEqual(sentMessage, { type: 'SCHEDULE_CLIPBOARD_CLEAR', seconds: 45 }, 'Must dispatch SCHEDULE_CLIPBOARD_CLEAR with 45s');
+
+  sentMessage = null;
+  await copyToClipboard('secretPassword123', 0);
+  assert.strictEqual(sentMessage, null, '0 seconds must not schedule clear');
+  console.log('   ✓ E3 Reliable clipboard clear scheduling verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

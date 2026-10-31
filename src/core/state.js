@@ -184,16 +184,12 @@ export async function lockVault() {
  */
 export async function copyToClipboard(text, clearAfterSeconds = 30) {
   try {
-    await navigator.clipboard.writeText(text);
-    if (clearAfterSeconds > 0) {
-      setTimeout(async () => {
-        try {
-          const current = await navigator.clipboard.readText();
-          if (current === text) {
-            await navigator.clipboard.writeText('');
-          }
-        } catch (_) {}
-      }, clearAfterSeconds * 1000);
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    }
+    const sec = Number(clearAfterSeconds) || 0;
+    if (sec > 0 && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'SCHEDULE_CLIPBOARD_CLEAR', seconds: sec }).catch(() => {});
     }
     return true;
   } catch (err) {
