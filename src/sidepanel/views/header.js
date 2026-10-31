@@ -12,6 +12,8 @@ export function renderHeader() {
   let sectionTitle = t('nav.passwords');
   if (state.activeTab === 'generator') {
     sectionTitle = t('nav.generator');
+  } else if (state.activeTab === 'security') {
+    sectionTitle = `${t('security.title')} (${t('security.experimental')})`;
   } else if (state.activeTab === 'settings') {
     sectionTitle = t('nav.settings');
   } else if (state.activeTab === 'item-details') {
@@ -55,6 +57,11 @@ export function renderDrawer() {
         <button class="sp-drawer-item ${state.activeTab === 'generator' ? 'active' : ''}" data-nav="generator">
           <span class="sp-drawer-item-icon">${icons.iDice}</span>
           <span>${t('nav.generator')}</span>
+        </button>
+        <button class="sp-drawer-item ${state.activeTab === 'security' ? 'active' : ''}" data-nav="security">
+          <span class="sp-drawer-item-icon">${icons.iShield}</span>
+          <span>${t('security.title')}</span>
+          <span class="sp-badge-info" style="font-size:9px; padding:1px 4px; text-transform:uppercase;">${t('security.experimental')}</span>
         </button>
         <button class="sp-drawer-item ${state.activeTab === 'settings' ? 'active' : ''}" data-nav="settings">
           <span class="sp-drawer-item-icon">${icons.iSettings}</span>

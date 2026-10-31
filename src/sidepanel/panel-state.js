@@ -63,7 +63,15 @@ export const panelState = {
   formSelectedTags: [],
   currentFormItemId: null,
   currentFormItemPassword: '',
-  formDraft: null
+  formDraft: null,
+
+  // Security Audit State (F3)
+  securitySearchQuery: '',
+  securityActiveTag: 'All',
+  securityActiveRiskFilter: 'all',
+  isSecurityLegendOpen: true,
+  securityAuditReport: null,
+  isAuditing: false
 };
 
 export function getRemainingLockoutSeconds() {

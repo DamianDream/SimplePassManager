@@ -60,6 +60,7 @@ import {
 } from './views/vault-list.js';
 import { renderItemFormView } from './views/item-form.js';
 import { renderGeneratorView } from './views/generator.js';
+import { renderSecurityView } from './views/security.js';
 import { renderSettingsView } from './views/settings.js';
 import { renderAllModals } from './views/modals.js';
 
@@ -69,6 +70,7 @@ import { attachHeaderHandlers } from './handlers/header-handlers.js';
 import { attachVaultHandlers } from './handlers/vault-handlers.js';
 import { attachItemFormHandlers } from './handlers/item-form-handlers.js';
 import { attachGeneratorHandlers } from './handlers/generator-handlers.js';
+import { attachSecurityHandlers } from './handlers/security-handlers.js';
 import { attachSettingsHandlers } from './handlers/settings-handlers.js';
 import { attachAllModalHandlers } from './handlers/modal-handlers.js';
 
@@ -146,6 +148,10 @@ export function renderApp() {
     viewContainer.innerHTML = renderGeneratorView();
     attachGeneratorHandlers({ renderApp });
     currentRenderedView = 'generator';
+  } else if (targetView === 'security') {
+    viewContainer.innerHTML = renderSecurityView();
+    attachSecurityHandlers({ renderApp });
+    currentRenderedView = 'security';
   } else if (targetView === 'settings') {
     const activeEl = document.activeElement;
     const isSearchFocused = activeEl && activeEl.id === 'sp-settings-search';

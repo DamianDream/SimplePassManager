@@ -6,6 +6,7 @@ import {
 } from '../src/core/crypto.js';
 import { normalizeVaultData, passFormatToItem, itemToPassFormat, itemsToCsv, csvToItems, parseCsv, itemsToBitwardenJson } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
+import { runSecurityAudit, auditItem, hashPasswordForAudit } from '../src/core/security-audit.js';
 
 
 async function runTests() {
@@ -1389,6 +1390,47 @@ async function runTests() {
     assert.strictEqual(bwJson.items[0].passwordHistory[0].password, 'v6');
   }
   console.log('   ✓ F4 Soft-delete trash retention and password history verified');
+
+  // ─── 40. Testing F3: Password Health & Security Audit Engine ───
+  console.log('40. Testing F3: Password Health & Security Audit Engine...');
+  {
+    const nowMs = 1700000000000;
+    const testItems = [
+      // 1. Weak and reused
+      { id: 'item_1', title: 'Site A', password: 'password123', updatedAt: new Date(nowMs).toISOString() },
+      // 2. Reused with item_1
+      { id: 'item_2', title: 'Site B', password: 'password123', updatedAt: new Date(nowMs).toISOString() },
+      // 3. Stale / old password (>180 days)
+      { id: 'item_3', title: 'Site C', password: 'ValidStrongPass!9876', updatedAt: new Date(nowMs - 200 * 24 * 60 * 60 * 1000).toISOString() },
+      // 4. Strong, unique, recent password
+      { id: 'item_4', title: 'Site D', password: 'kL8#mP2$vQ9@zR5&wX1^', updatedAt: new Date(nowMs).toISOString() }
+    ];
+
+    const report = runSecurityAudit(testItems, { nowMs });
+    assert.strictEqual(report.total, 4, 'Total audited items must match input length');
+    assert.strictEqual(report.reusedCount, 2, 'Must detect 2 reused passwords');
+    assert.strictEqual(report.weakCount, 2, 'Must detect weak passwords');
+    assert.strictEqual(report.oldCount, 1, 'Must detect 1 stale password (>180 days)');
+    assert.strictEqual(report.strongCount, 1, 'Must detect 1 strong unique password');
+
+    // Verify individual audit items
+    const item1Audit = report.auditedItems.find(i => i.itemId === 'item_1');
+    assert.strictEqual(item1Audit.isReused, true);
+    assert.strictEqual(item1Audit.reusedCount, 2);
+    assert.strictEqual(item1Audit.riskLevel, 'reused');
+
+    const item3Audit = report.auditedItems.find(i => i.itemId === 'item_3');
+    assert.strictEqual(item3Audit.isOld, true);
+    assert.strictEqual(item3Audit.riskLevel, 'old');
+
+    const item4Audit = report.auditedItems.find(i => i.itemId === 'item_4');
+    assert.strictEqual(item4Audit.riskLevel, 'strong');
+    assert.strictEqual(item4Audit.isWeak, false);
+    assert.strictEqual(item4Audit.isReused, false);
+
+    assert(report.healthScore > 0 && report.healthScore < 100, 'Score must reflect weighted deductions');
+  }
+  console.log('   ✓ F3 Password Health & Security Audit Engine verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }
