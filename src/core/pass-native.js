@@ -4,13 +4,26 @@
  */
 
 import { passFormatToItem, itemToPassFormat } from './storage.js';
+import { hasPermission } from './permissions.js';
 
 export const NATIVE_HOST_NAME = 'com.simplepass.pass_host';
 
 /**
  * Sends a message to the native messaging host with a timeout.
  */
-export function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
+export async function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
+  if (typeof chrome !== 'undefined' && chrome.permissions) {
+    const hasPerm = await hasPermission('nativeMessaging');
+    if (!hasPerm) {
+      return {
+        ok: false,
+        permissionRequired: true,
+        errorCode: 'permission_required',
+        error: 'Permission nativeMessaging is required'
+      };
+    }
+  }
+
   return new Promise(resolve => {
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendNativeMessage) {
       resolve({

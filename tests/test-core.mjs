@@ -1250,6 +1250,84 @@ async function runTests() {
   }
   console.log('   ✓ B11 Password generator character class guarantee verified');
 
+  // Test 38: P1-A Permissions API wrappers and origin pattern generator
+  console.log('38. Testing P1-A: Chrome optional permissions API wrappers...');
+  {
+    const {
+      hasPermission,
+      requestPermission,
+      hasOriginPermissions,
+      requestOriginPermissions,
+      getDomainOriginPatterns
+    } = await import('../src/core/permissions.js');
+
+    // Test getDomainOriginPatterns
+    assert.deepStrictEqual(getDomainOriginPatterns('github.com'), [
+      'https://github.com/*',
+      'https://*.github.com/*',
+      'http://github.com/*'
+    ]);
+    assert.deepStrictEqual(getDomainOriginPatterns('https://sub.domain.co.uk/path'), [
+      'https://sub.domain.co.uk/*',
+      'https://*.sub.domain.co.uk/*',
+      'http://sub.domain.co.uk/*'
+    ]);
+    assert.deepStrictEqual(getDomainOriginPatterns(''), []);
+    assert.deepStrictEqual(getDomainOriginPatterns(null), []);
+    assert.deepStrictEqual(getDomainOriginPatterns('localhost'), []);
+    assert.deepStrictEqual(getDomainOriginPatterns('127.0.0.1:8080'), []);
+
+    // Test permission wrappers with mock chrome.permissions
+    const origChrome = globalThis.chrome;
+    let grantedPerms = new Set(['tabs']);
+    let grantedOrigins = new Set(['https://github.com/*']);
+
+    globalThis.chrome = {
+      runtime: {},
+      permissions: {
+        contains: (query, cb) => {
+          if (query.permissions) {
+            const allGranted = query.permissions.every(p => grantedPerms.has(p));
+            cb(allGranted);
+          } else if (query.origins) {
+            const allGranted = query.origins.every(o => grantedOrigins.has(o));
+            cb(allGranted);
+          } else {
+            cb(false);
+          }
+        },
+        request: (query, cb) => {
+          if (query.permissions) {
+            query.permissions.forEach(p => grantedPerms.add(p));
+            cb(true);
+          } else if (query.origins) {
+            query.origins.forEach(o => grantedOrigins.add(o));
+            cb(true);
+          } else {
+            cb(false);
+          }
+        }
+      }
+    };
+
+    assert.strictEqual(await hasPermission('tabs'), true);
+    assert.strictEqual(await hasPermission('nativeMessaging'), false);
+    assert.strictEqual(await requestPermission('nativeMessaging'), true);
+    assert.strictEqual(await hasPermission('nativeMessaging'), true);
+
+    assert.strictEqual(await hasOriginPermissions(['https://github.com/*']), true);
+    assert.strictEqual(await hasOriginPermissions(['https://gitlab.com/*']), false);
+    assert.strictEqual(await requestOriginPermissions(['https://gitlab.com/*']), true);
+    assert.strictEqual(await hasOriginPermissions(['https://gitlab.com/*']), true);
+
+    // Test error handling fallback
+    globalThis.chrome.runtime.lastError = { message: 'User denied permission' };
+    assert.strictEqual(await requestPermission('unknown'), false);
+
+    globalThis.chrome = origChrome;
+  }
+  console.log('   ✓ P1-A Chrome optional permissions API wrappers verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

@@ -84,6 +84,13 @@ import {
   getFaviconCache
 } from '../core/favicon.js';
 import { startAutolock, stopAutolock } from './autolock.js';
+import {
+  hasPermission,
+  requestPermission,
+  hasOriginPermissions,
+  requestOriginPermissions,
+  getDomainOriginPatterns
+} from '../core/permissions.js';
 
 const rootEl = document.getElementById('sp-app-root');
 
@@ -197,6 +204,16 @@ function applyTheme(theme) {
 // ─── ACTIVE TAB AUTO-DETECTION ─────────────────────────────────────────────
 
 function updateActiveTabDomain() {
+  if (!state.currentSiteEnabled || !state.hasTabsPermission) {
+    if (activeTabDomain || activeTabUrl) {
+      activeTabDomain = '';
+      activeTabUrl = '';
+      isAutofillSupported = false;
+      if (state.isUnlocked && state.activeTab !== 'item-details') render();
+    }
+    return;
+  }
+
   const applyTab = (url, tabId, favIconUrl) => {
     const clean = extractCleanDomain(url);
     activeTabUrl = url || '';
@@ -322,6 +339,15 @@ async function init() {
   // Apply saved language (defaults to auto-detected browser language)
   const currentLang = storedConfig.language || detectBrowserLanguage();
   setLanguage(currentLang);
+
+  // Check optional permissions (tabs, nativeMessaging)
+  const hasTabs = await hasPermission('tabs');
+  const hasNative = await hasPermission('nativeMessaging');
+  updateState({
+    hasTabsPermission: hasTabs,
+    hasNativeMessagingPermission: hasNative,
+    currentSiteEnabled: storedConfig.currentSiteEnabled !== undefined ? storedConfig.currentSiteEnabled : true
+  });
 
   // Clean up legacy local storage key and restore in-session lockout state
   if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -934,8 +960,33 @@ async function deleteItem(id) {
   }
 }
 
-function triggerAutofill(item, forceFill = false) {
+async function triggerAutofill(item, forceFill = false) {
   const itemUrl = item.url || item.domain || '';
+  const itemDomain = extractCleanDomain(itemUrl);
+
+  // 1. Check & request origin host permission for target domain if not already granted
+  const patterns = getDomainOriginPatterns(itemDomain);
+  if (patterns.length > 0) {
+    const hasOrigin = await hasOriginPermissions(patterns);
+    if (!hasOrigin) {
+      const granted = await requestOriginPermissions(patterns);
+      if (!granted) {
+        copyToClipboard(item.password);
+        showToast(t('toasts.autofill_copied'));
+        return;
+      }
+    }
+  }
+
+  // 2. Check & request tabs permission if needed
+  if (!state.hasTabsPermission) {
+    const granted = await requestPermission('tabs');
+    if (granted) {
+      updateState({ hasTabsPermission: true });
+      updateActiveTabDomain();
+    }
+  }
+
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage && activeTabId) {
     chrome.runtime.sendMessage(
       {
@@ -946,7 +997,7 @@ function triggerAutofill(item, forceFill = false) {
         password: item.password,
         forceFill
       },
-      response => {
+      async response => {
         if (chrome.runtime?.lastError) {
           copyToClipboard(item.password);
           showToast(t('toasts.autofill_copied'));
@@ -954,6 +1005,16 @@ function triggerAutofill(item, forceFill = false) {
         }
         if (response && response.success) {
           showToast(t('toasts.form_autofilled'));
+        } else if (response && response.reason === 'no_tab_access') {
+          const granted = await requestPermission('tabs');
+          if (granted) {
+            updateState({ hasTabsPermission: true });
+            updateActiveTabDomain();
+            triggerAutofill(item, forceFill);
+          } else {
+            copyToClipboard(item.password);
+            showToast(t('toasts.autofill_copied'));
+          }
         } else if (response && response.reason === 'domain_mismatch') {
           const tabDomain = response.tabDomain || 'current site';
           const itemDomain = response.itemDomain || 'this item';
@@ -1648,6 +1709,18 @@ function renderVaultView() {
         </div>
       `;
     }
+  } else if (!state.hasTabsPermission && state.currentSiteEnabled) {
+    activeDomainNotice = `
+      <div id="sp-enable-tabs-banner" style="background: var(--bg-surface); border: 1px dashed var(--accent, #6366f1); padding: 7px 12px; margin: 8px 14px 0; border-radius: var(--radius-sm); font-size: 11px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer;">
+        <span style="display:flex; align-items:center; gap:6px; color:var(--text-main);">
+          <span style="color:var(--accent, #6366f1);">${icons.iGlobe}</span>
+          <span>${t('vault.enable_site_detection_desc')}</span>
+        </span>
+        <button type="button" class="sp-btn-primary" id="sp-btn-enable-tabs" style="padding: 3px 8px; font-size: 10px; height: auto; white-space: nowrap;">
+          ${t('vault.enable_site_detection_btn')}
+        </button>
+      </div>
+    `;
   }
 
   const pillsHtml = state.categories
@@ -2458,6 +2531,19 @@ function renderSettingsView() {
         ${t('settings.external_icons_desc')}
       </p>
     </div>
+
+    <div class="sp-setting-row" data-search="текущий сайт вкладка активная домен автозаполнение tabs current site">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.current_site_label')}</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-current-site-toggle" ${state.currentSiteEnabled && state.hasTabsPermission ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.current_site_desc')}
+      </p>
+    </div>
   `;
 
   // 1. Accordion: Security & Session
@@ -2642,7 +2728,7 @@ function renderSettingsView() {
 
       <div style="display:flex; gap:8px; margin-top:4px;">
         <button class="sp-btn-secondary" id="sp-btn-check-pass-host" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
-          ${t('settings.check_status_btn')}
+          ${state.hasNativeMessagingPermission ? t('settings.check_status_btn') : t('settings.connect_pass_btn')}
         </button>
         <button class="sp-btn-secondary" id="sp-btn-show-pass-instructions" style="flex:1; justify-content:center; font-size:11px; padding:6px 8px;">
           ${t('settings.instructions_btn')}
@@ -3059,6 +3145,14 @@ function renderSettingsView() {
 async function handleSyncPassProject(projectId) {
   const proj = state.projects.find(p => p.id === projectId);
   if (!proj) return;
+  if (!state.hasNativeMessagingPermission) {
+    const granted = await requestPermission('nativeMessaging');
+    if (!granted) {
+      showToast(t('toasts.native_permission_denied'));
+      return;
+    }
+    updateState({ hasNativeMessagingPermission: true });
+  }
   showToast(t('toasts.pass_syncing'));
   try {
     const passItems = await syncAllPassEntries(projectId);
@@ -3166,6 +3260,24 @@ function attachEventHandlers() {
   if (btnLock) {
     btnLock.addEventListener('click', () => {
       lockVault();
+    });
+  }
+
+  // Active Tab / Current Site Detection Banner CTA
+  const btnEnableTabs = document.getElementById('sp-btn-enable-tabs') || document.getElementById('sp-enable-tabs-banner');
+  if (btnEnableTabs) {
+    btnEnableTabs.addEventListener('click', async e => {
+      e.stopPropagation();
+      const granted = await requestPermission('tabs');
+      if (granted) {
+        updateState({ hasTabsPermission: true, currentSiteEnabled: true });
+        const cfg = await getStoredConfig();
+        await saveStoredConfig({ ...cfg, currentSiteEnabled: true });
+        updateActiveTabDomain();
+        render();
+      } else {
+        showToast(t('toasts.tabs_permission_denied'));
+      }
     });
   }
 
@@ -4160,6 +4272,32 @@ function attachEventHandlers() {
     });
   }
 
+  // Current Site Active Detection Toggle Handler in Settings
+  const currentSiteToggle = document.getElementById('sp-current-site-toggle');
+  if (currentSiteToggle) {
+    currentSiteToggle.addEventListener('change', async e => {
+      if (e.target.checked) {
+        const granted = await requestPermission('tabs');
+        if (granted) {
+          updateState({ hasTabsPermission: true, currentSiteEnabled: true });
+          const cfg = await getStoredConfig();
+          await saveStoredConfig({ ...cfg, currentSiteEnabled: true });
+          updateActiveTabDomain();
+          render();
+        } else {
+          e.target.checked = false;
+          showToast(t('toasts.tabs_permission_denied'));
+        }
+      } else {
+        updateState({ currentSiteEnabled: false });
+        const cfg = await getStoredConfig();
+        await saveStoredConfig({ ...cfg, currentSiteEnabled: false });
+        updateActiveTabDomain();
+        render();
+      }
+    });
+  }
+
   // Show Card Tags Toggle Handler in Settings
   const cardTagsToggle = document.getElementById('sp-show-card-tags-toggle');
   if (cardTagsToggle) {
@@ -5057,11 +5195,21 @@ function attachEventHandlers() {
   const btnCheckPassHost = document.getElementById('sp-btn-check-pass-host');
   if (btnCheckPassHost) {
     btnCheckPassHost.addEventListener('click', async () => {
+      if (!state.hasNativeMessagingPermission) {
+        const granted = await requestPermission('nativeMessaging');
+        if (!granted) {
+          showToast(t('toasts.native_permission_denied'));
+          return;
+        }
+        updateState({ hasNativeMessagingPermission: true });
+      }
       showToast(t('toasts.native_checking'));
       const status = await checkPassHostStatus();
       updateState({ passHostStatus: status });
       if (status && status.ok) {
         showToast(t('toasts.native_connected', { count: status.entriesCount }));
+      } else if (status && status.permissionRequired) {
+        showToast(t('toasts.native_permission_denied'));
       } else {
         showToast(t('toasts.native_unresponsive'));
       }

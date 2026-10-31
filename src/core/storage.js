@@ -18,12 +18,13 @@ export const DEFAULT_CONFIG = {
   autolockMinutes: 15,
   clipboardClearSeconds: 30,
   theme: 'light',
-  language: 'ru',
+  language: 'en',
   defaultCategory: 'Work',
   categories: ['Work', 'Personal'],
   showCardTags: false,
   showFavicons: true,
-  useExternalIcons: false
+  useExternalIcons: false,
+  currentSiteEnabled: true
 };
 
 const memoryStore = new Map();

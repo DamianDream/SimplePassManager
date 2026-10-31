@@ -15,6 +15,7 @@
 | 5 | [05-features.md](05-features.md) | Доработки функционала | P2 |
 | 6 | [06-ui-ux.md](06-ui-ux.md) | UI/UX улучшения | P2 |
 | 7 | [07-distribution-page.md](07-distribution-page.md) | Сайт-страница скачивания и установки под разные браузеры | P2 |
+| 11 | [11-p1-verification-followup.md](11-p1-verification-followup.md) | Верификация P1: runtime-запросы optional permissions (P1-A) и коды локалей `_locales` (P1-B) | **P1 — выполнено ✅** |
 | 9 | [09-p1-execution-plan.md](09-p1-execution-plan.md) | Актуализированное единое ТЗ на раунд P1 (E1–E7, B1–B12, W1–W7) — исполнять вместо прямого чтения 02/03/04 | **P1 — текущий этап** |
 | 8 | [08-verification-c1-followup.md](08-verification-c1-followup.md) | Результаты верификации фиксов C1–C7: C2–C7 приняты, доработка C1 (задачи V1–V4) | **P0 — выполнять первым** |
 

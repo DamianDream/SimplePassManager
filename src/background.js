@@ -98,6 +98,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
+      // Security: if tab.url is inaccessible (tabs permission not granted), refuse autofill to prevent phishing bypass
+      if (!tab.url) {
+        sendResponse({ success: false, reason: 'no_tab_access' });
+        return;
+      }
+
       // Strict Anti-Phishing Domain Verification
       if (itemUrl && tab.url && !forceFill) {
         const tabRegistrable = getRegistrableDomain(tab.url);
