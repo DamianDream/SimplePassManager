@@ -964,17 +964,14 @@ async function triggerAutofill(item, forceFill = false) {
   const itemUrl = item.url || item.domain || '';
   const itemDomain = extractCleanDomain(itemUrl);
 
-  // 1. Check & request origin host permission for target domain if not already granted
+  // 1. Request origin host permission for target domain immediately to preserve user gesture
   const patterns = getDomainOriginPatterns(itemDomain);
   if (patterns.length > 0) {
-    const hasOrigin = await hasOriginPermissions(patterns);
-    if (!hasOrigin) {
-      const granted = await requestOriginPermissions(patterns);
-      if (!granted) {
-        copyToClipboard(item.password);
-        showToast(t('toasts.autofill_copied'));
-        return;
-      }
+    const granted = await requestOriginPermissions(patterns);
+    if (!granted) {
+      copyToClipboard(item.password);
+      showToast(t('toasts.autofill_copied'));
+      return;
     }
   }
 
