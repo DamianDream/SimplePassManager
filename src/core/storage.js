@@ -22,7 +22,8 @@ export const DEFAULT_CONFIG = {
   defaultCategory: 'Work',
   categories: ['Work', 'Personal'],
   showCardTags: false,
-  showFavicons: true
+  showFavicons: true,
+  useExternalIcons: false
 };
 
 const memoryStore = new Map();

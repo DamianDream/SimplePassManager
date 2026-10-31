@@ -1006,6 +1006,33 @@ async function runTests() {
   }
   console.log('   ✓ E6 .spbackup encryption & decryption verified');
 
+  // Test 28: E7 - useExternalIcons default and translations across 8 languages
+  console.log('28. Testing E7: useExternalIcons default config and translations...');
+  {
+    const { DEFAULT_CONFIG } = await import('../src/core/storage.js');
+    assert.strictEqual(DEFAULT_CONFIG.useExternalIcons, false, 'External icons must be disabled by default');
+
+    const fs = await import('fs');
+    const translations = JSON.parse(fs.readFileSync(new URL('../src/locales/translations.json', import.meta.url), 'utf8'));
+    const requiredSettings = ['external_icons_label', 'external_icons_desc'];
+    const requiredToasts = ['external_icons_enabled', 'external_icons_disabled'];
+    const requiredLocales = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'hi'];
+
+    for (const key of requiredSettings) {
+      assert.ok(translations.settings[key], `Missing settings translation key: ${key}`);
+      for (const loc of requiredLocales) {
+        assert.ok(translations.settings[key][loc], `Missing locale '${loc}' in settings.${key}`);
+      }
+    }
+    for (const key of requiredToasts) {
+      assert.ok(translations.toasts[key], `Missing toasts translation key: ${key}`);
+      for (const loc of requiredLocales) {
+        assert.ok(translations.toasts[key][loc], `Missing locale '${loc}' in toasts.${key}`);
+      }
+    }
+  }
+  console.log('   ✓ E7 useExternalIcons settings & translations verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

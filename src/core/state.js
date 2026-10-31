@@ -27,6 +27,7 @@ export const state = {
   language: 'ru',
   showCardTags: false,
   showFavicons: true,
+  useExternalIcons: false,
   sessionExpiresAt: null,
   isProjectSwitcherOpen: false,
   projectToDelete: null,

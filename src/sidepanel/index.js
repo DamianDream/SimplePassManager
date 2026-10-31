@@ -140,6 +140,7 @@ let editingTagId = null;
 // Form multi-tags state
 let formSelectedTags = [];
 let currentFormItemId = null;
+let currentFormItemPassword = '';
 let formDraft = null;
 
 function saveFormDraftFromDOM() {
@@ -152,6 +153,10 @@ function saveFormDraftFromDOM() {
   const userEl = document.getElementById('sp-item-username');
   const passEl = document.getElementById('sp-item-password');
   const notesEl = document.getElementById('sp-item-notes');
+
+  if (passEl) {
+    currentFormItemPassword = passEl.value;
+  }
 
   const id = idEl ? idEl.value : '';
   const isNew = !id;
@@ -175,6 +180,7 @@ function clearFormDraft() {
   formDraft = null;
   formSelectedTags = [];
   currentFormItemId = null;
+  currentFormItemPassword = '';
 }
 
 // ─── THEME MANAGER ──────────────────────────────────────────────────────────
@@ -202,7 +208,7 @@ function updateActiveTabDomain() {
       activeTabId = tabId;
 
       if (clean && state.showFavicons) {
-        resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: favIconUrl || activeTabFavicon })
+        resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: favIconUrl || activeTabFavicon, useExternalServices: state.useExternalIcons === true })
           .then(res => {
             if (res && res.favicon) {
               cachedFavicons[clean] = res.favicon;
@@ -345,6 +351,7 @@ async function init() {
     language: currentLang,
     showCardTags: storedConfig.showCardTags === true,
     showFavicons: storedConfig.showFavicons !== false,
+    useExternalIcons: storedConfig.useExternalIcons === true,
     categories: fullCategories,
     categoryColors: userCategoryColors
   });
@@ -856,7 +863,7 @@ async function saveItem(itemData) {
 
   // If favicon wasn't cached yet, fetch in background and persist
   if (state.showFavicons && domain && !itemToSave.favicon) {
-    resolveFavicon(itemData.url, { forceRefresh: false, activeTabFavIconUrl: activeTabFavicon })
+    resolveFavicon(itemData.url, { forceRefresh: false, activeTabFavIconUrl: activeTabFavicon, useExternalServices: state.useExternalIcons === true })
       .then(async res => {
         if (res && res.favicon) {
           cachedFavicons[domain] = res.favicon;
@@ -2073,6 +2080,8 @@ function renderItemFormView() {
     notes: formDraft.notes !== undefined ? formDraft.notes : baseItem.notes
   } : baseItem;
 
+  currentFormItemPassword = item.password || '';
+
   const currentProjId = item.projectId || defaultProjId;
   const currentProject = state.projects.find(p => p.id === currentProjId) || state.projects[0] || { id: 'proj_default', name: 'main' };
 
@@ -2183,7 +2192,7 @@ function renderItemFormView() {
             </button>
           </div>
           <div class="sp-input-with-action">
-            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" value="${escapeHtml(item.password || '')}" autocomplete="off" style="padding-right: 36px;" />
+            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" autocomplete="new-password" spellcheck="false" inputmode="text" style="padding-right: 36px;" />
             <button type="button" class="sp-input-action-btn" id="sp-toggle-pwd-vis">
               ${isPasswordVisible ? icons.iEyeOff : icons.iEye}
             </button>
@@ -2408,6 +2417,19 @@ function renderSettingsView() {
       </div>
       <p class="sp-setting-desc">
         ${t('settings.show_favicons_desc')}
+      </p>
+    </div>
+
+    <div class="sp-setting-row" data-search="внешние сервисы иконок google duckduckgo external icon services">
+      <div class="sp-setting-header">
+        <span class="sp-setting-label">${t('settings.external_icons_label')}</span>
+        <label class="sp-liquid-switch">
+          <input type="checkbox" id="sp-use-external-icons-toggle" ${state.useExternalIcons ? 'checked' : ''} />
+          <span class="sp-liquid-slider"></span>
+        </label>
+      </div>
+      <p class="sp-setting-desc">
+        ${t('settings.external_icons_desc')}
       </p>
     </div>
   `;
@@ -3425,7 +3447,7 @@ function attachEventHandlers() {
             }
           } catch (_) {}
         }
-        const res = await resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: currentTabFavicon });
+        const res = await resolveFavicon(url, { forceRefresh: false, activeTabFavIconUrl: currentTabFavicon, useExternalServices: state.useExternalIcons === true });
         if (res && res.favicon) {
           fav = res.favicon;
           cachedFavicons[domain] = fav;
@@ -3485,7 +3507,7 @@ function attachEventHandlers() {
           } catch (_) {}
         }
 
-        const res = await resolveFavicon(url, { forceRefresh: true, activeTabFavIconUrl: currentTabFavicon });
+        const res = await resolveFavicon(url, { forceRefresh: true, activeTabFavIconUrl: currentTabFavicon, useExternalServices: state.useExternalIcons === true });
         if (res && res.favicon) {
           const hostNoPort = domain.split(':')[0];
           cachedFavicons[domain] = res.favicon;
@@ -3932,7 +3954,9 @@ function attachEventHandlers() {
 
   const pwdInput = document.getElementById('sp-item-password');
   if (pwdInput) {
+    pwdInput.value = currentFormItemPassword || '';
     pwdInput.addEventListener('input', () => {
+      currentFormItemPassword = pwdInput.value;
       if (pwdInput.value) {
         pwdInput.classList.remove('has-error');
         const pwdErr = document.getElementById('sp-item-password-error');
@@ -4094,6 +4118,18 @@ function attachEventHandlers() {
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, showFavicons });
       showToast(showFavicons ? t('toasts.favicons_shown') : t('toasts.favicons_hidden'));
+    });
+  }
+
+  // External Favicon Services Toggle Handler in Settings
+  const externalIconsToggle = document.getElementById('sp-use-external-icons-toggle');
+  if (externalIconsToggle) {
+    externalIconsToggle.addEventListener('change', async e => {
+      const useExternalIcons = e.target.checked;
+      updateState({ useExternalIcons });
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({ ...cfg, useExternalIcons });
+      showToast(useExternalIcons ? t('toasts.external_icons_enabled') : t('toasts.external_icons_disabled'));
     });
   }
 
