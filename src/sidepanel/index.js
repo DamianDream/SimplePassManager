@@ -66,7 +66,8 @@ import {
   extractDomainName,
   isItemMatchingDomain,
   sortItemsByDomainMatch,
-  isLocalOrPrivateHost
+  isLocalOrPrivateHost,
+  isPageAutofillSupported
 } from '../core/domain.js';
 import { t, setLanguage, getLanguage, detectBrowserLanguage, SUPPORTED_LANGUAGES, LANGUAGE_OPTIONS } from '../core/i18n.js';
 import {
@@ -90,6 +91,8 @@ const rootEl = document.getElementById('sp-app-root');
 let activeTabDomain = '';
 let activeTabFavicon = '';
 let activeTabId = null;
+let activeTabUrl = '';
+let isAutofillSupported = false;
 let cachedFavicons = {};
 
 // Drawer / Menu state (mySmart style)
@@ -196,6 +199,8 @@ function applyTheme(theme) {
 function updateActiveTabDomain() {
   const applyTab = (url, tabId, favIconUrl) => {
     const clean = extractCleanDomain(url);
+    activeTabUrl = url || '';
+    isAutofillSupported = isPageAutofillSupported(activeTabUrl);
     if (favIconUrl) {
       activeTabFavicon = favIconUrl;
     }
@@ -238,16 +243,19 @@ function updateActiveTabDomain() {
 
   if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+      if (chrome.runtime?.lastError) return;
       if (tabs && tabs[0]) {
         applyTab(tabs[0].url, tabs[0].id, tabs[0].favIconUrl);
       } else {
         chrome.tabs.query({ active: true, currentWindow: true }, tabs2 => {
+          if (chrome.runtime?.lastError) return;
           if (tabs2 && tabs2[0]) applyTab(tabs2[0].url, tabs2[0].id, tabs2[0].favIconUrl);
         });
       }
     });
   } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage({ type: 'GET_ACTIVE_TAB_INFO' }, response => {
+      if (chrome.runtime?.lastError) return;
       if (response && response.domain) {
         applyTab(response.domain, response.tabId, response.favIconUrl);
       }
@@ -939,6 +947,11 @@ function triggerAutofill(item, forceFill = false) {
         forceFill
       },
       response => {
+        if (chrome.runtime?.lastError) {
+          copyToClipboard(item.password);
+          showToast(t('toasts.autofill_copied'));
+          return;
+        }
         if (response && response.success) {
           showToast(t('toasts.form_autofilled'));
         } else if (response && response.reason === 'domain_mismatch') {
@@ -1706,6 +1719,7 @@ function renderVaultView() {
             </div>
           </div>
           <div class="sp-card-actions">
+            <button class="sp-btn-icon" data-action="autofill" title="${isAutofillSupported ? t('vault.autofill_action') : t('vault.autofill_unsupported')}" ${!isAutofillSupported ? 'disabled style="opacity:0.35; cursor:not-allowed;"' : ''}>${icons.iZap}</button>
             <button class="sp-btn-icon" data-action="copy-user" title="${t('vault.copy_user')}">${icons.iCopy}</button>
             <button class="sp-btn-icon" data-action="copy-pwd" title="${t('vault.copy_pwd')}">${icons.iKey}</button>
           </div>
@@ -3325,6 +3339,11 @@ function attachEventHandlers() {
     card.querySelector('[data-action="view"]')?.addEventListener('click', () => {
       clearFormDraft();
       updateState({ activeTab: 'item-details', selectedItem: item });
+    });
+
+    card.querySelector('[data-action="autofill"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      triggerAutofill(item);
     });
 
     card.querySelector('[data-action="copy-user"]')?.addEventListener('click', e => {

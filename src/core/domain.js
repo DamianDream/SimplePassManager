@@ -4,6 +4,29 @@
  */
 
 /**
+ * Determines whether a URL supports content script injection and autofill.
+ * Disallows chrome://, chrome-extension://, devtools://, about:, Chrome Web Store, and PDF viewers.
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isPageAutofillSupported(url) {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.trim().toLowerCase();
+  if (
+    lower.startsWith('chrome://') ||
+    lower.startsWith('chrome-extension://') ||
+    lower.startsWith('devtools://') ||
+    lower.startsWith('edge://') ||
+    lower.startsWith('about:') ||
+    lower.includes('chromewebstore.google.com') ||
+    lower.endsWith('.pdf')
+  ) {
+    return false;
+  }
+  return lower.startsWith('http://') || lower.startsWith('https://');
+}
+
+/**
  * Checks if a domain, host, or URL belongs to a local or private network.
  */
 export function isLocalOrPrivateHost(hostOrUrl) {

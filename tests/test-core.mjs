@@ -1218,6 +1218,38 @@ async function runTests() {
   }
   console.log('   ✓ B8 Corrupted JSON in storage guarded verified');
 
+  // Test 36: B10 Autofill page restriction and messaging safety
+  console.log('36. Testing B10: Autofill page restriction detection...');
+  {
+    const { isPageAutofillSupported } = await import('../src/core/domain.js');
+    assert.strictEqual(isPageAutofillSupported('https://github.com/login'), true);
+    assert.strictEqual(isPageAutofillSupported('http://192.168.1.1:8080'), true);
+    assert.strictEqual(isPageAutofillSupported('chrome://settings'), false);
+    assert.strictEqual(isPageAutofillSupported('chrome-extension://abcdef/popup.html'), false);
+    assert.strictEqual(isPageAutofillSupported('devtools://bundled/inspector.html'), false);
+    assert.strictEqual(isPageAutofillSupported('about:blank'), false);
+    assert.strictEqual(isPageAutofillSupported('https://chromewebstore.google.com/detail/foo'), false);
+    assert.strictEqual(isPageAutofillSupported('https://example.com/sheet.pdf'), false);
+    assert.strictEqual(isPageAutofillSupported(''), false);
+    assert.strictEqual(isPageAutofillSupported(null), false);
+  }
+  console.log('   ✓ B10 Autofill page restriction detection verified');
+
+  // Test 37: B11 Password generator character class guarantees
+  console.log('37. Testing B11: Password generator character class guarantee over 1000 generations...');
+  {
+    const { generatePassword } = await import('../src/core/generator.js');
+    for (let i = 0; i < 1000; i++) {
+      const pwd = generatePassword({ length: 12, useUpper: true, useLower: true, useDigits: true, useSymbols: true });
+      assert.strictEqual(pwd.length, 12);
+      assert.ok(/[A-Z]/.test(pwd), `Run ${i}: missing uppercase`);
+      assert.ok(/[a-z]/.test(pwd), `Run ${i}: missing lowercase`);
+      assert.ok(/[0-9]/.test(pwd), `Run ${i}: missing digits`);
+      assert.ok(/[^a-zA-Z0-9]/.test(pwd), `Run ${i}: missing symbols`);
+    }
+  }
+  console.log('   ✓ B11 Password generator character class guarantee verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
