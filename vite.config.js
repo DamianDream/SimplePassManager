@@ -25,7 +25,8 @@ export default defineConfig({
     copy({
       targets: [
         { src: 'src/manifest.json', dest: 'dist' },
-        { src: 'src/icons', dest: 'dist' }
+        { src: 'src/icons', dest: 'dist' },
+        { src: 'src/_locales', dest: 'dist' }
       ],
       hook: 'writeBundle'
     })

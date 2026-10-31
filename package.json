@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
+    "prebuild": "node scripts/sync-version.js",
     "build": "vite build",
     "test": "node tests/check-i18n.mjs && node tests/test-core.mjs",
-    "pack": "npm run test && npm run build && (cd dist && zip -rq ../simplepass-chrome.zip .)"
+    "prepack": "npm run test && node scripts/sync-version.js",
+    "pack": "npm run build && (cd dist && zip -rq ../simplepass-chrome.zip .)"
   },
   "keywords": [
     "password-manager",

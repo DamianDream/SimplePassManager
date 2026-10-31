@@ -3,7 +3,10 @@
  * Safely fills login credentials into active page forms and dispatches synthetic input events.
  */
 
-function triggerInputEvents(element, value) {
+if (!window.__spContentLoaded) {
+  window.__spContentLoaded = true;
+
+  function triggerInputEvents(element, value) {
   element.value = value;
   element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
   element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
@@ -67,3 +70,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ faviconUrl: iconUrl, origin: window.location.origin, host: window.location.host });
   }
 });
+}

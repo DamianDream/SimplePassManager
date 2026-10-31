@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "SimplePass Manager",
+    "description": "The name of the extension"
+  },
+  "appDesc": {
+    "message": "开源密码管理器，具备 AES-256 加密本地保管库、侧边栏界面、自动填充及 pass CLI 同步功能。",
+    "description": "Description of the extension"
+  }
+}

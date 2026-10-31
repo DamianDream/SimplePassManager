@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "SimplePass Manager",
+    "description": "The name of the extension"
+  },
+  "appDesc": {
+    "message": "Менеджер паролей с открытым кодом, шифрованием AES-256, боковой панелью, автозаполнением и поддержкой pass CLI.",
+    "description": "Description of the extension"
+  }
+}

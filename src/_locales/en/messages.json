@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "SimplePass Manager",
+    "description": "The name of the extension"
+  },
+  "appDesc": {
+    "message": "Open-source password manager with AES-256 encrypted local vault, side panel UI, autofill and pass CLI sync.",
+    "description": "Description of the extension"
+  }
+}

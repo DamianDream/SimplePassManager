@@ -113,13 +113,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
 
-      chrome.tabs.sendMessage(tabId, { type: 'DO_AUTOFILL', username, password }, res => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ success: false, reason: 'content_script_unavailable', error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse(res || { success: true });
+      chrome.scripting.executeScript(
+        {
+          target: { tabId },
+          files: ['content.js']
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ success: false, reason: 'scripting_unavailable', error: chrome.runtime.lastError.message });
+            return;
+          }
+          chrome.tabs.sendMessage(tabId, { type: 'DO_AUTOFILL', username, password }, res => {
+            if (chrome.runtime.lastError) {
+              sendResponse({ success: false, reason: 'content_script_unavailable', error: chrome.runtime.lastError.message });
+            } else {
+              sendResponse(res || { success: true });
+            }
+          });
         }
-      });
+      );
     });
     return true; // async response
   }
