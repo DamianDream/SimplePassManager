@@ -27,6 +27,7 @@ export const DEFAULT_CONFIG = {
 };
 
 const memoryStore = new Map();
+export const _testMemoryStore = memoryStore;
 const hasLocalStorage = typeof localStorage !== 'undefined';
 
 const storageAPI = (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local)
@@ -38,18 +39,33 @@ const storageAPI = (typeof chrome !== 'undefined' && chrome.storage && chrome.st
           if (hasLocalStorage) return localStorage.getItem(k);
           return memoryStore.has(k) ? memoryStore.get(k) : null;
         };
+        const safeParse = (v, fallback = null) => {
+          if (!v) return fallback;
+          try {
+            return JSON.parse(v);
+          } catch (_) {
+            return fallback;
+          }
+        };
+
         if (Array.isArray(keys)) {
           keys.forEach(k => {
             const v = getItem(k);
-            if (v) res[k] = JSON.parse(v);
+            if (v !== null && v !== undefined) {
+              const parsed = safeParse(v, null);
+              if (parsed !== null) res[k] = parsed;
+            }
           });
         } else if (typeof keys === 'string') {
           const v = getItem(keys);
-          if (v) res[keys] = JSON.parse(v);
+          if (v !== null && v !== undefined) {
+            const parsed = safeParse(v, null);
+            if (parsed !== null) res[keys] = parsed;
+          }
         } else if (typeof keys === 'object' && keys !== null) {
           Object.keys(keys).forEach(k => {
             const v = getItem(k);
-            res[k] = v ? JSON.parse(v) : keys[k];
+            res[k] = v !== null && v !== undefined ? safeParse(v, keys[k]) : keys[k];
           });
         }
         cb(res);

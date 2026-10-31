@@ -1199,6 +1199,25 @@ async function runTests() {
   }
   console.log('   ✓ B7 CSV tag preservation and no forced Work tag verified');
 
+  // Test 35: B8 Guard JSON.parse in fallback storage
+  console.log('35. Testing B8: Corrupted JSON in fallback storage returns fallback without throwing...');
+  {
+    const { storageGet, storageRemove, _testMemoryStore } = await import('../src/core/storage.js');
+    if (_testMemoryStore) {
+      _testMemoryStore.set('corrupt_key', '{bad-json-syntax-no-quotes');
+      // Reading with default object fallback
+      const resWithDef = await storageGet({ corrupt_key: 'fallback_default' });
+      assert.strictEqual(resWithDef.corrupt_key, 'fallback_default', 'Should return fallback value on JSON parse error');
+
+      // Reading with string key
+      const resString = await storageGet('corrupt_key');
+      assert.strictEqual(resString.corrupt_key, undefined, 'Should not throw or return broken object');
+
+      await storageRemove('corrupt_key');
+    }
+  }
+  console.log('   ✓ B8 Corrupted JSON in storage guarded verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
