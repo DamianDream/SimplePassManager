@@ -51,47 +51,24 @@ export function renderSecurityView() {
           .map(res => {
             const item = res.item;
             let cardRiskClass = 'sp-card-risk-strong';
-            let statusBadge = '';
 
             if (res.isReused) {
               cardRiskClass = 'sp-card-risk-reused';
-              statusBadge = `
-                <span style="font-size:10px; font-weight:600; color:var(--danger); background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); padding:2px 6px; border-radius:4px;">
-                  ${escapeHtml(t('security.risk_reused', { count: res.reusedCount }))}
-                </span>
-              `;
             } else if (res.isWeak) {
               cardRiskClass = 'sp-card-risk-weak';
-              statusBadge = `
-                <span style="font-size:10px; font-weight:600; color:var(--warning); background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); padding:2px 6px; border-radius:4px;">
-                  ${escapeHtml(t('security.risk_weak'))}
-                </span>
-              `;
-            } else {
-              cardRiskClass = 'sp-card-risk-strong';
-              statusBadge = `
-                <span style="font-size:10px; font-weight:600; color:var(--accent); background:rgba(186,220,0,0.12); border:1px solid rgba(186,220,0,0.25); padding:2px 6px; border-radius:4px;">
-                  ${escapeHtml(t('security.risk_strong'))}
-                </span>
-              `;
             }
 
             return `
               <div class="sp-card ${cardRiskClass}" style="margin-bottom:0; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                  <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
-                    ${
-                      item.favicon
-                        ? `<img src="${escapeHtml(item.favicon)}" style="width:16px; height:16px; border-radius:3px; object-fit:contain;" alt="" />`
-                        : `<span style="color:var(--text-dim); display:flex;">${icons.iKey}</span>`
-                    }
-                    <span style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                      ${escapeHtml(item.title || 'Untitled')}
-                    </span>
-                  </div>
-                  <div style="flex-shrink:0;">
-                    ${statusBadge}
-                  </div>
+                <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                  ${
+                    item.favicon
+                      ? `<img src="${escapeHtml(item.favicon)}" style="width:16px; height:16px; border-radius:3px; object-fit:contain;" alt="" />`
+                      : `<span style="color:var(--text-dim); display:flex;">${icons.iKey}</span>`
+                  }
+                  <span style="font-size:13px; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${escapeHtml(item.title || 'Untitled')}
+                  </span>
                 </div>
 
                 <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--text-dim);">
