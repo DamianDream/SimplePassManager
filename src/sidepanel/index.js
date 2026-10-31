@@ -1989,7 +1989,8 @@ function parseCsvFile(csvContent) {
       username: colUser !== -1 ? (row[colUser] || '') : '',
       url: colUrl !== -1 ? (row[colUrl] || '') : '',
       notes: colNotes !== -1 ? (row[colNotes] || '') : '',
-      category: colCategory !== -1 && row[colCategory] ? row[colCategory] : 'Work',
+      category: colCategory !== -1 && row[colCategory] ? row[colCategory].trim() : '',
+      tags: colCategory !== -1 && row[colCategory] ? [row[colCategory].trim()] : [],
       updatedAt: new Date().toISOString()
     });
   }

@@ -296,8 +296,8 @@ async function runTests() {
   assert.deepStrictEqual(getItemTags({ tags: ['Finance', 'Crypto'] }), ['Finance', 'Crypto']);
   assert.deepStrictEqual(getItemTags({ category: 'Personal' }), ['Personal']);
   assert.deepStrictEqual(getItemTags({ tags: [] }), []);
-  assert.deepStrictEqual(getItemTags({}), ['Work']);
-  assert.deepStrictEqual(getItemTags(null), ['Work']);
+  assert.deepStrictEqual(getItemTags({}), []);
+  assert.deepStrictEqual(getItemTags(null), []);
   console.log('   ✓ Tag System Validation & Multi-tag Extraction verified');
 
   // Test 12: CSV Export & Import with strict column order (login, pass, name, tag, url, note)
@@ -1171,6 +1171,33 @@ async function runTests() {
     await storageRemove(['sp_encrypted_vault']);
   }
   console.log('   ✓ B6 Profile fallback isolation verified');
+
+  // Test 34: B7 CSV tag preservation and no forced 'Work' tag
+  console.log('34. Testing B7: CSV import tag preservation, spaces and no forced Work tag...');
+  {
+    const { csvToItems } = await import('../src/core/storage.js');
+    const { getItemTags } = await import('../src/core/categories.js');
+
+    // 1. Empty tag: must not force 'Work'
+    const csvEmptyTag = `alice,Secret123,Mail,,https://mail.com,notes`;
+    const resEmpty = csvToItems(csvEmptyTag, 'proj_test');
+    assert.strictEqual(resEmpty.items.length, 1);
+    assert.deepStrictEqual(resEmpty.items[0].tags, [], 'Must have empty tags array, not Work');
+    assert.strictEqual(resEmpty.items[0].category, '', 'Category must be empty string');
+
+    // 2. Spaces and hyphens preserved in tags
+    const csvTagsWithSpaces = `bob,Secret123,Fin,My Bank; Dev-Ops ,https://bank.com,notes`;
+    const resSpaces = csvToItems(csvTagsWithSpaces, 'proj_test');
+    assert.strictEqual(resSpaces.items.length, 1);
+    assert.deepStrictEqual(resSpaces.items[0].tags, ['My Bank', 'Dev-Ops'], 'Spaces and hyphens must be preserved');
+
+    // 3. getItemTags returns [] on empty tags
+    assert.deepStrictEqual(getItemTags({ tags: [] }), []);
+    assert.deepStrictEqual(getItemTags({}), []);
+    assert.deepStrictEqual(getItemTags(null), []);
+    assert.deepStrictEqual(getItemTags({ category: 'Personal' }), ['Personal']);
+  }
+  console.log('   ✓ B7 CSV tag preservation and no forced Work tag verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

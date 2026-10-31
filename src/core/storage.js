@@ -702,14 +702,10 @@ export function csvToItems(csvText, projectId = 'proj_default') {
 
     // Parse tags: split by comma or semicolon
     let tags = tagRaw ? tagRaw.split(/[,;]+/).map(t => t.trim()).filter(Boolean) : [];
-    // Validate tag format: only letters, digits and Cyrillic/Ukrainian characters up to 30 chars
+    // Validate tag format: preserve letters, digits, Cyrillic, spaces, and hyphens up to 30 chars
     tags = tags
-      .map(t => t.replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '').slice(0, 30))
+      .map(t => t.replace(/[^a-zA-Z0-9\u0400-\u04FF -]/g, '').trim().slice(0, 30))
       .filter(Boolean);
-
-    if (tags.length === 0) {
-      tags = ['Work'];
-    }
 
     tags.forEach(t => discoveredTags.add(t));
 
@@ -721,7 +717,7 @@ export function csvToItems(csvText, projectId = 'proj_default') {
       title: itemTitle,
       username: login,
       password: pass,
-      category: tags[0] || 'Work',
+      category: tags[0] || '',
       tags,
       url,
       notes: note,

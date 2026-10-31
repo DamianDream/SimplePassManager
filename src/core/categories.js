@@ -190,14 +190,14 @@ export function validateTagName(name) {
  * @returns {string[]}
  */
 export function getItemTags(item) {
-  if (!item) return ['Work'];
+  if (!item) return [];
   if (Array.isArray(item.tags)) {
     return item.tags.filter(t => typeof t === 'string' && t.trim().length > 0);
   }
   if (item.category && typeof item.category === 'string' && item.category.trim().length > 0) {
     return [item.category.trim()];
   }
-  return ['Work'];
+  return [];
 }
 
 export const TAG_COLORS = CATEGORY_COLORS;
