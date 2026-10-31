@@ -14,7 +14,7 @@ export const STORAGE_FAVICON_CACHE_KEY = 'sp_favicon_cache';
 export const DEFAULT_CONFIG = {
   activeProjectId: 'proj_default',
   latestProjectId: 'proj_default',
-  lockInterval: '3days',
+  lockInterval: 'session',
   clipboardClearSeconds: 30,
   theme: 'light',
   language: 'ru',

@@ -766,6 +766,83 @@ async function runTests() {
 
   console.log('   ✓ MEK Dual-Key Envelope, Unwrapping & Zero Degradation verified');
 
+  // Test 21: V1 - createSession strictly accepts only 32-byte Uint8Array (TypeError on strings/invalid types)
+  console.log('21. Testing V1: createSession strictly rejects non-Uint8Array with TypeError...');
+  const { createSession, restoreSession, destroySession } = await import('../src/core/session.js');
+
+  await assert.rejects(
+    async () => await createSession('plainMasterPasswordString'),
+    { name: 'TypeError', message: 'createSession expects a raw MEK Uint8Array' },
+    'Must throw TypeError when passed a string'
+  );
+
+  await assert.rejects(
+    async () => await createSession(null),
+    { name: 'TypeError', message: 'createSession expects a raw MEK Uint8Array' },
+    'Must throw TypeError when passed null'
+  );
+
+  await assert.rejects(
+    async () => await createSession(new Uint8Array(16)),
+    { name: 'TypeError', message: 'createSession expects a raw MEK Uint8Array' },
+    'Must throw TypeError when passed buffer of length != 32'
+  );
+
+  await assert.rejects(
+    async () => await createSession({ token: 'abc' }),
+    { name: 'TypeError', message: 'createSession expects a raw MEK Uint8Array' },
+    'Must throw TypeError when passed an object'
+  );
+  console.log('   ✓ V1 createSession type safety verified');
+
+  // Test 22: V2/V3 - Ephemeral session tiering and legacy unauthenticated session token ejection
+  console.log('22. Testing V2/V3: Ephemeral session tiering and legacy session ejection...');
+  const localStore = new Map();
+  const sessionStore = new Map();
+  global.chrome = {
+    storage: {
+      local: {
+        get: (key, cb) => cb({ [key]: localStore.get(key) || null }),
+        set: (obj, cb) => { Object.entries(obj).forEach(([k, v]) => localStore.set(k, v)); if (cb) cb(); },
+        remove: (key, cb) => { localStore.delete(key); if (cb) cb(); }
+      },
+      session: {
+        get: (key, cb) => cb({ [key]: sessionStore.get(key) || null }),
+        set: (obj, cb) => { Object.entries(obj).forEach(([k, v]) => sessionStore.set(k, v)); if (cb) cb(); },
+        remove: (key, cb) => { sessionStore.delete(key); if (cb) cb(); }
+      }
+    }
+  };
+
+  const testMek = new Uint8Array(32).fill(42);
+
+  // V2 check: 15m, 1h, 8h, session must ONLY be in sessionStore, NEVER in localStore
+  for (const interval of ['session', '15m', '1h', '8h']) {
+    await createSession(testMek, interval);
+    assert.strictEqual(sessionStore.has('sp_active_session'), true, `${interval} must be in session storage`);
+    assert.strictEqual(localStore.has('sp_active_session'), false, `${interval} must NEVER be stored in local disk storage`);
+    await destroySession();
+  }
+
+  // V2 check: 1day is saved to localStore
+  await createSession(testMek, '1day');
+  assert.strictEqual(localStore.has('sp_active_session'), true, '1day must be in local storage');
+  assert.strictEqual(sessionStore.has('sp_active_session'), false, '1day must not linger in session storage');
+  await destroySession();
+
+  // V3 check: Legacy session token without isRawMek must be immediately destroyed and return null
+  localStore.set('sp_active_session', {
+    token: Buffer.from('legacyObfuscatedPassword').toString('base64'),
+    isRawMek: false,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 100000
+  });
+
+  const restoredLegacy = await restoreSession();
+  assert.strictEqual(restoredLegacy, null, 'Legacy session must reject and return null');
+  assert.strictEqual(localStore.has('sp_active_session'), false, 'Legacy session must be wiped from disk storage');
+  console.log('   ✓ V2/V3 storage tiering & legacy session ejection verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

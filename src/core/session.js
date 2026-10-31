@@ -79,29 +79,26 @@ export function normalizeLockIntervalId(intervalId) {
 
 /**
  * Creates an active unlock session holding MEK with expiration based on selected lock interval.
- * rawMek: Uint8Array of 32 bytes (or string fallback for testing).
+ * rawMek MUST be a 32-byte Uint8Array (Master Encryption Key).
+ * Master password is NEVER stored.
  */
 export async function createSession(rawMek, lockIntervalId = 'session') {
+  if (!(rawMek instanceof Uint8Array) || rawMek.length !== 32) {
+    throw new TypeError('createSession expects a raw MEK Uint8Array');
+  }
+
   const normId = normalizeLockIntervalId(lockIntervalId);
   const interval = LOCK_INTERVALS[normId] || LOCK_INTERVALS['session'];
   const now = Date.now();
   const isSessionOnly = interval.id === 'session';
   const expiresAt = isSessionOnly ? 0 : now + interval.ms;
 
-  let rawBytes = null;
-  let tokenStr = '';
-  if (rawMek instanceof Uint8Array) {
-    rawBytes = new Uint8Array(rawMek);
-    tokenStr = bufferToBase64(rawBytes);
-  } else if (typeof rawMek === 'string') {
-    tokenStr = btoa(rawMek);
-  }
-
+  const rawBytes = new Uint8Array(rawMek);
   inMemoryMek = rawBytes;
 
   const sessionData = {
-    token: tokenStr,
-    isRawMek: Boolean(rawBytes),
+    token: bufferToBase64(rawBytes),
+    isRawMek: true,
     createdAt: now,
     expiresAt: expiresAt,
     intervalId: interval.id
@@ -109,10 +106,18 @@ export async function createSession(rawMek, lockIntervalId = 'session') {
 
   const storage = getStorage();
 
-  // If session-only, prefer chrome.storage.session when available so it dies on browser quit
-  if (isSessionOnly && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+  // Short-lived intervals (15m, 1h, 8h, session) stay exclusively in memory & chrome.storage.session.
+  // Only the '1day' (24h) interval is allowed to be persisted to chrome.storage.local to survive browser restart.
+  const isDiskAllowed = interval.id === '1day';
+
+  if (!isDiskAllowed && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
     await new Promise(resolve => chrome.storage.session.set({ [SESSION_STORAGE_KEY]: sessionData }, resolve));
     await new Promise(resolve => storage.remove(SESSION_STORAGE_KEY, resolve));
+  } else if (isDiskAllowed) {
+    await new Promise(resolve => storage.set({ [SESSION_STORAGE_KEY]: sessionData }, resolve));
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+      await new Promise(resolve => chrome.storage.session.remove(SESSION_STORAGE_KEY, resolve));
+    }
   } else {
     await new Promise(resolve => storage.set({ [SESSION_STORAGE_KEY]: sessionData }, resolve));
   }
@@ -122,11 +127,12 @@ export async function createSession(rawMek, lockIntervalId = 'session') {
 
 /**
  * Restores session if not expired.
- * Returns { rawMek, masterPassword, expiresAt, intervalId } or null.
+ * Destroys any legacy unauthenticated session tokens from previous versions.
+ * Returns { rawMek, expiresAt, intervalId } or null.
  */
 export async function restoreSession() {
   if (inMemoryMek) {
-    return { rawMek: inMemoryMek, masterPassword: null };
+    return { rawMek: inMemoryMek, expiresAt: 0, intervalId: 'session' };
   }
 
   const storage = getStorage();
@@ -139,7 +145,7 @@ export async function restoreSession() {
     });
   }
 
-  // If not found, check storage.local (for multi-hour / 1-day sessions)
+  // If not found, check storage.local (only allowed for 1-day interval)
   if (!data) {
     data = await new Promise(resolve => {
       storage.get(SESSION_STORAGE_KEY, res => resolve(res[SESSION_STORAGE_KEY] || null));
@@ -150,6 +156,12 @@ export async function restoreSession() {
     return null;
   }
 
+  // Security migration: immediately destroy any legacy session token without isRawMek
+  if (!data.isRawMek) {
+    await destroySession();
+    return null;
+  }
+
   const now = Date.now();
   // Check if expired (expiresAt > 0 means fixed duration, 0 means session-only)
   if (data.expiresAt > 0 && now > data.expiresAt) {
@@ -157,27 +169,22 @@ export async function restoreSession() {
     return null;
   }
 
-  let rawMek = null;
-  let masterPassword = null;
-
   try {
-    if (data.isRawMek) {
-      rawMek = new Uint8Array(base64ToBuffer(data.token));
-      inMemoryMek = rawMek;
-    } else {
-      masterPassword = atob(data.token);
+    const rawMek = new Uint8Array(base64ToBuffer(data.token));
+    if (rawMek.length !== 32) {
+      await destroySession();
+      return null;
     }
+    inMemoryMek = rawMek;
+    return {
+      rawMek,
+      expiresAt: data.expiresAt,
+      intervalId: data.intervalId
+    };
   } catch (_) {
     await destroySession();
     return null;
   }
-
-  return {
-    rawMek,
-    masterPassword,
-    expiresAt: data.expiresAt,
-    intervalId: data.intervalId
-  };
 }
 
 /**

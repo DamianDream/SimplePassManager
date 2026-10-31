@@ -346,30 +346,14 @@ async function init() {
   // Attempt to restore active session (via MEK in storage.session or memory)
   if (storedVault) {
     const session = await restoreSession();
-    if (session && (session.rawMek || session.masterPassword)) {
+    if (session && session.rawMek && storedVault.version === 2 && storedVault.data) {
       try {
-        let decrypted = null;
-        let rawMek = session.rawMek || null;
-        let keySlots = null;
-
-        if (rawMek && storedVault.version === 2 && storedVault.data) {
-          decrypted = await decryptVaultWithMek(storedVault, rawMek);
-          keySlots = {
-            keyByPassword: storedVault.keyByPassword,
-            keyByRecovery: storedVault.keyByRecovery
-          };
-        } else if (session.masterPassword) {
-          if (storedVault.version === 2 && storedVault.keyByPassword) {
-            rawMek = await unwrapMekWithPassword(storedVault, session.masterPassword);
-            decrypted = await decryptVaultWithMek(storedVault, rawMek);
-            keySlots = {
-              keyByPassword: storedVault.keyByPassword,
-              keyByRecovery: storedVault.keyByRecovery
-            };
-          } else {
-            decrypted = await decryptVault(storedVault, session.masterPassword);
-          }
-        }
+        const rawMek = session.rawMek;
+        const decrypted = await decryptVaultWithMek(storedVault, rawMek);
+        const keySlots = {
+          keyByPassword: storedVault.keyByPassword,
+          keyByRecovery: storedVault.keyByRecovery
+        };
 
         if (decrypted) {
           const normalized = normalizeVaultData(decrypted);
@@ -382,7 +366,7 @@ async function init() {
 
           updateState({
             isUnlocked: true,
-            masterPassword: session.masterPassword || null,
+            masterPassword: null,
             rawMek,
             keySlots,
             projects: normalized.projects,
@@ -1298,8 +1282,9 @@ function renderAuthScreen() {
           cachedActiveVaultId = vId;
           await setActiveVaultId(vId);
           failedAttempts = 0;
-          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.set({ sp_failed_attempts: 0 });
+          lockoutUntil = 0;
+          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.session) {
+            chrome.storage.session.remove(['sp_failed_attempts', 'sp_lockout_until']);
           }
         }
         isProfileSelectorViewActive = false;
@@ -2187,12 +2172,12 @@ function renderSettingsView() {
 
   const intervalLabels = {
     session: t('settings.interval_session'),
-    '1day': t('settings.interval_1day'),
-    '3days': t('settings.interval_3days'),
-    '1week': t('settings.interval_1week'),
-    '1month': t('settings.interval_1month')
+    '15m': t('settings.interval_15m'),
+    '1h': t('settings.interval_1h'),
+    '8h': t('settings.interval_8h'),
+    '1day': t('settings.interval_1day')
   };
-  const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['3days'];
+  const selectedIntervalLabel = intervalLabels[state.lockInterval] || intervalLabels['session'];
 
   // 0. Accordion: Appearance & Theme
   const isDark = state.theme === 'dark';
@@ -2261,7 +2246,7 @@ function renderSettingsView() {
     <div class="sp-setting-row" data-search="проверка пароля сессия тайм-аут 3 дня день неделя месяц безопасность security session">
       <div class="sp-setting-header">
         <span class="sp-setting-label">${t('settings.master_pwd_check')}</span>
-        <span class="sp-badge-info">${LOCK_INTERVALS[state.lockInterval]?.id === '3days' ? '3d' : (state.lockInterval || '3days')}</span>
+        <span class="sp-badge-info">${state.lockInterval || 'session'}</span>
       </div>
       <p class="sp-setting-desc">${t('settings.master_pwd_check_desc')}</p>
       <div class="sp-setting-control">
@@ -2275,24 +2260,25 @@ function renderSettingsView() {
               <span>${t('settings.interval_session')}</span>
               ${state.lockInterval === 'session' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '15m' ? 'selected' : ''}" data-val="15m">
+              <span>${t('settings.interval_15m')}</span>
+              ${state.lockInterval === '15m' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '1h' ? 'selected' : ''}" data-val="1h">
+              <span>${t('settings.interval_1h')}</span>
+              ${state.lockInterval === '1h' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
+            <div class="sp-custom-select-option ${state.lockInterval === '8h' ? 'selected' : ''}" data-val="8h">
+              <span>${t('settings.interval_8h')}</span>
+              ${state.lockInterval === '8h' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
             <div class="sp-custom-select-option ${state.lockInterval === '1day' ? 'selected' : ''}" data-val="1day">
               <span>${t('settings.interval_1day')}</span>
               ${state.lockInterval === '1day' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
             </div>
-            <div class="sp-custom-select-option ${state.lockInterval === '3days' ? 'selected' : ''}" data-val="3days">
-              <span>${t('settings.interval_3days')}</span>
-              ${state.lockInterval === '3days' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
-            </div>
-            <div class="sp-custom-select-option ${state.lockInterval === '1week' ? 'selected' : ''}" data-val="1week">
-              <span>${t('settings.interval_1week')}</span>
-              ${state.lockInterval === '1week' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
-            </div>
-            <div class="sp-custom-select-option ${state.lockInterval === '1month' ? 'selected' : ''}" data-val="1month">
-              <span>${t('settings.interval_1month')}</span>
-              ${state.lockInterval === '1month' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
-            </div>
           </div>
         </div>
+        ${state.lockInterval === '1day' ? `<p style="font-size:10px; color:var(--text-dim); margin-top:5px; line-height:1.3;">⚠️ ${t('settings.interval_1day_warning')}</p>` : ''}
       </div>
     </div>
 
@@ -3950,11 +3936,17 @@ function attachEventHandlers() {
         isCustomSelectOpen = false;
         const cfg = await getStoredConfig();
         await saveStoredConfig({ ...cfg, lockInterval: val });
-        if (state.masterPassword) {
-          const session = await createSession(state.masterPassword, val);
+        if (state.rawMek) {
+          const session = await createSession(state.rawMek, val);
           updateState({ sessionExpiresAt: session.expiresAt });
+        } else if (state.isUnlocked) {
+          showToast(t('errors.session_invalid') || 'Ошибка сессии. Пожалуйста, выполните вход заново.');
         }
-        showToast('Периодичность проверки обновлена');
+        if (val === '1day') {
+          showToast(`⚠️ ${t('settings.interval_1day_warning') || 'Ключ хранилища будет сохранён на устройстве до истечения интервала'}`);
+        } else {
+          showToast(t('toasts.interval_updated') || 'Периодичность проверки обновлена');
+        }
         render();
       });
     });
