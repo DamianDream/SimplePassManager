@@ -91,7 +91,7 @@ export function createProject(name, type = 'browser') {
   const now = new Date().toISOString();
   const newProj = {
     id,
-    name: name.trim() || 'Новая база',
+    name: name.trim() || 'New Database',
     type,
     createdAt: now,
     updatedAt: now
@@ -122,21 +122,21 @@ export function renameProject(projectId, newName) {
 export async function deleteProjectCascade(projectId, enteredPassword, typedProjectName) {
   const proj = state.projects.find(p => p.id === projectId);
   if (!proj) {
-    throw new Error('Проект не найден.');
+    throw new Error('Project not found.');
   }
 
   if (state.projects.length <= 1) {
-    throw new Error('Нельзя удалить единственный проект. В хранилище должна оставаться хотя бы одна база данных.');
+    throw new Error('Cannot delete the only project. At least one database must remain.');
   }
 
   if (typedProjectName.trim() !== proj.name.trim()) {
-    throw new Error(`Введенное имя "${typedProjectName}" не совпадает с точным именем проекта "${proj.name}".`);
+    throw new Error(`Entered name "${typedProjectName}" does not match project name "${proj.name}".`);
   }
 
   // Mandatory master password verification
   const isValidPassword = await verifyMasterPassword(enteredPassword);
   if (!isValidPassword) {
-    throw new Error('Неверный мастер-пароль. Операция отменена.');
+    throw new Error('Invalid master password. Operation cancelled.');
   }
 
   // 1. Remove project

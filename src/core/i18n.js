@@ -9,11 +9,11 @@ export const SUPPORTED_LANGUAGES = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'h
 export const DEFAULT_LANGUAGE = 'ru';
 
 export const LANGUAGE_OPTIONS = [
-  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+  { code: 'ru', name: '\u0420\u0443\u0441\u0441\u043a\u0438\u0439', flag: '🇷🇺' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'ua', name: 'Українська', flag: '🇺🇦' },
-  { code: 'be', name: 'Беларуская', flag: '🇧🇾' },
-  { code: 'kk', name: 'Қазақша', flag: '🇰🇿' },
+  { code: 'ua', name: '\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430', flag: '🇺🇦' },
+  { code: 'be', name: '\u0411\u0435\u043b\u0430\u0440\u0443\u0441\u043a\u0430\u044f', flag: '🇧🇾' },
+  { code: 'kk', name: '\u049a\u0430\u0437\u0430\u049b\u0448\u0430', flag: '🇰🇿' },
   { code: 'zh', name: '中文', flag: '🇨🇳' },
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
   { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' }

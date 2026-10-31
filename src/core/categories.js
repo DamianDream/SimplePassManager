@@ -167,18 +167,18 @@ export function getCategoryCssVars(colorDef) {
  */
 export function validateTagName(name) {
   if (!name || typeof name !== 'string') {
-    return { valid: false, error: 'Название метки не может быть пустым' };
+    return { valid: false, errorCode: 'tag_empty', error: 'Tag name cannot be empty' };
   }
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    return { valid: false, error: 'Название метки не может быть пустым' };
+    return { valid: false, errorCode: 'tag_empty', error: 'Tag name cannot be empty' };
   }
   if (trimmed.length > 30) {
-    return { valid: false, error: 'Максимальная длина метки — 30 символов' };
+    return { valid: false, errorCode: 'tag_too_long', error: 'Maximum tag length is 30 characters' };
   }
   const regex = /^[\p{L}\p{N}]+(?: [\p{L}\p{N}]+)*$/u;
   if (!regex.test(trimmed)) {
-    return { valid: false, error: 'В названии допускаются только буквы и цифры без спецсимволов' };
+    return { valid: false, errorCode: 'tag_invalid_chars', error: 'Only letters, numbers, and single spaces are allowed' };
   }
   return { valid: true, name: trimmed };
 }

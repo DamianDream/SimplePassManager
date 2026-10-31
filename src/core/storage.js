@@ -133,7 +133,7 @@ export async function getVaultProfiles() {
     profiles = [
       {
         id: 'vault_default',
-        name: 'Основная база',
+        name: 'Main Vault',
         storageKey: STORAGE_VAULT_KEY,
         createdAt: new Date().toISOString()
       }
@@ -225,7 +225,7 @@ export async function saveStoredVault(envelope, vaultId) {
   if (!profile) {
     profile = {
       id: targetVaultId,
-      name: 'Основная база',
+      name: 'Main Vault',
       storageKey,
       createdAt: new Date().toISOString()
     };
@@ -248,7 +248,7 @@ export async function createVaultProfile(name, envelope) {
   const profiles = await getVaultProfiles();
   const id = 'vault_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
   const storageKey = `sp_vault_${id}`;
-  const profileName = (name && name.trim()) || `База ${profiles.length + 1}`;
+  const profileName = (name && name.trim()) || `Vault ${profiles.length + 1}`;
 
   const newProfile = {
     id,

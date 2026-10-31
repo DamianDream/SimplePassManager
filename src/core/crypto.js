@@ -251,11 +251,11 @@ export async function unwrapMekWithPassword(envelope, masterPassword) {
  */
 export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
   if (!envelope || (envelope.version !== 2 && envelope.version !== 3) || !envelope.keyByRecovery) {
-    throw new Error('Восстановление по 12 словам не поддерживается для этой версии хранилища.');
+    throw new Error('12-word recovery key is not supported for this vault version.');
   }
   const normPhrase = normalizeRecoveryPhrase(recoveryPhrase);
   if (!normPhrase || normPhrase.split(' ').length !== 12) {
-    throw new Error('Ключ восстановления должен содержать ровно 12 слов.');
+    throw new Error('Recovery key must contain exactly 12 words.');
   }
   try {
     const recKeyInfo = envelope.keyByRecovery;
@@ -276,7 +276,7 @@ export async function unwrapMekWithRecovery(envelope, recoveryPhrase) {
     );
     return new Uint8Array(rawMekBuffer);
   } catch (_) {
-    throw new Error('Неверный ключ восстановления или поврежденное хранилище.');
+    throw new Error('Invalid recovery key or corrupted vault.');
   }
 }
 

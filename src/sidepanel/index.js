@@ -472,13 +472,13 @@ async function handleUnlock(password) {
   clearFieldErrors();
   const remainingSec = getRemainingLockoutSeconds();
   if (remainingSec > 0) {
-    showFieldError('sp-unlock-pwd', 'sp-err-unlock', `Слишком много неверных попыток. Подождите ${remainingSec} сек.`);
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', t('auth.lockout_wait', { seconds: remainingSec }));
     renderAuthScreen();
     return;
   }
 
   if (!password) {
-    showFieldError('sp-unlock-pwd', 'sp-err-unlock', t('auth.empty_password') || 'Введите мастер-пароль');
+    showFieldError('sp-unlock-pwd', 'sp-err-unlock', t('auth.pwd_empty'));
     return;
   }
 
@@ -517,7 +517,7 @@ async function handleUnlock(password) {
       const v3Envelope = await encryptVaultWithMek(decrypted, rawMek, keySlots);
       await saveStoredVault(v3Envelope);
       newlyCreatedRecoveryPhrase = newRecPhrase;
-      showToast('Хранилище обновлено до v3. Сохраните новый ключ восстановления!');
+      showToast(t('toasts.vault_migrated_v3'));
     }
 
     const normalized = normalizeVaultData(decrypted);
@@ -565,7 +565,7 @@ async function handleUnlock(password) {
     if (remaining > 0) {
       renderAuthScreen();
     } else {
-      showFieldError('sp-unlock-pwd', 'sp-err-unlock', `Неверный мастер-пароль. Попытка ${failedAttempts} из 3.`);
+      showFieldError('sp-unlock-pwd', 'sp-err-unlock', t('auth.lockout_attempt_error', { current: failedAttempts }));
       const forgotWrap = document.getElementById('sp-forgot-pwd-wrap');
       if (forgotWrap) forgotWrap.style.display = 'block';
     }
@@ -581,7 +581,7 @@ async function handleCreateVault(projectName, password, confirmPassword) {
     return;
   }
   if (password !== confirmPassword) {
-    showFieldError('sp-init-pwd2', 'sp-err-pwd2', 'Введенные пароли не совпадают');
+    showFieldError('sp-init-pwd2', 'sp-err-pwd2', t('auth.pwd_mismatch'));
     return;
   }
 
@@ -611,7 +611,7 @@ async function handleCreateVault(projectName, password, confirmPassword) {
         password: generatePassword({ length: 24 }),
         url: 'https://github.com',
         category: 'Work',
-        notes: 'Первая тестовая запись',
+        notes: '',
         updatedAt: now
       }
     ]
@@ -664,13 +664,13 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
     return;
   }
   if (password !== confirmPassword) {
-    showFieldError('sp-new-db-pwd2', 'sp-err-new-db-pwd2', 'Введенные пароли не совпадают');
+    showFieldError('sp-new-db-pwd2', 'sp-err-new-db-pwd2', t('auth.pwd_mismatch'));
     return;
   }
 
   const projId = 'proj_' + Date.now();
   const now = new Date().toISOString();
-  const dbName = (projectName && projectName.trim()) || `База ${cachedVaultProfiles.length + 1}`;
+  const dbName = (projectName && projectName.trim()) || ('Vault ' + (cachedVaultProfiles.length + 1));
 
   const initialProject = {
     id: projId,
@@ -694,7 +694,7 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
         password: generatePassword({ length: 24 }),
         url: 'https://example.com',
         category: 'Work',
-        notes: 'Начальная запись новой базы данных',
+        notes: '',
         updatedAt: now
       }
     ]
@@ -739,7 +739,7 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
   clearFieldErrors();
   const normPhrase = phrase ? phrase.trim().toLowerCase().split(/\s+/).join(' ') : '';
   if (!normPhrase || normPhrase.split(' ').length !== 12) {
-    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', 'Введите ровно 12 слов ключа восстановления через пробел');
+    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', t('auth.recovery_exact_words'));
     return;
   }
 
@@ -749,7 +749,7 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
     return;
   }
   if (newPassword !== confirmPassword) {
-    showFieldError('sp-recover-new-pwd2', 'sp-err-recover-pwd2', 'Введенные новые пароли не совпадают');
+    showFieldError('sp-recover-new-pwd2', 'sp-err-recover-pwd2', t('auth.pwd_mismatch'));
     return;
   }
 
@@ -787,9 +787,9 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
       activeProjectId: normalized.projects[0].id,
       sessionExpiresAt: session.expiresAt
     });
-    showToast('Доступ восстановлен! Сохраните новый ключ восстановления.');
+    showToast(t('toasts.access_restored'));
   } catch (err) {
-    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', 'Неверный ключ восстановления или поврежденные данные.');
+    showFieldError('sp-recover-phrase', 'sp-err-recover-phrase', t('auth.recovery_invalid_err'));
   }
 }
 
@@ -894,18 +894,18 @@ async function saveItem(itemData) {
   if (proj && proj.type === 'pass_cli') {
     try {
       await saveItemToPassCli(itemToSave);
-      showToast('Сохранено и синхронизировано с PASS CLI');
+      showToast(t('toasts.pass_saved_sync'));
     } catch (err) {
       console.warn('PASS CLI sync error:', err);
-      showToast('Сохранено в хранилище (PASS: ' + err.message + ')');
+      showToast(t('toasts.pass_saved') + ' (PASS: ' + err.message + ')');
     }
   } else {
-    showToast('Пароль сохранён');
+    showToast(t('toasts.pass_saved'));
   }
 }
 
 async function deleteItem(id) {
-  if (!confirm('Вы уверены, что хотите удалить этот пароль?')) return;
+  if (!confirm(t('toasts.delete_confirm'))) return;
   const item = state.items.find(i => i.id === id);
   const proj = item ? state.projects.find(p => p.id === item.projectId) : null;
 
@@ -916,13 +916,13 @@ async function deleteItem(id) {
   if (proj && proj.type === 'pass_cli' && item) {
     try {
       await deleteItemFromPassCli(item);
-      showToast('Удалено из хранилища и PASS CLI');
+      showToast(t('toasts.pass_deleted_sync'));
     } catch (err) {
       console.warn('PASS CLI delete error:', err);
-      showToast('Удалено из хранилища');
+      showToast(t('toasts.pass_deleted'));
     }
   } else {
-    showToast('Пароль удалён');
+    showToast(t('toasts.pass_deleted'));
   }
 }
 
@@ -940,23 +940,23 @@ function triggerAutofill(item, forceFill = false) {
       },
       response => {
         if (response && response.success) {
-          showToast(t('toasts.form_autofilled') || 'Форма успешно заполнена!');
+          showToast(t('toasts.form_autofilled'));
         } else if (response && response.reason === 'domain_mismatch') {
-          const tabDomain = response.tabDomain || 'текущего сайта';
-          const itemDomain = response.itemDomain || 'этой записи';
-          const warnMsg = `Внимание! Возможен фишинг:\nЗапись предназначена для «${itemDomain}», а активная страница — «${tabDomain}».\n\nЗаполнить форму всё равно?`;
+          const tabDomain = response.tabDomain || 'current site';
+          const itemDomain = response.itemDomain || 'this item';
+          const warnMsg = t('toasts.phishing_warning', { itemDomain, tabDomain });
           if (window.confirm(warnMsg)) {
             triggerAutofill(item, true);
           }
         } else {
-          showToast(t('toasts.autofill_copied') || 'Скопировано в буфер (поля не найдены)');
+          showToast(t('toasts.autofill_copied'));
           copyToClipboard(item.password);
         }
       }
     );
   } else {
     copyToClipboard(item.password);
-    showToast(t('toasts.copied') || 'Пароль скопирован в буфер');
+    showToast(t('toasts.copied'));
   }
 }
 
@@ -1298,11 +1298,11 @@ function renderAuthScreen() {
         const issues = checks.filter(c => !c.valid);
         if (issues.length === 0) {
           const count = checks.length;
-          recoverHintsEl.innerHTML = `<span style="color:var(--success); font-size:11px;">✓ ${count}/12 слов (все слова распознаны)</span>`;
+          recoverHintsEl.innerHTML = `<span style="color:var(--success); font-size:11px;">✓ ${t('auth.words_recognized', { count })}</span>`;
         } else {
           recoverHintsEl.innerHTML = issues.map(iss => {
-            const sugg = iss.suggestion ? ` (возможно: <strong style="color:var(--text-main);">${escapeHtml(iss.suggestion)}</strong>?)` : '';
-            return `<div style="color:var(--danger, #ef4444); margin-bottom:2px; font-size:11px;">⚠️ Неизвестное слово «${escapeHtml(iss.word)}»${sugg}</div>`;
+            const sugg = iss.suggestion ? ` (${t('auth.suggest_word', { suggestion: escapeHtml(iss.suggestion) })})` : '';
+            return `<div style="color:var(--danger, #ef4444); margin-bottom:2px; font-size:11px;">⚠️ ${t('auth.unknown_word', { word: escapeHtml(iss.word) })}${sugg}</div>`;
           }).join('');
         }
       });
@@ -1335,7 +1335,7 @@ function renderAuthScreen() {
     return;
   }
 
-  // 4. Profile Selector Screen ("Войти в другой профиль")
+  // 4. Profile Selector Screen
   if (isProfileSelectorViewActive) {
     rootEl.innerHTML = `
       <div class="sp-auth-screen">
@@ -1403,7 +1403,7 @@ function renderAuthScreen() {
     return;
   }
 
-  // 5. Normal Lock Screen with exponential delay lockout, "Забыли пароль?" and "Войти в другой профиль"
+  // 5. Normal Lock Screen with exponential delay lockout
   if (lockoutTimer) {
     clearInterval(lockoutTimer);
     lockoutTimer = null;
@@ -1420,14 +1420,14 @@ function renderAuthScreen() {
 
         ${isLockedOut ? `
           <div class="sp-lockout-alert" id="sp-lockout-msg">
-            Слишком много неверных попыток. Подождите <span id="sp-lockout-seconds" style="font-weight:bold;">${remSec}</span> сек.
+            ${t('auth.lockout_wait', { seconds: `<span id="sp-lockout-seconds" style="font-weight:bold;">${remSec}</span>` })}
           </div>
         ` : ''}
 
         <form class="sp-auth-form" id="sp-unlock-form" novalidate>
           <div>
             <input type="password" id="sp-unlock-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" ${isLockedOut ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : 'autofocus'} />
-            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? `Неверный мастер-пароль. Попытка ${failedAttempts}.` : ''}</div>
+            <div class="sp-field-error" id="sp-err-unlock" ${failedAttempts > 0 && !isLockedOut ? 'style="display:block;"' : ''}>${failedAttempts > 0 && !isLockedOut ? t('auth.lockout_attempt_error', { current: failedAttempts }) : ''}</div>
           </div>
 
           <button type="submit" class="sp-btn-primary" ${isLockedOut ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="justify-content:center; margin-top: 6px;">
@@ -1870,29 +1870,29 @@ function renderPassInstructionsModal() {
     <div class="sp-modal-overlay" id="sp-pass-instructions-overlay">
       <div class="sp-modal-content" style="max-width: 360px;">
         <div class="sp-modal-header">
-          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iFolder} Подключение UNIX PASS CLI</span>
+          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iFolder} ${t('pass_modal.title')}</span>
           <button class="sp-btn-icon" id="sp-btn-close-pass-instructions">${icons.iX}</button>
         </div>
 
         <p class="sp-modal-desc">
-          SimplePass может работать напрямую с вашим локальным хранилищем <code>~/.password-store</code> через Native Messaging.
+          ${t('pass_modal.desc')}
         </p>
 
         <div style="display:flex; flex-direction:column; gap:8px; font-size:11px;">
-          <div><strong>1. Установите pass и GPG (если не установлены):</strong></div>
+          <div><strong>${t('pass_modal.step1')}</strong></div>
           <div class="sp-code-block">brew install pass gnupg</div>
 
-          <div><strong>2. Запустите скрипт регистрации Native Host:</strong></div>
+          <div><strong>${t('pass_modal.step2')}</strong></div>
           <div class="sp-code-block">cd /Users/dima/Projects/SimplePassManager/native-host &amp;&amp; ./install.sh</div>
 
-          <div><strong>3. Проверьте подключение:</strong></div>
+          <div><strong>${t('pass_modal.step3')}</strong></div>
           <div style="color:var(--text-dim); line-height:1.4;">
-            После запуска скрипта перезапустите расширение или нажмите «Проверить подключение» в настройках.
+            ${t('pass_modal.step3_desc')}
           </div>
         </div>
 
         <button type="button" class="sp-btn-primary" id="sp-btn-ack-pass-instructions" style="justify-content:center; margin-top:6px;">
-          Понятно
+          ${t('pass_modal.got_it')}
         </button>
       </div>
     </div>
@@ -1956,7 +1956,7 @@ function parseCsvFile(csvContent) {
   }
 
   if (rows.length < 2) {
-    throw new Error('CSV-файл пуст или не содержит строк с данными.');
+    throw new Error(t('settings.csv_import_empty') || 'CSV file is empty');
   }
 
   const headers = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, ''));
@@ -1972,7 +1972,7 @@ function parseCsvFile(csvContent) {
   const colCategory = findCol('category', 'folder', 'group');
 
   if (colPass === -1 && colTitle === -1) {
-    throw new Error('Не удалось распознать заголовки CSV (требуются хотя бы Title/Name или Password).');
+    throw new Error(t('toasts.csv_header_err'));
   }
 
   const items = [];
@@ -1984,7 +1984,7 @@ function parseCsvFile(csvContent) {
 
     items.push({
       id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-      title: title || 'Без названия',
+      title: title || 'Untitled',
       password: password,
       username: colUser !== -1 ? (row[colUser] || '') : '',
       url: colUrl !== -1 ? (row[colUrl] || '') : '',
@@ -3044,20 +3044,16 @@ function renderSettingsView() {
 async function handleSyncPassProject(projectId) {
   const proj = state.projects.find(p => p.id === projectId);
   if (!proj) return;
-  showToast('Синхронизация с ~/.password-store...');
+  showToast(t('toasts.pass_syncing'));
   try {
     const passItems = await syncAllPassEntries(projectId);
     const otherItems = state.items.filter(i => i.projectId !== projectId);
     const updatedItems = [...otherItems, ...passItems];
     updateState({ items: updatedItems });
     await persistVaultChanges();
-    showToast(`Загружено ${passItems.length} записей из pass`);
+    showToast(t('toasts.pass_sync_loaded', { count: passItems.length }));
   } catch (err) {
-    alert(
-      'Ошибка подключения к PASS CLI:\n' +
-      err.message +
-      '\n\nДля подключения выполните в терминале:\ncd /Users/dima/Projects/SimplePassManager/native-host && ./install.sh'
-    );
+    alert(t('toasts.pass_conn_err', { message: err.message }));
   }
 }
 
@@ -3122,7 +3118,7 @@ function attachEventHandlers() {
   const recoveryDownloadBtn = document.getElementById('sp-btn-download-recovery-phrase');
   if (recoveryDownloadBtn && newlyCreatedRecoveryPhrase) {
     recoveryDownloadBtn.addEventListener('click', () => {
-      const content = `SimplePass Recovery Key (12 Words)\nGenerated: ${new Date().toISOString()}\n\n${newlyCreatedRecoveryPhrase}\n\nВАЖНО: Храните этот файл в безопасном месте. Он восстановит доступ при утере мастер-пароля.`;
+      const content = `SimplePass Recovery Key (12 Words)\nGenerated: ${new Date().toISOString()}\n\n${newlyCreatedRecoveryPhrase}\n\n${t('recovery_modal.safe_warning')}`;
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -3130,7 +3126,7 @@ function attachEventHandlers() {
       a.download = `simplepass-recovery-key-${new Date().toISOString().slice(0, 10)}.txt`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('Файл recovery-key.txt сохранён');
+      showToast(t('recovery_modal.file_saved'));
     });
   }
 
@@ -3193,7 +3189,7 @@ function attachEventHandlers() {
       const pid = el.dataset.projectId;
       const proj = state.projects.find(p => p.id === pid);
       if (!proj) return;
-      const newName = prompt('Новое имя базы данных:', proj.name);
+      const newName = prompt(t('settings.new_db_name_prompt'), proj.name);
       if (newName && newName.trim() && newName.trim() !== proj.name) {
         renameProject(pid, newName);
         await persistVaultChanges();
@@ -3226,10 +3222,10 @@ function attachEventHandlers() {
       await persistVaultChanges();
 
       if (type === 'pass_cli') {
-        showToast(`База «${name}» создана (PASS CLI)`);
+        showToast(t('toasts.db_created_pass', { name }));
         handleSyncPassProject(newProj.id);
       } else {
-        showToast(`База «${name}» создана`);
+        showToast(t('toasts.db_created', { name }));
       }
     });
   }
@@ -3265,7 +3261,7 @@ function attachEventHandlers() {
       try {
         await deleteProjectCascade(state.projectToDelete.id, enteredPwd, typedName);
         await persistVaultChanges();
-        showToast('База данных и связанные пароли удалены');
+        showToast(t('toasts.db_deleted'));
       } catch (err) {
         if (errBox) {
           errBox.innerText = err.message;
@@ -3889,11 +3885,11 @@ function attachEventHandlers() {
         state.items = [...state.items, ...imported];
         await persistVaultChanges();
         notifyStateChange();
-        showToast(`Импортировано ${imported.length} паролей в «${activeProj ? activeProj.name : 'базу'}»`);
+        showToast(t('settings.csv_import_success', { count: imported.length }));
         clearFormDraft();
         updateState({ activeTab: 'vault', selectedItem: null });
       } catch (err) {
-        alert('Ошибка импорта CSV: ' + err.message);
+        alert(t('toasts.csv_import_error') + ': ' + err.message);
       }
     });
   }
@@ -4116,7 +4112,7 @@ function attachEventHandlers() {
       updateState({ theme: newTheme });
       const cfg = await getStoredConfig();
       await saveStoredConfig({ ...cfg, theme: newTheme });
-      showToast(newTheme === 'dark' ? 'Включена тёмная тема' : 'Включена светлая тема');
+      showToast(newTheme === 'dark' ? t('toasts.theme_dark_enabled') : t('toasts.theme_light_enabled'));
     });
   }
 
@@ -4201,12 +4197,12 @@ function attachEventHandlers() {
           const session = await createSession(state.rawMek, val);
           updateState({ sessionExpiresAt: session.expiresAt });
         } else if (state.isUnlocked) {
-          showToast(t('errors.session_invalid') || 'Ошибка сессии. Пожалуйста, выполните вход заново.');
+          showToast(t('toasts.session_invalid'));
         }
         if (val === '1day') {
-          showToast(`⚠️ ${t('settings.interval_1day_warning') || 'Ключ хранилища будет сохранён на устройстве до истечения интервала'}`);
+          showToast(`⚠️ ${t('settings.interval_1day_warning')}`);
         } else {
-          showToast(t('toasts.interval_updated') || 'Периодичность проверки обновлена');
+          showToast(t('toasts.interval_updated'));
         }
         render();
       });
@@ -4252,7 +4248,7 @@ function attachEventHandlers() {
             onLock: () => lockVault()
           });
         }
-        showToast(t('toasts.interval_updated') || 'Периодичность проверки обновлена');
+        showToast(t('toasts.interval_updated'));
         render();
       });
     });
@@ -4322,7 +4318,7 @@ function attachEventHandlers() {
 
     if (!newName) {
       if (errBox) {
-        errBox.innerText = 'Название не может быть пустым';
+        errBox.innerText = t('settings.tag_name_empty');
         errBox.style.display = 'block';
       }
       return;
@@ -4346,7 +4342,7 @@ function attachEventHandlers() {
     const exists = state.categories.some(c => c.toLowerCase() === newName.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase());
     if (exists) {
       if (errBox) {
-        errBox.innerText = 'Метка с таким именем уже существует';
+        errBox.innerText = t('toasts.tag_exists');
         errBox.style.display = 'block';
       }
       return;
@@ -4387,7 +4383,7 @@ function attachEventHandlers() {
     });
 
     editingTagId = null;
-    showToast(t('settings.cat_renamed') || 'Метка переименована');
+    showToast(t('settings.cat_renamed'));
     render();
   }
 
@@ -4431,7 +4427,7 @@ function attachEventHandlers() {
       }
       if (state.categories.some(c => c.toLowerCase() === name.toLowerCase())) {
         if (catErr) {
-          catErr.innerText = 'Метка с таким именем уже существует';
+          catErr.innerText = t('toasts.tag_exists');
           catErr.style.display = 'block';
         }
         return;
@@ -4445,7 +4441,7 @@ function attachEventHandlers() {
         categories: state.categories.filter(c => c !== 'All'),
         categoryColors: state.categoryColors
       });
-      showToast(`Метка «${name}» добавлена`);
+      showToast(t('toasts.tag_added', { name }));
       render();
     };
 
@@ -4525,7 +4521,7 @@ function attachEventHandlers() {
         categories: state.categories.filter(c => c !== 'All'),
         categoryColors: state.categoryColors
       });
-      showToast(`Метка «${catToDelete}» удалена`);
+      showToast(t('toasts.tag_deleted', { name: catToDelete }));
       render();
     });
   });
@@ -4561,7 +4557,7 @@ function attachEventHandlers() {
         currentMek = await unwrapMekWithPassword(envelope, oldPwd);
       } catch (_) {
         if (errBox) {
-          errBox.innerText = t('errors.invalid_master_pwd') || 'Неверный текущий мастер-пароль';
+          errBox.innerText = t('auth.invalid_master_pwd');
           errBox.style.display = 'block';
         }
         return;
@@ -4577,7 +4573,7 @@ function attachEventHandlers() {
       }
       if (newPwd !== newPwd2) {
         if (errBox) {
-          errBox.innerText = t('errors.pwd_mismatch') || 'Введенные новые пароли не совпадают';
+          errBox.innerText = t('auth.pwd_mismatch');
           errBox.style.display = 'block';
         }
         return;
@@ -4611,10 +4607,10 @@ function attachEventHandlers() {
           keySlots: state.keySlots,
           sessionExpiresAt: session.expiresAt
         });
-        showToast(t('toasts.pwd_changed_success') || 'Мастер-пароль успешно изменён');
+        showToast(t('toasts.pwd_changed_success'));
       } catch (err) {
         if (errBox) {
-          errBox.innerText = 'Ошибка: ' + err.message;
+          errBox.innerText = err.message;
           errBox.style.display = 'block';
         }
       }
@@ -4905,7 +4901,7 @@ function attachEventHandlers() {
                 projectId: targetProjId
               }));
             } else {
-              alert('Неизвестный формат JSON файла');
+              alert(t('toasts.json_invalid_format'));
               return;
             }
           } else {
@@ -4945,7 +4941,7 @@ function attachEventHandlers() {
           showToast(t('settings.csv_import_success', { count: importedItems.length }));
           render();
         } catch (err) {
-          alert('Ошибка при импорте: ' + err.message);
+          alert(t('toasts.import_error') + ': ' + err.message);
         }
       };
       reader.readAsText(file);
@@ -5017,7 +5013,7 @@ function attachEventHandlers() {
       const profiles = await getVaultProfiles();
       const currentProfile = profiles.find(p => p.id === activeId);
       const name = currentProfile ? currentProfile.name : '';
-      if (confirm(`Удалить текущую базу «${name}»? Другие базы данных останутся сохранены.`)) {
+      if (confirm(t('settings.delete_vault_confirm', { name }))) {
         await deleteVaultProfile(activeId);
         await destroySession();
         window.location.reload();
@@ -5028,7 +5024,7 @@ function attachEventHandlers() {
   const btnResetAll = document.getElementById('sp-btn-reset-all');
   if (btnResetAll) {
     btnResetAll.addEventListener('click', async () => {
-      const confirmText = prompt('ВНИМАНИЕ: Для полного сброса всех данных введите СБРОС:');
+      const confirmText = prompt(t('settings.reset_prompt'));
       if (confirmText === 'СБРОС') {
         await clearStoredVault();
         await destroySession();
@@ -5041,13 +5037,13 @@ function attachEventHandlers() {
   const btnCheckPassHost = document.getElementById('sp-btn-check-pass-host');
   if (btnCheckPassHost) {
     btnCheckPassHost.addEventListener('click', async () => {
-      showToast('Проверка Native Host...');
+      showToast(t('toasts.native_checking'));
       const status = await checkPassHostStatus();
       updateState({ passHostStatus: status });
       if (status && status.ok) {
-        showToast(`PASS подключен: найдено ${status.entriesCount} записей`);
+        showToast(t('toasts.native_connected', { count: status.entriesCount }));
       } else {
-        showToast('Native Host не отвечает: требуется ./install.sh');
+        showToast(t('toasts.native_unresponsive'));
       }
     });
   }

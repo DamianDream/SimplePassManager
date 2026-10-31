@@ -16,7 +16,8 @@ export function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
       resolve({
         ok: false,
         notFound: true,
-        error: 'Chrome Native Messaging API не доступен в текущем окружении'
+        errorCode: 'native_api_unavailable',
+        error: 'Chrome Native Messaging API is not available in current environment'
       });
       return;
     }
@@ -28,7 +29,8 @@ export function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
         resolve({
           ok: false,
           timeout: true,
-          error: 'Превышено время ожидания ответа от Native Host (тайм-аут 6 сек)'
+          errorCode: 'native_timeout',
+          error: 'Native Messaging Host response timed out (6s)'
         });
       }
     }, timeoutMs);
@@ -44,9 +46,10 @@ export function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
 
           const lastError = chrome.runtime.lastError;
           if (lastError) {
-            const msg = lastError.message || 'Ошибка Native Messaging Host';
+            const msg = lastError.message || 'Native Messaging Host error';
             resolve({
               ok: false,
+              errorCode: 'native_host_error',
               error: msg,
               notFound: msg.includes('not found') || msg.includes('Specified native messaging host not found')
             });
@@ -56,7 +59,8 @@ export function sendNativeRequest(action, payload = {}, timeoutMs = 6000) {
           if (!response) {
             resolve({
               ok: false,
-              error: 'Пустой ответ от Native Host'
+              errorCode: 'native_empty_response',
+              error: 'Empty response from Native Host'
             });
             return;
           }
@@ -119,7 +123,7 @@ export async function deletePassEntry(entryPath) {
 export async function syncAllPassEntries(projectId) {
   const res = await sendNativeRequest('sync_all');
   if (!res.ok || !Array.isArray(res.items)) {
-    throw new Error(res.error || 'Не удалось синхронизировать записи из PASS CLI');
+    throw new Error(res.error || 'Failed to sync entries from PASS CLI');
   }
 
   const items = res.items.map(raw => {
@@ -150,7 +154,7 @@ export async function saveItemToPassCli(item) {
 
   const res = await insertPassEntry(entryPath, passContent);
   if (!res.ok) {
-    throw new Error(res.error || `Не удалось сохранить запись «${entryPath}» в pass`);
+    throw new Error(res.error || `Failed to save entry "${entryPath}" in pass`);
   }
   return { ...item, entryPath };
 }
@@ -163,6 +167,6 @@ export async function deleteItemFromPassCli(item) {
   const path = item.entryPath || item.title;
   const res = await deletePassEntry(path);
   if (!res.ok) {
-    throw new Error(res.error || `Не удалось удалить запись «${path}» из pass`);
+    throw new Error(res.error || `Failed to delete entry "${path}" from pass`);
   }
 }
