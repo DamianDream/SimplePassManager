@@ -181,27 +181,28 @@ export function setActiveVaultId(vaultId) {
  */
 export async function getStoredVault(vaultId) {
   const profiles = await getVaultProfiles();
+  const targetVaultId = vaultId || (await getActiveVaultId()) || 'vault_default';
   let targetKey = STORAGE_VAULT_KEY;
 
-  if (vaultId) {
-    const found = profiles.find(p => p.id === vaultId);
-    if (found) targetKey = found.storageKey;
-  } else {
-    const activeId = await getActiveVaultId();
-    if (activeId) {
-      const found = profiles.find(p => p.id === activeId);
-      if (found) targetKey = found.storageKey;
-    }
+  const found = profiles.find(p => p.id === targetVaultId);
+  if (found) {
+    targetKey = found.storageKey;
+  } else if (targetVaultId !== 'vault_default') {
+    // Non-default profile not found in profiles registry -> return null (no fallback)
+    return null;
   }
 
   const res = await storageGet(targetKey);
   if (res[targetKey] !== undefined && res[targetKey] !== null) {
     return res[targetKey];
   }
-  if (targetKey !== STORAGE_VAULT_KEY) {
+
+  // Fallback to legacy STORAGE_VAULT_KEY ONLY for the default profile
+  if (targetVaultId === 'vault_default' && targetKey !== STORAGE_VAULT_KEY) {
     const legacyRes = await storageGet(STORAGE_VAULT_KEY);
     return legacyRes[STORAGE_VAULT_KEY] || null;
   }
+
   return null;
 }
 

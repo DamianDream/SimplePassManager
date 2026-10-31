@@ -1153,6 +1153,25 @@ async function runTests() {
   }
   console.log('   ✓ B5 Browser language auto-detection verified');
 
+  // Test 33: B6 Vault profile fallback isolation
+  console.log('33. Testing B6: Non-default profile does not fallback to legacy vault...');
+  {
+    const { getStoredVault, storageSet, storageRemove } = await import('../src/core/storage.js');
+    await storageSet({
+      sp_encrypted_vault: { version: 3, items: [], mock: 'legacy_data' }
+    });
+    // Non-default non-existent profile must return null
+    const missingCustom = await getStoredVault('vault_non_existent_profile_xyz');
+    assert.strictEqual(missingCustom, null, 'Non-default profile must return null, not fallback to legacy');
+
+    // Default profile falls back to legacy
+    const defaultRes = await getStoredVault('vault_default');
+    assert.ok(defaultRes && defaultRes.mock === 'legacy_data', 'vault_default can fallback to legacy');
+
+    await storageRemove(['sp_encrypted_vault']);
+  }
+  console.log('   ✓ B6 Profile fallback isolation verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
