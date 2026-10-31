@@ -128,8 +128,10 @@ let isCustomSelectOpen = false;
 let isAutolockSelectOpen = false;
 let isLangSelectOpen = false;
 let isExportFormatSelectOpen = false;
-let selectedExportFormat = 'json';
+let selectedExportFormat = 'spbackup';
 let isExportAdvancedOpen = false;
+let exportModalData = null;
+let importBackupData = null;
 let exportSelectedTags = new Set();
 let selectedNewCatColor = 'amber';
 let activeColorPickerCat = null;
@@ -1056,6 +1058,12 @@ function render() {
 
       <!-- 12-Word Recovery Key Backup Modal (shown on profile creation or recovery rekey) -->
       ${renderRecoveryBackupModal()}
+
+      <!-- Export Confirmation / Backup Modal -->
+      ${renderExportModal()}
+
+      <!-- Import Backup Password Modal -->
+      ${renderImportBackupModal()}
     </div>
   `;
 
@@ -1473,18 +1481,105 @@ function renderAuthScreen() {
 
 function downloadItemAsCsv(item) {
   if (!item) return;
-  const csvContent = itemsToCsv([item]);
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
   const safeName = (item.title || 'password').replace(/[^a-zA-Z0-9_\u0400-\u04FF-]/g, '_');
-  a.download = `${safeName}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast(t('toasts.item_csv_exported'));
+  exportModalData = {
+    format: 'csv',
+    items: [item],
+    fileName: `password-${safeName}`
+  };
+  render();
+}
+
+function renderExportModal() {
+  if (!exportModalData) return '';
+  const isBackup = exportModalData.format === 'spbackup';
+
+  if (isBackup) {
+    return `
+      <div class="sp-modal-overlay" id="sp-export-modal-overlay">
+        <div class="sp-modal-content" style="max-width:360px;">
+          <div class="sp-modal-header">
+            <span class="sp-modal-title" style="color:var(--text-main);">${icons.iLock} ${t('settings.export_spbackup_opt')}</span>
+            <button class="sp-btn-icon" id="sp-export-modal-close" title="${t('nav.close')}">${icons.iX}</button>
+          </div>
+          <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+            ${t('settings.export_backup_pwd_label')}
+          </p>
+          <form id="sp-export-backup-form" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+            <input type="password" id="sp-export-backup-pwd" class="sp-input" placeholder="${t('settings.export_backup_pwd_label')}" required autofocus />
+            <div id="sp-export-modal-err" style="display:none; font-size:11px; color:var(--danger);"></div>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <button type="button" class="sp-btn-secondary" id="sp-export-modal-cancel" style="flex:1; justify-content:center;">
+                ${t('form.cancel_btn')}
+              </button>
+              <button type="submit" class="sp-btn-primary" style="flex:1; justify-content:center;">
+                ${icons.iDownload} ${t('settings.csv_export_btn')}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  // Plaintext export confirmation modal
+  return `
+    <div class="sp-modal-overlay" id="sp-export-modal-overlay">
+      <div class="sp-modal-content" style="max-width:360px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--danger);">${icons.iAlertCircle || '⚠️'} ${t('settings.export_warning_title')}</span>
+          <button class="sp-btn-icon" id="sp-export-modal-close" title="${t('nav.close')}">${icons.iX}</button>
+        </div>
+        <div class="sp-modal-danger-box">
+          ${t('settings.export_warning_desc')}
+        </div>
+        <form id="sp-export-plaintext-form" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+          <div class="sp-form-group">
+            <label class="sp-label">${t('settings.export_confirm_pwd_label')}</label>
+            <input type="password" id="sp-export-confirm-pwd" class="sp-input" placeholder="${t('settings.master_pwd_label')}" required autofocus />
+          </div>
+          <div id="sp-export-modal-err" style="display:none; font-size:11px; color:var(--danger);"></div>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="sp-btn-secondary" id="sp-export-modal-cancel" style="flex:1; justify-content:center;">
+              ${t('form.cancel_btn')}
+            </button>
+            <button type="submit" class="sp-btn-danger" style="flex:1; justify-content:center;">
+              ${icons.iDownload} ${exportModalData.format.toUpperCase()}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderImportBackupModal() {
+  if (!importBackupData) return '';
+  return `
+    <div class="sp-modal-overlay" id="sp-import-backup-overlay">
+      <div class="sp-modal-content" style="max-width:360px;">
+        <div class="sp-modal-header">
+          <span class="sp-modal-title" style="color:var(--text-main);">${icons.iLock} ${t('settings.import_backup_pwd_label')}</span>
+          <button class="sp-btn-icon" id="sp-import-backup-close" title="${t('nav.close')}">${icons.iX}</button>
+        </div>
+        <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+          ${t('settings.import_backup_pwd_label')}
+        </p>
+        <form id="sp-import-backup-form" style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+          <input type="password" id="sp-import-backup-pwd" class="sp-input" placeholder="${t('settings.import_backup_pwd_label')}" required autofocus />
+          <div id="sp-import-backup-err" style="display:none; font-size:11px; color:var(--danger);"></div>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="sp-btn-secondary" id="sp-import-backup-cancel" style="flex:1; justify-content:center;">
+              ${t('form.cancel_btn')}
+            </button>
+            <button type="submit" class="sp-btn-primary" style="flex:1; justify-content:center;">
+              ${icons.iUnlock} ${t('auth.unlock_btn')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
 }
 
 function renderVaultView() {
@@ -2676,12 +2771,16 @@ function renderSettingsView() {
         <button class="sp-btn-secondary" id="sp-btn-export-unified" style="flex:1; justify-content:center;">
           ${t('settings.csv_export_btn')}
         </button>
-        <div class="sp-custom-select sp-custom-select-sm ${isExportFormatSelectOpen ? 'open' : ''}" id="sp-export-format-dropdown" style="width:105px; flex-shrink:0;">
+        <div class="sp-custom-select sp-custom-select-sm ${isExportFormatSelectOpen ? 'open' : ''}" id="sp-export-format-dropdown" style="width:125px; flex-shrink:0;">
           <button type="button" class="sp-custom-select-trigger" id="sp-export-format-trigger" aria-haspopup="listbox" aria-expanded="${isExportFormatSelectOpen}">
-            <span class="sp-custom-select-value">${selectedExportFormat.toUpperCase()}</span>
+            <span class="sp-custom-select-value">${selectedExportFormat === 'spbackup' ? '.SPBACKUP' : selectedExportFormat.toUpperCase()}</span>
             <span class="sp-custom-select-arrow">${icons.iChevronDown}</span>
           </button>
-          <div class="sp-custom-select-dropdown" style="min-width:105px;">
+          <div class="sp-custom-select-dropdown" style="min-width:125px;">
+            <div class="sp-custom-select-option ${selectedExportFormat === 'spbackup' ? 'selected' : ''}" data-val="spbackup" style="font-size:12px; padding:6px 10px;">
+              <span>🔒 .spbackup</span>
+              ${selectedExportFormat === 'spbackup' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
+            </div>
             <div class="sp-custom-select-option ${selectedExportFormat === 'json' ? 'selected' : ''}" data-val="json" style="font-size:12px; padding:6px 10px;">
               <span>JSON</span>
               ${selectedExportFormat === 'json' ? `<span style="color:var(--text-main);">${icons.iCheck}</span>` : ''}
@@ -4538,7 +4637,7 @@ function attachEventHandlers() {
   const btnExportUnified = document.getElementById('sp-btn-export-unified');
   if (btnExportUnified) {
     btnExportUnified.addEventListener('click', () => {
-      const format = selectedExportFormat || 'json';
+      const format = selectedExportFormat || 'spbackup';
       const activeProj = getActiveProject();
       const projectItems = getActiveProjectItems();
       const allItems = projectItems.length > 0 ? projectItems : state.items;
@@ -4560,27 +4659,127 @@ function attachEventHandlers() {
         ? `-${Array.from(exportSelectedTags)[0]}`
         : (exportSelectedTags.size > 1 ? '-filtered' : '');
 
-      if (format === 'csv') {
-        const csvContent = itemsToCsv(itemsToExport);
+      exportModalData = {
+        format,
+        items: itemsToExport,
+        fileName: `passwords-${projName}${tagSuffix}`
+      };
+      render();
+    });
+  }
+
+  // Export Modal Handlers
+  const btnExportModalClose = document.getElementById('sp-export-modal-close');
+  const btnExportModalCancel = document.getElementById('sp-export-modal-cancel');
+  if (btnExportModalClose) {
+    btnExportModalClose.addEventListener('click', () => {
+      exportModalData = null;
+      render();
+    });
+  }
+  if (btnExportModalCancel) {
+    btnExportModalCancel.addEventListener('click', () => {
+      exportModalData = null;
+      render();
+    });
+  }
+
+  const formExportBackup = document.getElementById('sp-export-backup-form');
+  if (formExportBackup && exportModalData) {
+    formExportBackup.addEventListener('submit', async e => {
+      e.preventDefault();
+      const pwdInput = document.getElementById('sp-export-backup-pwd');
+      const errEl = document.getElementById('sp-export-modal-err');
+      const pwd = pwdInput ? pwdInput.value : '';
+      if (!pwd) return;
+
+      try {
+        const backupData = {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          projects: state.projects,
+          items: exportModalData.items
+        };
+        const encryptedEnvelope = await encryptVault(backupData, pwd, null);
+        const content = JSON.stringify(encryptedEnvelope, null, 2);
+        const blob = new Blob([content], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportModalData.fileName}.spbackup`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(t('settings.export_spbackup_success'));
+        exportModalData = null;
+        render();
+      } catch (err) {
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.textContent = err.message;
+        }
+      }
+    });
+  }
+
+  const formExportPlaintext = document.getElementById('sp-export-plaintext-form');
+  if (formExportPlaintext && exportModalData) {
+    formExportPlaintext.addEventListener('submit', async e => {
+      e.preventDefault();
+      const pwdInput = document.getElementById('sp-export-confirm-pwd');
+      const errEl = document.getElementById('sp-export-modal-err');
+      const pwd = pwdInput ? pwdInput.value : '';
+      if (!pwd) return;
+
+      try {
+        const storedVault = await getStoredVault();
+        let valid = false;
+        if (storedVault) {
+          if ((storedVault.version === 2 || storedVault.version === 3) && storedVault.keyByPassword) {
+            await unwrapMekWithPassword(storedVault, pwd);
+            valid = true;
+          } else {
+            await decryptVault(storedVault, pwd);
+            valid = true;
+          }
+        }
+        if (!valid) {
+          if (errEl) {
+            errEl.style.display = 'block';
+            errEl.textContent = t('auth.invalid_pwd_err');
+          }
+          return;
+        }
+      } catch (err) {
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.textContent = t('auth.invalid_pwd_err');
+        }
+        return;
+      }
+
+      if (exportModalData.format === 'csv') {
+        const csvContent = itemsToCsv(exportModalData.items);
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `passwords-${projName}${tagSuffix}.csv`;
+        a.download = `${exportModalData.fileName}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(t('settings.export_csv_success'));
       } else {
-        const jsonContent = itemsToBitwardenJson(itemsToExport);
+        const jsonContent = itemsToBitwardenJson(exportModalData.items);
         const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `passwords-${projName}${tagSuffix}.json`;
+        a.download = `${exportModalData.fileName}.json`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(t('settings.export_json_success'));
       }
+      exportModalData = null;
+      render();
     });
   }
 
@@ -4618,13 +4817,19 @@ function attachEventHandlers() {
           const activeProj = getActiveProject();
           const targetProjId = activeProj ? activeProj.id : (state.projects[0]?.id || 'proj_default');
           const fileName = (file.name || '').toLowerCase();
-          const isJson = fileName.endsWith('.json') || (!fileName.endsWith('.csv') && content.trim().startsWith('{'));
+          const isBackup = fileName.endsWith('.spbackup');
+          const isJson = isBackup || fileName.endsWith('.json') || (!fileName.endsWith('.csv') && content.trim().startsWith('{'));
 
           let importedItems = [];
           let newCategories = [];
 
           if (isJson) {
             const parsed = JSON.parse(content);
+            if (isBackup || (parsed && parsed.data && (parsed.salt || parsed.iv || parsed.keyByPassword))) {
+              importBackupData = { envelope: parsed, targetProjId };
+              render();
+              return;
+            }
             if (parsed.encrypted === true && Array.isArray(parsed.items)) {
               alert(t('toasts.bitwarden_encrypted_err'));
               return;
@@ -4697,6 +4902,64 @@ function attachEventHandlers() {
         }
       };
       reader.readAsText(file);
+    });
+  }
+
+  // Import Backup Modal Handlers
+  const btnImportBackupClose = document.getElementById('sp-import-backup-close');
+  const btnImportBackupCancel = document.getElementById('sp-import-backup-cancel');
+  if (btnImportBackupClose) {
+    btnImportBackupClose.addEventListener('click', () => {
+      importBackupData = null;
+      render();
+    });
+  }
+  if (btnImportBackupCancel) {
+    btnImportBackupCancel.addEventListener('click', () => {
+      importBackupData = null;
+      render();
+    });
+  }
+
+  const formImportBackup = document.getElementById('sp-import-backup-form');
+  if (formImportBackup && importBackupData) {
+    formImportBackup.addEventListener('submit', async e => {
+      e.preventDefault();
+      const pwdInput = document.getElementById('sp-import-backup-pwd');
+      const errEl = document.getElementById('sp-import-backup-err');
+      const pwd = pwdInput ? pwdInput.value : '';
+      if (!pwd) return;
+
+      try {
+        const decrypted = await decryptVault(importBackupData.envelope, pwd);
+        const normalized = normalizeVaultData(decrypted);
+        const incomingItems = (normalized.items || []).map((item, idx) => ({
+          ...item,
+          id: item.id || `item_${Date.now()}_${idx}`,
+          projectId: importBackupData.targetProjId || item.projectId || (state.projects[0]?.id || 'proj_default')
+        }));
+
+        if (incomingItems.length === 0) {
+          if (errEl) {
+            errEl.style.display = 'block';
+            errEl.textContent = t('settings.csv_import_empty');
+          }
+          return;
+        }
+
+        const updatedItems = [...state.items, ...incomingItems];
+        updateState({ items: updatedItems });
+        await persistVaultChanges();
+
+        showToast(t('settings.import_spbackup_success', { count: incomingItems.length }));
+        importBackupData = null;
+        render();
+      } catch (err) {
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.textContent = t('auth.invalid_pwd_err');
+        }
+      }
     });
   }
 

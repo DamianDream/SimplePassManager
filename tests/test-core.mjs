@@ -969,6 +969,43 @@ async function runTests() {
   assert.strictEqual(wordsCheck[1].suggestion, 'banana');
   console.log('   ✓ E5 Recovery phrase validation and suggestions verified');
 
+  // Test 27: E6 - Protected export and .spbackup format
+  console.log('27. Testing E6: Protected export and .spbackup round-trip...');
+  {
+    const backupPassword = 'BackupSecretPassword123!';
+    const rawItems = [
+      { id: 'item_1', title: 'Test Service', username: 'alice', password: 'secretpassword', url: 'https://example.com' }
+    ];
+    const backupPayload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      projects: [{ id: 'proj_default', name: 'Personal' }],
+      items: rawItems
+    };
+
+    // Encrypt backup
+    const encryptedBackup = await encryptVault(backupPayload, backupPassword, null);
+    assert.ok(encryptedBackup.data, 'Backup envelope should have encrypted data');
+    assert.ok(encryptedBackup.salt, 'Backup envelope should have salt');
+    assert.ok(encryptedBackup.iv, 'Backup envelope should have iv');
+
+    // Decrypt with correct password
+    const restored = await decryptVault(encryptedBackup, backupPassword);
+    assert.strictEqual(restored.items.length, 1);
+    assert.strictEqual(restored.items[0].title, 'Test Service');
+    assert.strictEqual(restored.items[0].password, 'secretpassword');
+
+    // Decrypt with incorrect password should fail
+    let failed = false;
+    try {
+      await decryptVault(encryptedBackup, 'WrongPassword999!');
+    } catch (e) {
+      failed = true;
+    }
+    assert.strictEqual(failed, true, 'Decryption with wrong password must throw error');
+  }
+  console.log('   ✓ E6 .spbackup encryption & decryption verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
