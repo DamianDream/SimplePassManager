@@ -2,7 +2,9 @@
 
 Дата: 2026-10-31, база: коммит `660ebd3`. Проверено: тесты 37/37 ✅, i18n 309/309 ✅, `npm run build` ✅, git-гигиена (dist/zip удалены из индекса, .gitignore, CI) ✅, манифест минимизирован ✅, E1 (нет `state.masterPassword`) ✅, B1 (persistChain) ✅, E2 (autolock.js + idle) ✅, E3 (alarms+offscreen) ✅, E4 (AAD v3 со слотовыми флагами) ✅, E6 (.spbackup) ✅, B10 (executeScript с guard) ✅. Эмпирически проверена загрузка собранного dist в Chrome (headless, CDP) — расширение загружается, sidepanel.html открывается.
 
-Остались ДВЕ доработки.
+**Обновление (повторная верификация, коммит `1523e14`): P1-A и P1-B выполнены и ПРИНЯТЫ.** Раунд P1 закрыт полностью (тесты 38/38, i18n 316/316, сборка и zip чистые, `_locales` = en/hi/ja/ru/uk/zh_CN). Следующий этап — P2: 05-features.md, 06-ui-ux.md (начиная с U1), 07-distribution-page.md.
+
+Исходный текст доработок сохранён ниже для истории.
 
 ---
 
