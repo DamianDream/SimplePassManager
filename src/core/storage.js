@@ -82,75 +82,97 @@ const storageAPI = (typeof chrome !== 'undefined' && chrome.storage && chrome.st
       }
     };
 
-/**
- * Returns all registered vault profiles.
- * Backwards compatible: if legacy sp_encrypted_vault exists without profiles,
- * a default profile is synthesized and registered.
- */
-export function getVaultProfiles() {
-  return new Promise(resolve => {
-    storageAPI.get([STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY], res => {
-      let profiles = res[STORAGE_VAULT_PROFILES_KEY];
-      const legacyVault = res[STORAGE_VAULT_KEY];
+function checkLastError() {
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
+    return new Error(chrome.runtime.lastError.message || 'chrome.storage operation failed');
+  }
+  return null;
+}
 
-      if ((!profiles || profiles.length === 0) && legacyVault) {
-        profiles = [
-          {
-            id: 'vault_default',
-            name: 'Основная база',
-            storageKey: STORAGE_VAULT_KEY,
-            createdAt: new Date().toISOString()
-          }
-        ];
-        storageAPI.set({
-          [STORAGE_VAULT_PROFILES_KEY]: profiles,
-          [STORAGE_ACTIVE_VAULT_ID_KEY]: 'vault_default'
-        }, () => {
-          resolve(profiles);
-        });
-        return;
-      }
+export function storageGet(keys) {
+  return new Promise((resolve, reject) => {
+    storageAPI.get(keys, res => {
+      const err = checkLastError();
+      if (err) return reject(err);
+      resolve(res);
+    });
+  });
+}
 
-      resolve(profiles && Array.isArray(profiles) ? profiles : []);
+export function storageSet(items) {
+  return new Promise((resolve, reject) => {
+    storageAPI.set(items, () => {
+      const err = checkLastError();
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
+export function storageRemove(keys) {
+  return new Promise((resolve, reject) => {
+    storageAPI.remove(keys, () => {
+      const err = checkLastError();
+      if (err) return reject(err);
+      resolve();
     });
   });
 }
 
 /**
+ * Returns all registered vault profiles.
+ * Backwards compatible: if legacy sp_encrypted_vault exists without profiles,
+ * a default profile is synthesized and registered.
+ */
+export async function getVaultProfiles() {
+  const res = await storageGet([STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY]);
+  let profiles = res[STORAGE_VAULT_PROFILES_KEY];
+  const legacyVault = res[STORAGE_VAULT_KEY];
+
+  if ((!profiles || profiles.length === 0) && legacyVault) {
+    profiles = [
+      {
+        id: 'vault_default',
+        name: 'Основная база',
+        storageKey: STORAGE_VAULT_KEY,
+        createdAt: new Date().toISOString()
+      }
+    ];
+    await storageSet({
+      [STORAGE_VAULT_PROFILES_KEY]: profiles,
+      [STORAGE_ACTIVE_VAULT_ID_KEY]: 'vault_default'
+    });
+    return profiles;
+  }
+
+  return profiles && Array.isArray(profiles) ? profiles : [];
+}
+
+/**
  * Returns the currently active vault profile ID.
  */
-export function getActiveVaultId() {
-  return new Promise(resolve => {
-    storageAPI.get([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY], res => {
-      const activeId = res[STORAGE_ACTIVE_VAULT_ID_KEY];
-      const profiles = res[STORAGE_VAULT_PROFILES_KEY] || [];
+export async function getActiveVaultId() {
+  const res = await storageGet([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_PROFILES_KEY, STORAGE_VAULT_KEY]);
+  const activeId = res[STORAGE_ACTIVE_VAULT_ID_KEY];
+  const profiles = res[STORAGE_VAULT_PROFILES_KEY] || [];
 
-      if (activeId && profiles.some(p => p.id === activeId)) {
-        resolve(activeId);
-        return;
-      }
-      if (profiles.length > 0) {
-        resolve(profiles[0].id);
-        return;
-      }
-      if (res[STORAGE_VAULT_KEY]) {
-        resolve('vault_default');
-        return;
-      }
-      resolve(null);
-    });
-  });
+  if (activeId && profiles.some(p => p.id === activeId)) {
+    return activeId;
+  }
+  if (profiles.length > 0) {
+    return profiles[0].id;
+  }
+  if (res[STORAGE_VAULT_KEY]) {
+    return 'vault_default';
+  }
+  return null;
 }
 
 /**
  * Sets the active vault profile ID.
  */
 export function setActiveVaultId(vaultId) {
-  return new Promise(resolve => {
-    storageAPI.set({ [STORAGE_ACTIVE_VAULT_ID_KEY]: vaultId }, () => {
-      resolve();
-    });
-  });
+  return storageSet({ [STORAGE_ACTIVE_VAULT_ID_KEY]: vaultId });
 }
 
 /**
@@ -172,19 +194,15 @@ export async function getStoredVault(vaultId) {
     }
   }
 
-  return new Promise(resolve => {
-    storageAPI.get(targetKey, res => {
-      if (res[targetKey] !== undefined && res[targetKey] !== null) {
-        resolve(res[targetKey]);
-      } else if (targetKey !== STORAGE_VAULT_KEY) {
-        storageAPI.get(STORAGE_VAULT_KEY, legacyRes => {
-          resolve(legacyRes[STORAGE_VAULT_KEY] || null);
-        });
-      } else {
-        resolve(null);
-      }
-    });
-  });
+  const res = await storageGet(targetKey);
+  if (res[targetKey] !== undefined && res[targetKey] !== null) {
+    return res[targetKey];
+  }
+  if (targetKey !== STORAGE_VAULT_KEY) {
+    const legacyRes = await storageGet(STORAGE_VAULT_KEY);
+    return legacyRes[STORAGE_VAULT_KEY] || null;
+  }
+  return null;
 }
 
 /**
@@ -214,15 +232,12 @@ export async function saveStoredVault(envelope, vaultId) {
     profiles = [...profiles, profile];
   }
 
-  return new Promise(resolve => {
-    storageAPI.set({
-      [storageKey]: envelope,
-      [STORAGE_VAULT_PROFILES_KEY]: profiles,
-      [STORAGE_ACTIVE_VAULT_ID_KEY]: targetVaultId
-    }, () => {
-      resolve(profile);
-    });
+  await storageSet({
+    [storageKey]: envelope,
+    [STORAGE_VAULT_PROFILES_KEY]: profiles,
+    [STORAGE_ACTIVE_VAULT_ID_KEY]: targetVaultId
   });
+  return profile;
 }
 
 /**
@@ -244,15 +259,12 @@ export async function createVaultProfile(name, envelope) {
 
   const updatedProfiles = [...profiles, newProfile];
 
-  return new Promise(resolve => {
-    storageAPI.set({
-      [storageKey]: envelope,
-      [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles,
-      [STORAGE_ACTIVE_VAULT_ID_KEY]: id
-    }, () => {
-      resolve(newProfile);
-    });
+  await storageSet({
+    [storageKey]: envelope,
+    [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles,
+    [STORAGE_ACTIVE_VAULT_ID_KEY]: id
   });
+  return newProfile;
 }
 
 /**
@@ -273,57 +285,36 @@ export async function deleteVaultProfile(vaultId) {
     nextActiveId = updatedProfiles.length > 0 ? updatedProfiles[0].id : null;
   }
 
-  return new Promise(resolve => {
-    storageAPI.remove(targetProfile.storageKey, () => {
-      const updates = {
-        [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles
-      };
-      if (nextActiveId) {
-        updates[STORAGE_ACTIVE_VAULT_ID_KEY] = nextActiveId;
-      }
-      storageAPI.set(updates, () => {
-        if (!nextActiveId) {
-          storageAPI.remove([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_KEY], () => {
-            resolve(updatedProfiles);
-          });
-        } else {
-          resolve(updatedProfiles);
-        }
-      });
-    });
-  });
+  await storageRemove(targetProfile.storageKey);
+  const updates = {
+    [STORAGE_VAULT_PROFILES_KEY]: updatedProfiles
+  };
+  if (nextActiveId) {
+    updates[STORAGE_ACTIVE_VAULT_ID_KEY] = nextActiveId;
+  }
+  await storageSet(updates);
+  if (!nextActiveId) {
+    await storageRemove([STORAGE_ACTIVE_VAULT_ID_KEY, STORAGE_VAULT_KEY]);
+  }
+  return updatedProfiles;
 }
 
-export function getStoredConfig() {
-  return new Promise(resolve => {
-    storageAPI.get(STORAGE_CONFIG_KEY, res => {
-      resolve({ ...DEFAULT_CONFIG, ...(res[STORAGE_CONFIG_KEY] || {}) });
-    });
-  });
+export async function getStoredConfig() {
+  const res = await storageGet(STORAGE_CONFIG_KEY);
+  return { ...DEFAULT_CONFIG, ...(res[STORAGE_CONFIG_KEY] || {}) };
 }
 
 export function saveStoredConfig(config) {
-  return new Promise(resolve => {
-    storageAPI.set({ [STORAGE_CONFIG_KEY]: config }, () => {
-      resolve();
-    });
-  });
+  return storageSet({ [STORAGE_CONFIG_KEY]: config });
 }
 
-export function getFaviconCache() {
-  return new Promise(resolve => {
-    storageAPI.get(STORAGE_FAVICON_CACHE_KEY, res => {
-      resolve(res[STORAGE_FAVICON_CACHE_KEY] || {});
-    });
-  });
+export async function getFaviconCache() {
+  const res = await storageGet(STORAGE_FAVICON_CACHE_KEY);
+  return res[STORAGE_FAVICON_CACHE_KEY] || {};
 }
 
 export function saveFaviconCache(cache) {
-  return new Promise(resolve => {
-    storageAPI.set({ [STORAGE_FAVICON_CACHE_KEY]: cache }, () => {
-      resolve();
-    });
-  });
+  return storageSet({ [STORAGE_FAVICON_CACHE_KEY]: cache });
 }
 
 export async function getCachedFavicon(domain) {
@@ -351,11 +342,7 @@ export async function clearStoredVault() {
     }
   });
 
-  return new Promise(resolve => {
-    storageAPI.remove(keysToRemove, () => {
-      resolve();
-    });
-  });
+  return storageRemove(keysToRemove);
 }
 
 /**

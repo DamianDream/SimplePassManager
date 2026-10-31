@@ -1057,6 +1057,42 @@ async function runTests() {
   }
   console.log('   ✓ B1 Write queue FIFO serialization verified');
 
+  // Test 30: B2 - chrome.runtime.lastError and storage quota error handling
+  console.log('30. Testing B2: chrome.runtime.lastError error handling in storage wrappers...');
+  {
+    const { storageSet, storageGet } = await import('../src/core/storage.js');
+    assert.strictEqual(typeof storageSet, 'function');
+    assert.strictEqual(typeof storageGet, 'function');
+
+    // Mock chrome.runtime.lastError to simulate quota exceeded
+    const origChrome = globalThis.chrome;
+    globalThis.chrome = {
+      runtime: {
+        lastError: { message: 'QUOTA_BYTES quota exceeded' }
+      },
+      storage: {
+        local: {
+          get: (keys, cb) => cb({}),
+          set: (obj, cb) => cb(),
+          remove: (keys, cb) => cb()
+        }
+      }
+    };
+
+    let caught = false;
+    try {
+      await storageSet({ testKey: 'data' });
+    } catch (err) {
+      caught = true;
+      assert.ok(err.message.includes('QUOTA_BYTES'));
+    }
+    assert.strictEqual(caught, true, 'storageSet must reject when chrome.runtime.lastError is present');
+
+    // Restore
+    globalThis.chrome = origChrome;
+  }
+  console.log('   ✓ B2 storage error propagation verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
