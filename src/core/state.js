@@ -9,7 +9,6 @@ import { verifyMasterPassword } from './storage.js';
 export const state = {
   isInitialized: false,
   isUnlocked: false,
-  masterPassword: null,
   rawMek: null,
   keySlots: null,
   projects: [],
@@ -22,7 +21,7 @@ export const state = {
   activeTab: 'vault', // 'vault' | 'generator' | 'settings' | 'item-details'
   selectedItem: null,
   isEditing: false,
-  lockInterval: '3days',
+  lockInterval: 'session',
   theme: 'light',
   language: 'ru',
   showCardTags: false,
@@ -166,7 +165,6 @@ export async function lockVault() {
     try { state.rawMek.fill(0); } catch (_) {}
   }
   state.isUnlocked = false;
-  state.masterPassword = null;
   state.rawMek = null;
   state.keySlots = null;
   state.projects = [];

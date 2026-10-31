@@ -366,7 +366,6 @@ async function init() {
 
           updateState({
             isUnlocked: true,
-            masterPassword: null,
             rawMek,
             keySlots,
             projects: normalized.projects,
@@ -485,7 +484,6 @@ async function handleUnlock(password) {
 
     updateState({
       isUnlocked: true,
-      masterPassword: password,
       rawMek,
       keySlots,
       projects: normalized.projects,
@@ -591,7 +589,6 @@ async function handleCreateVault(projectName, password, confirmPassword) {
   updateState({
     isInitialized: true,
     isUnlocked: true,
-    masterPassword: password,
     rawMek,
     keySlots,
     projects: initialData.projects,
@@ -672,7 +669,6 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
   updateState({
     isInitialized: true,
     isUnlocked: true,
-    masterPassword: password,
     rawMek,
     keySlots,
     projects: initialData.projects,
@@ -727,7 +723,6 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
 
     updateState({
       isUnlocked: true,
-      masterPassword: newPassword,
       rawMek,
       keySlots,
       projects: normalized.projects,
@@ -743,18 +738,10 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
 
 async function persistVaultChanges() {
   if (!state.rawMek || !state.keySlots) {
-    if (state.masterPassword) {
-      const envelope = await getStoredVault();
-      if (envelope && envelope.version === 2 && envelope.keyByPassword) {
-        state.rawMek = await unwrapMekWithPassword(envelope, state.masterPassword);
-        state.keySlots = {
-          keyByPassword: envelope.keyByPassword,
-          keyByRecovery: envelope.keyByRecovery
-        };
-      }
-    }
+    showToast(t('errors.session_invalid') || 'Сессия повреждена, войдите заново');
+    await lockVault();
+    return;
   }
-  if (!state.rawMek || !state.keySlots) return;
 
   const vaultData = {
     version: 2,
@@ -4300,7 +4287,6 @@ function attachEventHandlers() {
         const session = await createSession(currentMek, state.lockInterval || 'session');
         isChangePwdOpen = false;
         updateState({
-          masterPassword: newPwd,
           rawMek: currentMek,
           keySlots: state.keySlots,
           sessionExpiresAt: session.expiresAt
