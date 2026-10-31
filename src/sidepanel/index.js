@@ -20,6 +20,7 @@ import {
   encryptVault,
   decryptVault,
   validateMasterPassword,
+  validateRecoveryPhraseWords,
   generateRecoveryPhrase,
   normalizeRecoveryPhrase,
   decryptVaultWithRecovery,
@@ -567,7 +568,7 @@ async function handleCreateVault(projectName, password, confirmPassword) {
 
   const pwdVal = validateMasterPassword(password);
   if (!pwdVal.valid) {
-    showFieldError('sp-init-pwd', 'sp-err-pwd', pwdVal.error);
+    showFieldError('sp-init-pwd', 'sp-err-pwd', t(`auth.${pwdVal.errorCode}`) || pwdVal.error);
     return;
   }
   if (password !== confirmPassword) {
@@ -650,7 +651,7 @@ async function handleCreateAdditionalVault(projectName, password, confirmPasswor
 
   const pwdVal = validateMasterPassword(password);
   if (!pwdVal.valid) {
-    showFieldError('sp-new-db-pwd', 'sp-err-new-db-pwd', pwdVal.error);
+    showFieldError('sp-new-db-pwd', 'sp-err-new-db-pwd', t(`auth.${pwdVal.errorCode}`) || pwdVal.error);
     return;
   }
   if (password !== confirmPassword) {
@@ -735,7 +736,7 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
 
   const pwdVal = validateMasterPassword(newPassword);
   if (!pwdVal.valid) {
-    showFieldError('sp-recover-new-pwd', 'sp-err-recover-pwd', pwdVal.error);
+    showFieldError('sp-recover-new-pwd', 'sp-err-recover-pwd', t(`auth.${pwdVal.errorCode}`) || pwdVal.error);
     return;
   }
   if (newPassword !== confirmPassword) {
@@ -1105,6 +1106,7 @@ function renderAuthScreen() {
             <div>
               <input type="password" id="sp-init-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-pwd"></div>
+              <div id="sp-init-pwd-strength"></div>
             </div>
             <div>
               <input type="password" id="sp-init-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
@@ -1131,6 +1133,7 @@ function renderAuthScreen() {
         });
       }
     });
+    renderPasswordStrengthBar('sp-init-pwd', 'sp-init-pwd-strength');
 
     document.getElementById('sp-init-form').addEventListener('submit', e => {
       e.preventDefault();
@@ -1159,6 +1162,7 @@ function renderAuthScreen() {
             <div>
               <input type="password" id="sp-new-db-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-new-db-pwd"></div>
+              <div id="sp-new-db-pwd-strength"></div>
             </div>
             <div>
               <input type="password" id="sp-new-db-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
@@ -1185,6 +1189,7 @@ function renderAuthScreen() {
         });
       }
     });
+    renderPasswordStrengthBar('sp-new-db-pwd', 'sp-new-db-pwd-strength');
 
     const btnCancelNew = document.getElementById('sp-btn-cancel-new-db');
     if (btnCancelNew) {
@@ -1217,10 +1222,12 @@ function renderAuthScreen() {
             <div>
               <textarea id="sp-recover-phrase" class="sp-input" style="height: 72px; resize:none; font-family:monospace; font-size:12px; line-height:1.4;" placeholder="${t('auth.recovery_phrase_placeholder')}"></textarea>
               <div class="sp-field-error" id="sp-err-recover-phrase"></div>
+              <div id="sp-recover-phrase-hints" style="font-size:11px; margin-top:4px;"></div>
             </div>
             <div>
               <input type="password" id="sp-recover-new-pwd" class="sp-input" placeholder="${t('auth.master_pwd_placeholder')}" />
               <div class="sp-field-error" id="sp-err-recover-pwd"></div>
+              <div id="sp-recover-new-pwd-strength"></div>
             </div>
             <div>
               <input type="password" id="sp-recover-new-pwd2" class="sp-input" placeholder="${t('auth.repeat_pwd_placeholder')}" />
@@ -1250,6 +1257,30 @@ function renderAuthScreen() {
         });
       }
     });
+    renderPasswordStrengthBar('sp-recover-new-pwd', 'sp-recover-new-pwd-strength');
+
+    const recoverPhraseEl = document.getElementById('sp-recover-phrase');
+    const recoverHintsEl = document.getElementById('sp-recover-phrase-hints');
+    if (recoverPhraseEl && recoverHintsEl) {
+      recoverPhraseEl.addEventListener('input', () => {
+        const val = recoverPhraseEl.value.trim();
+        if (!val) {
+          recoverHintsEl.innerHTML = '';
+          return;
+        }
+        const checks = validateRecoveryPhraseWords(val);
+        const issues = checks.filter(c => !c.valid);
+        if (issues.length === 0) {
+          const count = checks.length;
+          recoverHintsEl.innerHTML = `<span style="color:var(--success); font-size:11px;">✓ ${count}/12 слов (все слова распознаны)</span>`;
+        } else {
+          recoverHintsEl.innerHTML = issues.map(iss => {
+            const sugg = iss.suggestion ? ` (возможно: <strong style="color:var(--text-main);">${escapeHtml(iss.suggestion)}</strong>?)` : '';
+            return `<div style="color:var(--danger, #ef4444); margin-bottom:2px; font-size:11px;">⚠️ Неизвестное слово «${escapeHtml(iss.word)}»${sugg}</div>`;
+          }).join('');
+        }
+      });
+    }
 
     const btnCreateNewVault = document.getElementById('sp-btn-create-new-vault');
     if (btnCreateNewVault) {
@@ -2388,6 +2419,7 @@ function renderSettingsView() {
         <form id="sp-change-pwd-form" style="display:flex; flex-direction:column; gap:8px; margin-top:8px; padding:10px; background:var(--bg-surface); border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
           <input type="password" id="sp-pwd-old" class="sp-input" placeholder="${t('settings.current_pwd_placeholder')}" required />
           <input type="password" id="sp-pwd-new" class="sp-input" placeholder="${t('settings.new_pwd_placeholder')}" required />
+          <div id="sp-pwd-new-strength"></div>
           <input type="password" id="sp-pwd-new2" class="sp-input" placeholder="${t('settings.repeat_new_pwd_placeholder')}" required />
           <div id="sp-change-pwd-err" style="display:none; font-size:11px; color:var(--danger);"></div>
           <button type="submit" class="sp-btn-primary" style="justify-content:center; padding:6px 12px; margin-top:4px;">
@@ -4368,6 +4400,7 @@ function attachEventHandlers() {
 
   const changePwdForm = document.getElementById('sp-change-pwd-form');
   if (changePwdForm) {
+    renderPasswordStrengthBar('sp-pwd-new', 'sp-pwd-new-strength');
     changePwdForm.addEventListener('submit', async e => {
       e.preventDefault();
       const oldPwd = document.getElementById('sp-pwd-old').value;
@@ -4391,7 +4424,7 @@ function attachEventHandlers() {
       const pwdVal = validateMasterPassword(newPwd);
       if (!pwdVal.valid) {
         if (errBox) {
-          errBox.innerText = pwdVal.error;
+          errBox.innerText = t(`auth.${pwdVal.errorCode}`) || pwdVal.error;
           errBox.style.display = 'block';
         }
         return;

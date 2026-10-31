@@ -58,7 +58,7 @@ async function deriveKey(masterPassword, salt) {
  * Encrypts arbitrary JavaScript data with the master password.
  * Returns an envelope with { salt, iv, ciphertext }.
  */
-// BIP-39 compatible wordlist (256 distinct English words for 12-word recovery key = 96 bits entropy)
+// Curated recovery wordlist (256 distinct English words for 12-word recovery key = 96 bits entropy)
 export const RECOVERY_WORDLIST = [
   'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract',
   'absurd', 'abuse', 'access', 'accident', 'account', 'accuse', 'achieve', 'acid',
@@ -114,6 +114,60 @@ export function generateRecoveryPhrase() {
 export function normalizeRecoveryPhrase(phrase) {
   if (!phrase || typeof phrase !== 'string') return '';
   return phrase.trim().toLowerCase().split(/\s+/).join(' ');
+}
+
+function levenshteinDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+export function findClosestWord(inputWord) {
+  const word = inputWord.trim().toLowerCase();
+  if (RECOVERY_WORDLIST.includes(word)) return { word, distance: 0, exact: true, suggestion: null };
+  let closest = null;
+  let minDistance = Infinity;
+
+  for (const dictWord of RECOVERY_WORDLIST) {
+    const dist = levenshteinDistance(word, dictWord);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = dictWord;
+    }
+  }
+
+  return {
+    word: closest,
+    distance: minDistance,
+    exact: false,
+    suggestion: minDistance <= 2 ? closest : null
+  };
+}
+
+export function validateRecoveryPhraseWords(phrase) {
+  if (!phrase || typeof phrase !== 'string') return [];
+  const words = phrase.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return words.map(w => {
+    const check = findClosestWord(w);
+    return {
+      word: w,
+      valid: check.exact,
+      suggestion: check.suggestion
+    };
+  });
 }
 
 /**
@@ -396,21 +450,25 @@ export async function rekeyVault(vaultData, newPassword, recoveryPhrase) {
 
 /**
  * Validates master password policy:
- * - Strictly > 8 characters (at least 9 chars)
- * - Includes at least one special character
+ * - Minimum length: 10 characters
+ * - Special character required if length < 16 characters
+ * - Special character NOT required if length >= 16 characters
+ * Returns { valid: boolean, errorCode: string|null, error: string|null }
  */
 export function validateMasterPassword(password) {
   if (!password || typeof password !== 'string') {
-    return { valid: false, error: 'Введите мастер-пароль' };
+    return { valid: false, errorCode: 'pwd_empty', error: 'pwd_empty' };
   }
-  if (password.length <= 8) {
-    return { valid: false, error: 'Мастер-пароль должен содержать более 8 символов' };
+  if (password.length < 10) {
+    return { valid: false, errorCode: 'pwd_too_short', error: 'pwd_too_short' };
   }
-  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
-  if (!hasSpecialChar) {
-    return { valid: false, error: 'Пароль должен включать минимум один спецсимвол (!@#$%^&*...)' };
+  if (password.length < 16) {
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
+    if (!hasSpecialChar) {
+      return { valid: false, errorCode: 'pwd_needs_special', error: 'pwd_needs_special' };
+    }
   }
-  return { valid: true, error: null };
+  return { valid: true, errorCode: null, error: null };
 }
 
 

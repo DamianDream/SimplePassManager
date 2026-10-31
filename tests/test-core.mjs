@@ -76,15 +76,15 @@ async function runTests() {
   assert.strictEqual(parsed.notes, 'Sample note 123');
   console.log('   ✓ UNIX pass format verified');
 
-  // Test 5: Master password policy validation (> 8 chars + special character)
-  console.log('5. Testing Master Password policy validation (>8 chars + special symbol)...');
-  assert.strictEqual(validateMasterPassword('').valid, false, 'Should fail empty');
-  assert.strictEqual(validateMasterPassword('short!').valid, false, 'Should fail length <= 8');
-  assert.strictEqual(validateMasterPassword('12345678').valid, false, 'Should fail 8 chars');
-  assert.strictEqual(validateMasterPassword('123456789').valid, false, 'Should fail no special char');
-  assert.strictEqual(validateMasterPassword('longpasswordwithoutspecial').valid, false, 'Should fail without special char');
-  assert.strictEqual(validateMasterPassword('validPass!').valid, true, 'Should pass: 10 chars + !');
-  assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Should pass: 11 chars + #');
+  // Test 5: Master password policy validation (min 10 chars, special char required only if < 16 chars)
+  console.log('5. Testing Master Password policy validation (min 10 chars, special char if <16)...');
+  assert.deepStrictEqual(validateMasterPassword(''), { valid: false, errorCode: 'pwd_empty', error: 'pwd_empty' });
+  assert.strictEqual(validateMasterPassword('short!').errorCode, 'pwd_too_short');
+  assert.strictEqual(validateMasterPassword('123456789').errorCode, 'pwd_too_short');
+  assert.strictEqual(validateMasterPassword('withoutspec123').errorCode, 'pwd_needs_special');
+  assert.strictEqual(validateMasterPassword('longpasswordwithoutspecial').valid, true, 'Length >= 16 does not require special char');
+  assert.strictEqual(validateMasterPassword('validPass!').valid, true, 'Passes 10 chars with special char');
+  assert.strictEqual(validateMasterPassword('secure#2026').valid, true, 'Passes 11 chars with special char');
   console.log('   ✓ Master password policy verified');
 
   // Test 6: Single-Item Unencrypted CSV Quick Export & Parsing
@@ -950,6 +950,24 @@ async function runTests() {
     assert.deepStrictEqual(Array.from(recUnwrapAfterMigration), Array.from(v3Mek));
   }
   console.log('   ✓ E4 v3 AAD envelope binding verified');
+
+  // Test 26: E5 - Recovery word validation and typo suggestions via Levenshtein
+  console.log('26. Testing E5: Recovery phrase word validation and typo suggestions...');
+  const { findClosestWord, validateRecoveryPhraseWords } = await import('../src/core/crypto.js');
+
+  const exactCheck = findClosestWord('banana');
+  assert.strictEqual(exactCheck.exact, true);
+  assert.strictEqual(exactCheck.word, 'banana');
+
+  const typoCheck = findClosestWord('bananx'); // 1 char typo
+  assert.strictEqual(typoCheck.exact, false);
+  assert.strictEqual(typoCheck.suggestion, 'banana');
+
+  const wordsCheck = validateRecoveryPhraseWords('abandon bananx zebra');
+  assert.strictEqual(wordsCheck[0].valid, true);
+  assert.strictEqual(wordsCheck[1].valid, false);
+  assert.strictEqual(wordsCheck[1].suggestion, 'banana');
+  console.log('   ✓ E5 Recovery phrase validation and suggestions verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }
