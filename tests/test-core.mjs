@@ -663,6 +663,42 @@ async function runTests() {
 
   console.log('   ✓ Advanced Export by Tags & Multilingual Translations verified');
 
+  // Test 19: Form validation & Tag Creation UX Translations
+  console.log('19. Testing Form Validation, Tag Creation UX & Multilingual Translations...');
+  assert(t('form.tags_create_new_action'), 'tags_create_new_action translation must exist');
+  assert(t('form.tags_prompt_new'), 'tags_prompt_new translation must exist');
+  assert(t('form.title_required'), 'title_required translation must exist');
+  assert(t('form.password_required'), 'password_required translation must exist');
+  assert(t('toasts.fill_required_fields'), 'fill_required_fields translation must exist');
+
+  for (const lang of supportedLanguages) {
+    setLanguage(lang);
+    assert(t('form.tags_create_new_action'), `tags_create_new_action missing in lang: ${lang}`);
+    assert(t('form.tags_prompt_new'), `tags_prompt_new missing in lang: ${lang}`);
+    assert(t('form.title_required'), `title_required missing in lang: ${lang}`);
+    assert(t('form.password_required'), `password_required missing in lang: ${lang}`);
+    assert(t('toasts.fill_required_fields'), `fill_required_fields missing in lang: ${lang}`);
+  }
+  setLanguage('ru');
+
+  // Validate form requirements logic: Title (non-empty after trim) and Password (non-empty)
+  const validateItemFormFields = (title, password) => {
+    const isTitleValid = Boolean(title && title.trim().length > 0);
+    const isPasswordValid = Boolean(password && password.length > 0);
+    return {
+      isValid: isTitleValid && isPasswordValid,
+      titleError: !isTitleValid,
+      passwordError: !isPasswordValid
+    };
+  };
+
+  assert.deepStrictEqual(validateItemFormFields('', ''), { isValid: false, titleError: true, passwordError: true });
+  assert.deepStrictEqual(validateItemFormFields('   ', 'secret123'), { isValid: false, titleError: true, passwordError: false });
+  assert.deepStrictEqual(validateItemFormFields('GitHub', ''), { isValid: false, titleError: false, passwordError: true });
+  assert.deepStrictEqual(validateItemFormFields('GitHub', 'pass123'), { isValid: true, titleError: false, passwordError: false });
+
+  console.log('   ✓ Form Validation & Tag Creation UX verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

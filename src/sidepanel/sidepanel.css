@@ -304,6 +304,41 @@ button svg,
   border-color: var(--text-dim);
 }
 
+.sp-btn-add-pwd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.sp-btn-add-pwd:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.sp-btn-add-pwd:active {
+  transform: translateY(0);
+}
+
+.sp-btn-add-pwd svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-main);
+  flex-shrink: 0;
+}
+
 .sp-btn-danger {
   background: transparent;
   color: var(--danger);
@@ -770,14 +805,24 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   border-color: var(--border-focus);
 }
 
+@keyframes sp-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.sp-input.sp-shake {
+  animation: sp-shake 0.35s ease;
+}
+
 .sp-input.has-error {
   border-color: var(--danger) !important;
-  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 1.5px rgba(239, 68, 68, 0.25);
 }
 
 .sp-field-error {
   font-size: 11px;
-  color: #f87171;
+  color: var(--danger);
   text-align: left;
   line-height: 1.3;
   margin-top: 4px;
@@ -1728,9 +1773,9 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
 .sp-tag-drop-create {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent);
   cursor: pointer;
   border-top: 1px dashed var(--border-subtle);
@@ -1739,8 +1784,38 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   user-select: none;
 }
 
+.sp-tag-drop-create.sp-tag-drop-create-top {
+  border-top: none;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600;
+  padding: 8px 10px;
+}
+
 .sp-tag-drop-create:hover {
   background: var(--bg-card-hover);
+}
+
+.sp-tag-create-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.sp-tag-create-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sp-tag-create-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .sp-pill-tag-card {

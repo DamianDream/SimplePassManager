@@ -841,7 +841,10 @@ function render() {
           <span class="sp-header-title" id="sp-header-title">${sectionTitle}</span>
         </div>
         <div class="sp-header-actions">
-          <button class="sp-btn-icon" id="sp-btn-add" title="${t('nav.add_password')}">${icons.iPlus}</button>
+          <button class="sp-btn-add-pwd" id="sp-btn-add" title="${t('nav.add_password')}">
+            ${icons.iPlus}
+            <span>${t('nav.add_password')}</span>
+          </button>
           <button class="sp-btn-icon" id="sp-btn-lock" title="${t('nav.lock_vault')}">${icons.iLock}</button>
         </div>
       </header>
@@ -1359,6 +1362,10 @@ function renderVaultView() {
         <div class="sp-empty-icon">${icons.iKey}</div>
         <p style="font-size: 13px; font-weight: 600;">${t('vault.empty_title')}</p>
         <p style="font-size: 11px;">${t('vault.empty_desc')}</p>
+        <button type="button" class="sp-btn-add-pwd" id="sp-empty-btn-add" style="margin-top:8px;">
+          ${icons.iPlus}
+          <span>${t('nav.add_password')}</span>
+        </button>
       </div>
     `
       : sortedItems
@@ -1823,7 +1830,7 @@ function renderItemFormView() {
           : ''
       }
 
-      <form id="sp-item-form" style="display:flex; flex-direction:column; gap:12px;">
+      <form id="sp-item-form" novalidate style="display:flex; flex-direction:column; gap:12px;">
         <input type="hidden" id="sp-item-id" value="${item.id}" />
 
         <div class="sp-form-group">
@@ -1855,7 +1862,8 @@ function renderItemFormView() {
 
         <div class="sp-form-group">
           <label class="sp-label">${t('form.title_label')} *</label>
-          <input type="text" id="sp-item-title" class="sp-input" value="${escapeHtml(item.title || '')}" placeholder="${t('form.title_placeholder')}" required />
+          <input type="text" id="sp-item-title" class="sp-input" value="${escapeHtml(item.title || '')}" placeholder="${t('form.title_placeholder')}" autocomplete="off" />
+          <div class="sp-field-error" id="sp-item-title-error"></div>
         </div>
 
         <div class="sp-form-group">
@@ -1893,11 +1901,12 @@ function renderItemFormView() {
             </button>
           </div>
           <div class="sp-input-with-action">
-            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" value="${escapeHtml(item.password || '')}" required style="padding-right: 36px;" />
+            <input type="${isPasswordVisible ? 'text' : 'password'}" id="sp-item-password" class="sp-input" value="${escapeHtml(item.password || '')}" autocomplete="off" style="padding-right: 36px;" />
             <button type="button" class="sp-input-action-btn" id="sp-toggle-pwd-vis">
               ${isPasswordVisible ? icons.iEyeOff : icons.iEye}
             </button>
           </div>
+          <div class="sp-field-error" id="sp-item-password-error"></div>
         </div>
 
         <div class="sp-form-group">
@@ -2765,6 +2774,14 @@ function attachEventHandlers() {
     });
   }
 
+  const btnEmptyAdd = document.getElementById('sp-empty-btn-add');
+  if (btnEmptyAdd) {
+    btnEmptyAdd.addEventListener('click', () => {
+      clearFormDraft();
+      updateState({ activeTab: 'item-details', selectedItem: null, isProjectSwitcherOpen: false });
+    });
+  }
+
   const btnLock = document.getElementById('sp-btn-lock');
   if (btnLock) {
     btnLock.addEventListener('click', () => {
@@ -3000,6 +3017,9 @@ function attachEventHandlers() {
         pwdInput.value = newPwd;
         pwdInput.type = 'text';
         isPasswordVisible = true;
+        pwdInput.classList.remove('has-error');
+        const pwdErr = document.getElementById('sp-item-password-error');
+        if (pwdErr) pwdErr.style.display = 'none';
       }
       saveFormDraftFromDOM();
     });
@@ -3249,6 +3269,43 @@ function attachEventHandlers() {
   const tagDropdown = document.getElementById('sp-tags-dropdown');
   const tagInputErr = document.getElementById('sp-tag-input-err');
 
+  async function createAndSelectTag(newTagRaw) {
+    const newTag = (newTagRaw || '').trim();
+    if (!newTag) return;
+    const validRes = validateTagName(newTag);
+    if (!validRes.valid) {
+      if (tagInputErr) {
+        tagInputErr.innerText = validRes.error;
+        tagInputErr.style.display = 'block';
+      }
+      return;
+    }
+
+    if (!state.categories.includes(newTag)) {
+      state.categories.push(newTag);
+      if (!state.categoryColors) state.categoryColors = {};
+      state.categoryColors[newTag] = 'slate';
+      const cfg = await getStoredConfig();
+      await saveStoredConfig({
+        ...cfg,
+        categories: state.categories.filter(c => c !== 'All'),
+        categoryColors: state.categoryColors
+      });
+    }
+    if (!formSelectedTags.includes(newTag)) {
+      formSelectedTags.push(newTag);
+    }
+    if (formDraft) {
+      formDraft.tags = [...formSelectedTags];
+    }
+    if (tagSearchInput) tagSearchInput.value = '';
+    tagDropdown.style.display = 'none';
+    const tagWrap = document.querySelector('.sp-tag-input-container');
+    if (tagWrap) tagWrap.classList.remove('open');
+    if (tagInputErr) tagInputErr.style.display = 'none';
+    render();
+  }
+
   function updateTagDropdown(filterText = '') {
     if (!tagDropdown) return;
     const query = filterText.trim().toLowerCase();
@@ -3256,6 +3313,26 @@ function attachEventHandlers() {
     const matchedTags = allTags.filter(t => !query || t.toLowerCase().includes(query));
 
     let html = '';
+
+    // First item: Explicit action to create new tag
+    const trimmed = filterText.trim();
+    const exactExists = allTags.some(t => t.toLowerCase() === trimmed.toLowerCase());
+    if (trimmed && !exactExists) {
+      html += `
+        <div class="sp-tag-drop-create sp-tag-drop-create-top" data-action="create-dropdown-tag" data-tag="${escapeHtml(trimmed)}">
+          <span class="sp-tag-create-icon">${icons.iPlus}</span>
+          <span class="sp-tag-create-text">${t('form.tags_create_option', { name: escapeHtml(trimmed) })}</span>
+        </div>
+      `;
+    } else if (!trimmed) {
+      html += `
+        <div class="sp-tag-drop-create sp-tag-drop-create-top" data-action="prompt-create-tag">
+          <span class="sp-tag-create-icon">${icons.iPlus}</span>
+          <span class="sp-tag-create-text">${t('form.tags_create_new_action')}</span>
+        </div>
+      `;
+    }
+
     if (matchedTags.length > 0) {
       html += matchedTags.map(tName => {
         const isSelected = formSelectedTags.includes(tName);
@@ -3272,17 +3349,6 @@ function attachEventHandlers() {
           </div>
         `;
       }).join('');
-    }
-
-    const trimmed = filterText.trim();
-    const exactExists = allTags.some(t => t.toLowerCase() === trimmed.toLowerCase());
-    if (trimmed && !exactExists) {
-      html += `
-        <div class="sp-tag-drop-create" data-action="create-dropdown-tag" data-tag="${escapeHtml(trimmed)}">
-          <span>${icons.iPlus}</span>
-          <span>${t('form.tags_create_option', { name: escapeHtml(trimmed) })}</span>
-        </div>
-      `;
     }
 
     if (!html) {
@@ -3318,41 +3384,24 @@ function attachEventHandlers() {
       });
     });
 
+    tagDropdown.querySelectorAll('[data-action="prompt-create-tag"]').forEach(promptEl => {
+      promptEl.addEventListener('click', async e => {
+        e.stopPropagation();
+        const inputName = window.prompt(t('form.tags_prompt_new'));
+        if (inputName && inputName.trim()) {
+          saveFormDraftFromDOM();
+          await createAndSelectTag(inputName.trim());
+        } else {
+          tagSearchInput?.focus();
+        }
+      });
+    });
+
     tagDropdown.querySelectorAll('[data-action="create-dropdown-tag"]').forEach(createEl => {
       createEl.addEventListener('click', async e => {
         e.stopPropagation();
         saveFormDraftFromDOM();
-        const newTag = createEl.dataset.tag;
-        const validRes = validateTagName(newTag);
-        if (!validRes.valid) {
-          if (tagInputErr) {
-            tagInputErr.innerText = validRes.error;
-            tagInputErr.style.display = 'block';
-          }
-          return;
-        }
-
-        if (!state.categories.includes(newTag)) {
-          state.categories.push(newTag);
-          if (!state.categoryColors) state.categoryColors = {};
-          state.categoryColors[newTag] = 'slate';
-          const cfg = await getStoredConfig();
-          await saveStoredConfig({
-            ...cfg,
-            categories: state.categories.filter(c => c !== 'All'),
-            categoryColors: state.categoryColors
-          });
-        }
-        if (!formSelectedTags.includes(newTag)) {
-          formSelectedTags.push(newTag);
-        }
-        if (formDraft) {
-          formDraft.tags = [...formSelectedTags];
-        }
-        tagDropdown.style.display = 'none';
-        tagWrap?.classList.remove('open');
-        if (tagInputErr) tagInputErr.style.display = 'none';
-        render();
+        await createAndSelectTag(createEl.dataset.tag);
       });
     });
   }
@@ -3387,31 +3436,7 @@ function attachEventHandlers() {
           document.querySelector('.sp-tag-input-container')?.classList.remove('open');
           render();
         } else {
-          const validRes = validateTagName(val);
-          if (!validRes.valid) {
-            if (tagInputErr) {
-              tagInputErr.innerText = validRes.error;
-              tagInputErr.style.display = 'block';
-            }
-            return;
-          }
-          state.categories.push(val);
-          if (!state.categoryColors) state.categoryColors = {};
-          state.categoryColors[val] = 'slate';
-          const cfg = await getStoredConfig();
-          await saveStoredConfig({
-            ...cfg,
-            categories: state.categories.filter(c => c !== 'All'),
-            categoryColors: state.categoryColors
-          });
-          formSelectedTags.push(val);
-          if (formDraft) {
-            formDraft.tags = [...formSelectedTags];
-          }
-          tagSearchInput.value = '';
-          tagDropdown.style.display = 'none';
-          document.querySelector('.sp-tag-input-container')?.classList.remove('open');
-          render();
+          await createAndSelectTag(val);
         }
       } else if (e.key === 'Escape') {
         if (tagDropdown) tagDropdown.style.display = 'none';
@@ -3495,6 +3520,82 @@ function attachEventHandlers() {
     });
   }
 
+  function validateItemForm() {
+    const titleInput = document.getElementById('sp-item-title');
+    const pwdInput = document.getElementById('sp-item-password');
+    const titleErr = document.getElementById('sp-item-title-error');
+    const pwdErr = document.getElementById('sp-item-password-error');
+
+    let isValid = true;
+    let firstInvalidEl = null;
+
+    const titleVal = titleInput ? titleInput.value.trim() : '';
+    if (!titleVal) {
+      isValid = false;
+      if (titleInput) {
+        titleInput.classList.add('has-error', 'sp-shake');
+        setTimeout(() => titleInput.classList.remove('sp-shake'), 450);
+        if (!firstInvalidEl) firstInvalidEl = titleInput;
+      }
+      if (titleErr) {
+        titleErr.innerText = t('form.title_required');
+        titleErr.style.display = 'block';
+      }
+    } else {
+      if (titleInput) titleInput.classList.remove('has-error');
+      if (titleErr) titleErr.style.display = 'none';
+    }
+
+    const pwdVal = pwdInput ? pwdInput.value : '';
+    if (!pwdVal) {
+      isValid = false;
+      if (pwdInput) {
+        pwdInput.classList.add('has-error', 'sp-shake');
+        setTimeout(() => pwdInput.classList.remove('sp-shake'), 450);
+        if (!firstInvalidEl) firstInvalidEl = pwdInput;
+      }
+      if (pwdErr) {
+        pwdErr.innerText = t('form.password_required');
+        pwdErr.style.display = 'block';
+      }
+    } else {
+      if (pwdInput) pwdInput.classList.remove('has-error');
+      if (pwdErr) pwdErr.style.display = 'none';
+    }
+
+    if (!isValid) {
+      if (firstInvalidEl) {
+        firstInvalidEl.focus();
+      }
+      showToast(t('toasts.fill_required_fields'));
+      return false;
+    }
+
+    return true;
+  }
+
+  const titleInput = document.getElementById('sp-item-title');
+  if (titleInput) {
+    titleInput.addEventListener('input', () => {
+      if (titleInput.value.trim()) {
+        titleInput.classList.remove('has-error');
+        const titleErr = document.getElementById('sp-item-title-error');
+        if (titleErr) titleErr.style.display = 'none';
+      }
+    });
+  }
+
+  const pwdInput = document.getElementById('sp-item-password');
+  if (pwdInput) {
+    pwdInput.addEventListener('input', () => {
+      if (pwdInput.value) {
+        pwdInput.classList.remove('has-error');
+        const pwdErr = document.getElementById('sp-item-password-error');
+        if (pwdErr) pwdErr.style.display = 'none';
+      }
+    });
+  }
+
   const itemForm = document.getElementById('sp-item-form');
   if (itemForm) {
     itemForm.addEventListener('input', () => {
@@ -3503,6 +3604,9 @@ function attachEventHandlers() {
 
     itemForm.addEventListener('submit', e => {
       e.preventDefault();
+      if (!validateItemForm()) {
+        return;
+      }
       const tags = [...formSelectedTags];
       const url = document.getElementById('sp-item-url').value.trim();
       const domain = extractCleanDomain(url);
