@@ -1093,6 +1093,45 @@ async function runTests() {
   }
   console.log('   ✓ B2 storage error propagation verified');
 
+  // Test 31: B3 - Favicon cache LRU (max 300) and max 48KB entry size
+  console.log('31. Testing B3: Favicon cache LRU trimming and size limit...');
+  {
+    const { saveFaviconCache, getFaviconCache, MAX_FAVICON_ENTRIES, MAX_FAVICON_BYTES } = await import('../src/core/storage.js');
+    assert.strictEqual(MAX_FAVICON_ENTRIES, 300);
+    assert.strictEqual(MAX_FAVICON_BYTES, 48 * 1024);
+
+    // Test 1: Oversized icon (>48KB) is dropped
+    const largeDataUrl = 'data:image/png;base64,' + 'A'.repeat(50 * 1024);
+    const normalDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+    await saveFaviconCache({
+      'huge.com': largeDataUrl,
+      'small.com': normalDataUrl
+    });
+
+    const cache1 = await getFaviconCache();
+    assert.strictEqual(cache1['huge.com'], undefined, 'Oversized icon > 48KB must not be saved');
+    assert.strictEqual(cache1['small.com'], normalDataUrl, 'Normal icon must be saved');
+
+    // Test 2: LRU limit 300 items
+    const manyEntries = {};
+    for (let i = 0; i < 350; i++) {
+      manyEntries[`site${i}.com`] = {
+        dataUrl: normalDataUrl,
+        usedAt: 1000 + i // site349.com is newest, site0.com is oldest
+      };
+    }
+    await saveFaviconCache(manyEntries);
+
+    const cache2 = await getFaviconCache();
+    const keys = Object.keys(cache2);
+    assert.strictEqual(keys.length, 300, 'Cache must be trimmed to exactly 300 items');
+    assert.strictEqual(cache2['site0.com'], undefined, 'Oldest site0.com must be evicted');
+    assert.strictEqual(cache2['site49.com'], undefined, 'Oldest site49.com must be evicted');
+    assert.ok(cache2['site349.com'], 'Newest site349.com must be retained');
+  }
+  console.log('   ✓ B3 Favicon cache LRU and size limits verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

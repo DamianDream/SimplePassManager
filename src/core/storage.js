@@ -308,26 +308,105 @@ export function saveStoredConfig(config) {
   return storageSet({ [STORAGE_CONFIG_KEY]: config });
 }
 
+export const MAX_FAVICON_ENTRIES = 300;
+export const MAX_FAVICON_BYTES = 48 * 1024; // 48 KB
+
+let faviconSaveTimer = null;
+let pendingFaviconRawCache = null;
+
 export async function getFaviconCache() {
+  if (pendingFaviconRawCache) {
+    const flat = {};
+    for (const [k, v] of Object.entries(pendingFaviconRawCache)) {
+      flat[k] = (v && typeof v === 'object' && v.dataUrl) ? v.dataUrl : (typeof v === 'string' ? v : '');
+    }
+    return flat;
+  }
   const res = await storageGet(STORAGE_FAVICON_CACHE_KEY);
-  return res[STORAGE_FAVICON_CACHE_KEY] || {};
+  const raw = res[STORAGE_FAVICON_CACHE_KEY] || {};
+  const flat = {};
+  for (const [k, v] of Object.entries(raw)) {
+    flat[k] = (v && typeof v === 'object' && v.dataUrl) ? v.dataUrl : (typeof v === 'string' ? v : '');
+  }
+  return flat;
 }
 
 export function saveFaviconCache(cache) {
-  return storageSet({ [STORAGE_FAVICON_CACHE_KEY]: cache });
+  const entries = [];
+  const now = Date.now();
+
+  for (const [k, v] of Object.entries(cache || {})) {
+    let dataUrl = '';
+    let usedAt = now;
+    if (v && typeof v === 'object' && v.dataUrl) {
+      dataUrl = v.dataUrl;
+      usedAt = v.usedAt || now;
+    } else if (typeof v === 'string') {
+      dataUrl = v;
+    }
+    // (a) Skip oversized entries > 48 KB
+    if (dataUrl && dataUrl.length <= MAX_FAVICON_BYTES) {
+      entries.push({ domain: k.toLowerCase().trim(), dataUrl, usedAt });
+    }
+  }
+
+  // (b) LRU limit 300 domains: keep most recently used
+  if (entries.length > MAX_FAVICON_ENTRIES) {
+    entries.sort((a, b) => b.usedAt - a.usedAt);
+    entries.length = MAX_FAVICON_ENTRIES;
+  }
+
+  const normalized = {};
+  for (const e of entries) {
+    normalized[e.domain] = { dataUrl: e.dataUrl, usedAt: e.usedAt };
+  }
+
+  pendingFaviconRawCache = null;
+  return storageSet({ [STORAGE_FAVICON_CACHE_KEY]: normalized });
+}
+
+export function flushFaviconCache() {
+  if (faviconSaveTimer) {
+    clearTimeout(faviconSaveTimer);
+    faviconSaveTimer = null;
+  }
+  if (pendingFaviconRawCache) {
+    const toSave = pendingFaviconRawCache;
+    pendingFaviconRawCache = null;
+    return saveFaviconCache(toSave);
+  }
+  return Promise.resolve();
 }
 
 export async function getCachedFavicon(domain) {
   if (!domain || typeof domain !== 'string') return null;
+  const key = domain.toLowerCase().trim();
   const cache = await getFaviconCache();
-  return cache[domain.toLowerCase().trim()] || null;
+  return cache[key] || null;
 }
 
 export async function setCachedFavicon(domain, dataUrl) {
   if (!domain || !dataUrl) return;
-  const cache = await getFaviconCache();
-  cache[domain.toLowerCase().trim()] = dataUrl;
-  await saveFaviconCache(cache);
+  // (a) Skip oversized entries > 48 KB
+  if (typeof dataUrl === 'string' && dataUrl.length > MAX_FAVICON_BYTES) return;
+
+  const key = domain.toLowerCase().trim();
+  const rawCache = pendingFaviconRawCache || (await storageGet(STORAGE_FAVICON_CACHE_KEY))[STORAGE_FAVICON_CACHE_KEY] || {};
+
+  rawCache[key] = {
+    dataUrl,
+    usedAt: Date.now()
+  };
+  pendingFaviconRawCache = rawCache;
+
+  // (c) Batch with debounce 2s
+  if (faviconSaveTimer) clearTimeout(faviconSaveTimer);
+  return new Promise(resolve => {
+    faviconSaveTimer = setTimeout(async () => {
+      await flushFaviconCache();
+      resolve();
+    }, 2000);
+  });
 }
 
 /**
