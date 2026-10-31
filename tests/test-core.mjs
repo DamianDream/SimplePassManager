@@ -1400,9 +1400,9 @@ async function runTests() {
       { id: 'item_1', title: 'Site A', password: 'password123', updatedAt: new Date(nowMs).toISOString() },
       // 2. Reused with item_1
       { id: 'item_2', title: 'Site B', password: 'password123', updatedAt: new Date(nowMs).toISOString() },
-      // 3. Stale / old password (>180 days)
+      // 3. Unique strong password
       { id: 'item_3', title: 'Site C', password: 'ValidStrongPass!9876', updatedAt: new Date(nowMs - 200 * 24 * 60 * 60 * 1000).toISOString() },
-      // 4. Strong, unique, recent password
+      // 4. Strong, unique password
       { id: 'item_4', title: 'Site D', password: 'kL8#mP2$vQ9@zR5&wX1^', updatedAt: new Date(nowMs).toISOString() }
     ];
 
@@ -1410,8 +1410,7 @@ async function runTests() {
     assert.strictEqual(report.total, 4, 'Total audited items must match input length');
     assert.strictEqual(report.reusedCount, 2, 'Must detect 2 reused passwords');
     assert.strictEqual(report.weakCount, 2, 'Must detect weak passwords');
-    assert.strictEqual(report.oldCount, 1, 'Must detect 1 stale password (>180 days)');
-    assert.strictEqual(report.strongCount, 1, 'Must detect 1 strong unique password');
+    assert.strictEqual(report.strongCount, 2, 'Must detect 2 strong unique passwords');
 
     // Verify individual audit items
     const item1Audit = report.auditedItems.find(i => i.itemId === 'item_1');
@@ -1420,8 +1419,7 @@ async function runTests() {
     assert.strictEqual(item1Audit.riskLevel, 'reused');
 
     const item3Audit = report.auditedItems.find(i => i.itemId === 'item_3');
-    assert.strictEqual(item3Audit.isOld, true);
-    assert.strictEqual(item3Audit.riskLevel, 'old');
+    assert.strictEqual(item3Audit.riskLevel, 'strong');
 
     const item4Audit = report.auditedItems.find(i => i.itemId === 'item_4');
     assert.strictEqual(item4Audit.riskLevel, 'strong');

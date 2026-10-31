@@ -5,8 +5,6 @@
 
 import { evaluatePasswordStrength } from './generator.js';
 
-const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
-
 /**
  * Fast in-memory hash for duplicate detection without exposing raw passwords
  */
@@ -22,9 +20,9 @@ export function hashPasswordForAudit(password) {
 }
 
 /**
- * Audits a single item against duplicate map and age
+ * Audits a single item against duplicate map and entropy strength
  */
-export function auditItem(item, duplicateCounts = new Map(), nowMs = Date.now()) {
+export function auditItem(item, duplicateCounts = new Map(), _nowMs = Date.now()) {
   const pwd = item.password || '';
   const pwdHash = hashPasswordForAudit(pwd);
   const dupCount = (pwd && duplicateCounts.get(pwdHash)) || 0;
@@ -33,16 +31,11 @@ export function auditItem(item, duplicateCounts = new Map(), nowMs = Date.now())
   const strength = evaluatePasswordStrength(pwd);
   const isWeak = !pwd || strength.score < 60 || pwd.length < 10;
 
-  const updatedTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
-  const isOld = updatedTime > 0 && nowMs - updatedTime > SIX_MONTHS_MS;
-
   let riskLevel = 'strong';
   if (isReused) {
     riskLevel = 'reused'; // 🔴 Critical: reused across accounts
   } else if (isWeak) {
     riskLevel = 'weak'; // 🟠 Weak: easily brute-forced or short
-  } else if (isOld) {
-    riskLevel = 'old'; // 🟡 Stale: older than 6 months
   } else {
     riskLevel = 'strong'; // 🟢 Unique and strong
   }
@@ -53,7 +46,6 @@ export function auditItem(item, duplicateCounts = new Map(), nowMs = Date.now())
     isReused,
     reusedCount: dupCount,
     isWeak,
-    isOld,
     strength,
     riskLevel
   };
@@ -80,7 +72,6 @@ export function runSecurityAudit(items = [], options = {}) {
   const total = auditedItems.length;
   let reusedCount = 0;
   let weakCount = 0;
-  let oldCount = 0;
   let strongCount = 0;
 
   let scoreSum = 0;
@@ -88,13 +79,11 @@ export function runSecurityAudit(items = [], options = {}) {
   auditedItems.forEach(res => {
     if (res.isReused) reusedCount++;
     if (res.isWeak) weakCount++;
-    if (res.isOld) oldCount++;
     if (res.riskLevel === 'strong') strongCount++;
 
     // Calculate individual item health contribution
     let itemScore = res.strength.score;
     if (res.isReused) itemScore *= 0.4; // heavy penalty for reused
-    if (res.isOld) itemScore *= 0.8; // mild penalty for old
     scoreSum += Math.max(0, Math.min(100, itemScore));
   });
 
@@ -105,7 +94,6 @@ export function runSecurityAudit(items = [], options = {}) {
     total,
     reusedCount,
     weakCount,
-    oldCount,
     strongCount,
     auditedItems,
     auditDate: new Date(nowMs).toISOString()

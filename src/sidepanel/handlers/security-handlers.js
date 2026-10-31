@@ -2,39 +2,11 @@
  * SimplePass Manager - Security View Event Handlers (F3)
  */
 
-import { state, updateState, getActiveProjectItems } from '../../core/state.js';
+import { state, updateState } from '../../core/state.js';
 import { panelState } from '../panel-state.js';
-import { runSecurityAudit } from '../../core/security-audit.js';
-import { showToast } from '../render-utils.js';
-import { t } from '../../core/i18n.js';
 
 export function attachSecurityHandlers({ renderApp }) {
-  // 1. Quick Audit Run Button
-  const btnRunAudit = document.getElementById('sp-btn-run-audit');
-  if (btnRunAudit) {
-    btnRunAudit.addEventListener('click', async () => {
-      panelState.isAuditing = true;
-      renderApp();
-
-      setTimeout(() => {
-        const activeItems = getActiveProjectItems();
-        const report = runSecurityAudit(activeItems);
-        panelState.securityAuditReport = report;
-        panelState.isAuditing = false;
-
-        const totalIssues = report.reusedCount + report.weakCount;
-        showToast(
-          t('security.audit_completed', {
-            score: report.healthScore,
-            issues: totalIssues
-          })
-        );
-        renderApp();
-      }, 300);
-    });
-  }
-
-  // 2. Search Input (Preserves focus)
+  // 1. Search Input (Preserves focus)
   const searchInput = document.getElementById('sp-security-search');
   const searchClear = document.getElementById('sp-security-search-clear');
   if (searchInput) {
@@ -65,18 +37,7 @@ export function attachSecurityHandlers({ renderApp }) {
     });
   }
 
-  // 3. Category / Tag filter pills
-  document.querySelectorAll('[data-action="filter-sec-tag"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tag = btn.dataset.tag;
-      if (tag) {
-        panelState.securityActiveTag = tag;
-        renderApp();
-      }
-    });
-  });
-
-  // 4. Risk filter chips
+  // 2. Risk filter pills
   document.querySelectorAll('[data-action="filter-risk"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const risk = btn.dataset.risk;
@@ -87,7 +48,7 @@ export function attachSecurityHandlers({ renderApp }) {
     });
   });
 
-  // 5. Toggle Legend Accordion
+  // 3. Toggle Legend Accordion
   const btnToggleLegend = document.getElementById('sp-btn-toggle-legend');
   if (btnToggleLegend) {
     btnToggleLegend.addEventListener('click', () => {
@@ -96,7 +57,7 @@ export function attachSecurityHandlers({ renderApp }) {
     });
   }
 
-  // 6. Fix Password Button (opens item-form)
+  // 4. Fix Password Button (opens item-details form)
   document.querySelectorAll('[data-action="fix-security-item"]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();

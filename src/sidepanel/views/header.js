@@ -13,7 +13,7 @@ export function renderHeader() {
   if (state.activeTab === 'generator') {
     sectionTitle = t('nav.generator');
   } else if (state.activeTab === 'security') {
-    sectionTitle = `${t('security.title')} (${t('security.experimental')})`;
+    sectionTitle = t('security.title');
   } else if (state.activeTab === 'settings') {
     sectionTitle = t('nav.settings');
   } else if (state.activeTab === 'item-details') {
@@ -27,10 +27,16 @@ export function renderHeader() {
         <span class="sp-header-title" id="sp-header-title">${escapeHtml(sectionTitle)}</span>
       </div>
       <div class="sp-header-actions">
+        ${
+          state.activeTab !== 'security'
+            ? `
         <button class="sp-btn-add-pwd" id="sp-btn-add" title="${t('nav.add_password')}">
           ${icons.iPlus}
           <span>${t('nav.add_password')}</span>
         </button>
+        `
+            : ''
+        }
         <button class="sp-btn-icon" id="sp-btn-lock" title="${t('nav.lock_vault')}">${icons.iLock}</button>
       </div>
     </header>

@@ -67,9 +67,8 @@ export const panelState = {
 
   // Security Audit State (F3)
   securitySearchQuery: '',
-  securityActiveTag: 'All',
   securityActiveRiskFilter: 'all',
-  isSecurityLegendOpen: true,
+  isSecurityLegendOpen: false,
   securityAuditReport: null,
   isAuditing: false
 };

@@ -623,6 +623,167 @@ body.theme-light .sp-pill[data-color-pill="true"].active {
   box-shadow: 0 0 12px var(--accent), 0 0 16px rgba(186, 220, 0, 0.65);
 }
 
+/* ─── SECURITY HEALTH CARDS (MATCH-BAR STYLING) ─── */
+.sp-card.sp-card-risk-reused {
+  position: relative;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-card) 28%);
+  border-color: var(--border-subtle);
+}
+
+.sp-card.sp-card-risk-reused::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.5px;
+  height: 60%;
+  background: var(--danger);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  pointer-events: none;
+}
+
+.sp-card.sp-card-risk-reused:hover {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.13) 0%, var(--bg-card-hover) 32%);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.sp-card.sp-card-risk-reused:hover::before {
+  box-shadow: 0 0 12px var(--danger), 0 0 16px rgba(239, 68, 68, 0.65);
+}
+
+.sp-card.sp-card-risk-weak {
+  position: relative;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-card) 28%);
+  border-color: var(--border-subtle);
+}
+
+.sp-card.sp-card-risk-weak::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.5px;
+  height: 60%;
+  background: var(--warning);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+  pointer-events: none;
+}
+
+.sp-card.sp-card-risk-weak:hover {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.13) 0%, var(--bg-card-hover) 32%);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.sp-card.sp-card-risk-weak:hover::before {
+  box-shadow: 0 0 12px var(--warning), 0 0 16px rgba(245, 158, 11, 0.65);
+}
+
+.sp-card.sp-card-risk-strong {
+  position: relative;
+  background: linear-gradient(90deg, rgba(186, 220, 0, 0.08) 0%, var(--bg-card) 28%);
+  border-color: var(--border-subtle);
+}
+
+.sp-card.sp-card-risk-strong::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.5px;
+  height: 60%;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 10px rgba(186, 220, 0, 0.5);
+  pointer-events: none;
+}
+
+.sp-card.sp-card-risk-strong:hover {
+  background: linear-gradient(90deg, rgba(186, 220, 0, 0.13) 0%, var(--bg-card-hover) 32%);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.sp-card.sp-card-risk-strong:hover::before {
+  box-shadow: 0 0 12px var(--accent), 0 0 16px rgba(186, 220, 0, 0.65);
+}
+
+/* ─── SECURITY RISK FILTER PILLS ───────────────── */
+.sp-pill-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1.2;
+}
+
+.sp-pill-risk:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+}
+
+.sp-pill-risk.active {
+  font-weight: 700;
+}
+
+.sp-pill-risk-all.active {
+  background: var(--text-main);
+  color: var(--bg-main);
+  border-color: var(--text-main);
+}
+
+.sp-pill-risk-reused.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--danger);
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+}
+
+body.theme-light .sp-pill-risk-reused.active {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}
+
+.sp-pill-risk-weak.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: var(--warning);
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.35);
+}
+
+body.theme-light .sp-pill-risk-weak.active {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.sp-pill-risk-strong.active {
+  background: rgba(186, 220, 0, 0.18);
+  border-color: var(--accent);
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(186, 220, 0, 0.35);
+}
+
+body.theme-light .sp-pill-risk-strong.active {
+  background: rgba(186, 220, 0, 0.15);
+  color: #4d7c0f;
+}
+
 .sp-card-left {
   display: flex;
   align-items: center;
