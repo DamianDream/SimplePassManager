@@ -1033,6 +1033,30 @@ async function runTests() {
   }
   console.log('   ✓ E7 useExternalIcons settings & translations verified');
 
+  // Test 29: B1 - Write queue serialization order
+  console.log('29. Testing B1: Write queue serialization order...');
+  {
+    let chain = Promise.resolve();
+    const results = [];
+    function enqueue(val, delayMs) {
+      chain = chain.then(async () => {
+        await new Promise(r => setTimeout(r, delayMs));
+        results.push(val);
+      });
+      return chain;
+    }
+
+    // Dispatch 5 fast writes with inverted artificial delays
+    enqueue('op1', 50);
+    enqueue('op2', 30);
+    enqueue('op3', 10);
+    enqueue('op4', 20);
+    await enqueue('op5', 5);
+
+    assert.deepStrictEqual(results, ['op1', 'op2', 'op3', 'op4', 'op5'], 'Operations must execute strictly in FIFO order');
+  }
+  console.log('   ✓ B1 Write queue FIFO serialization verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 

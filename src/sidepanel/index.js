@@ -793,9 +793,11 @@ async function handleRestoreWithRecovery(phrase, newPassword, confirmPassword) {
   }
 }
 
-async function persistVaultChanges() {
+let persistChain = Promise.resolve();
+
+async function doPersistVaultChanges() {
   if (!state.rawMek || !state.keySlots) {
-    showToast(t('errors.session_invalid') || 'Сессия повреждена, войдите заново');
+    showToast(t('toasts.session_invalid') || 'Session invalid or expired');
     await lockVault();
     return;
   }
@@ -816,6 +818,15 @@ async function persistVaultChanges() {
     activeProjectId: state.activeProjectId,
     latestProjectId: state.activeProjectId
   });
+}
+
+function persistVaultChanges() {
+  persistChain = persistChain.then(() => doPersistVaultChanges()).catch(err => {
+    console.error('persistVaultChanges failed:', err);
+    showToast(t('toasts.save_failed') || 'Failed to save vault data');
+    throw err;
+  });
+  return persistChain;
 }
 
 async function saveItem(itemData) {
