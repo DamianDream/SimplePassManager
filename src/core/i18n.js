@@ -6,7 +6,20 @@
 import translations from '../locales/translations.json' with { type: 'json' };
 
 export const SUPPORTED_LANGUAGES = ['en', 'ru', 'ua', 'be', 'kk', 'zh', 'ja', 'hi'];
-export const DEFAULT_LANGUAGE = 'ru';
+export const DEFAULT_LANGUAGE = 'en';
+
+/**
+ * Detects language from browser or provided locale code.
+ * Maps 'uk' -> 'ua' (Ukrainian), falls back to 'en' if unsupported.
+ * @param {string} [navLang]
+ * @returns {string}
+ */
+export function detectBrowserLanguage(navLang = typeof navigator !== 'undefined' ? navigator.language : 'en') {
+  if (!navLang) return DEFAULT_LANGUAGE;
+  let code = String(navLang).slice(0, 2).toLowerCase();
+  if (code === 'uk') code = 'ua';
+  return SUPPORTED_LANGUAGES.includes(code) ? code : DEFAULT_LANGUAGE;
+}
 
 export const LANGUAGE_OPTIONS = [
   { code: 'ru', name: '\u0420\u0443\u0441\u0441\u043a\u0438\u0439', flag: '🇷🇺' },

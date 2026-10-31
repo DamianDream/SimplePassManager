@@ -24,7 +24,7 @@ export const state = {
   lockInterval: 'session',
   autolockMinutes: 15,
   theme: 'light',
-  language: 'ru',
+  language: 'en',
   showCardTags: false,
   showFavicons: true,
   useExternalIcons: false,

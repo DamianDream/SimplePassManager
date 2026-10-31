@@ -68,7 +68,7 @@ import {
   sortItemsByDomainMatch,
   isLocalOrPrivateHost
 } from '../core/domain.js';
-import { t, setLanguage, getLanguage, SUPPORTED_LANGUAGES, LANGUAGE_OPTIONS } from '../core/i18n.js';
+import { t, setLanguage, getLanguage, detectBrowserLanguage, SUPPORTED_LANGUAGES, LANGUAGE_OPTIONS } from '../core/i18n.js';
 import {
   CATEGORY_COLORS,
   DEFAULT_CATEGORY_COLORS,
@@ -311,8 +311,8 @@ async function init() {
   const currentTheme = storedConfig.theme || 'light';
   applyTheme(currentTheme);
 
-  // Apply saved language (defaults to ru)
-  const currentLang = storedConfig.language || 'ru';
+  // Apply saved language (defaults to auto-detected browser language)
+  const currentLang = storedConfig.language || detectBrowserLanguage();
   setLanguage(currentLang);
 
   // Clean up legacy local storage key and restore in-session lockout state

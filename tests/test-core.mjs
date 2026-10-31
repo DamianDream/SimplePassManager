@@ -1132,6 +1132,27 @@ async function runTests() {
   }
   console.log('   ✓ B3 Favicon cache LRU and size limits verified');
 
+  // Test 32: B5 Language auto-detection and fallback
+  console.log('32. Testing B5: Browser language auto-detection, uk->ua mapping and fallback...');
+  {
+    const { detectBrowserLanguage, DEFAULT_LANGUAGE } = await import('../src/core/i18n.js');
+    assert.strictEqual(DEFAULT_LANGUAGE, 'en');
+    assert.strictEqual(detectBrowserLanguage('uk-UA'), 'ua');
+    assert.strictEqual(detectBrowserLanguage('uk'), 'ua');
+    assert.strictEqual(detectBrowserLanguage('ru-RU'), 'ru');
+    assert.strictEqual(detectBrowserLanguage('en-US'), 'en');
+    assert.strictEqual(detectBrowserLanguage('zh-CN'), 'zh');
+    assert.strictEqual(detectBrowserLanguage('ja-JP'), 'ja');
+    assert.strictEqual(detectBrowserLanguage('be-BY'), 'be');
+    assert.strictEqual(detectBrowserLanguage('kk-KZ'), 'kk');
+    assert.strictEqual(detectBrowserLanguage('hi-IN'), 'hi');
+    assert.strictEqual(detectBrowserLanguage('fr-FR'), 'en');
+    assert.strictEqual(detectBrowserLanguage('de'), 'en');
+    assert.strictEqual(detectBrowserLanguage(null), 'en');
+    assert.strictEqual(detectBrowserLanguage(''), 'en');
+  }
+  console.log('   ✓ B5 Browser language auto-detection verified');
+
   console.log('\nAll core unit tests passed successfully! ✅');
 }
 
