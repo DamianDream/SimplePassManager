@@ -2,7 +2,7 @@
  * SimplePass Manager - Item Form Event Handlers (Add / Edit Password)
  */
 
-import { state, updateState, getActiveProject } from '../../core/state.js';
+import { state, updateState, getActiveProject, copyToClipboard } from '../../core/state.js';
 import { t } from '../../core/i18n.js';
 import * as icons from '../../icons/icons.js';
 import { generatePassword } from '../../core/generator.js';
@@ -69,6 +69,43 @@ export function attachItemFormHandlers({ renderApp }) {
       saveFormDraftFromDOM();
     });
   }
+
+  // Password history toggle and actions
+  const toggleHistoryBtn = document.getElementById('sp-toggle-pwd-history');
+  const historyList = document.getElementById('sp-pwd-history-list');
+  if (toggleHistoryBtn && historyList) {
+    toggleHistoryBtn.addEventListener('click', e => {
+      e.preventDefault();
+      const isVisible = historyList.style.display === 'flex';
+      historyList.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
+
+  document.querySelectorAll('[data-action="copy-history-pwd"]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.preventDefault();
+      const pwd = btn.dataset.pwd;
+      if (pwd) {
+        await copyToClipboard(pwd);
+        showToast(t('form.pwd_history_copied'));
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="restore-history-pwd"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const pwd = btn.dataset.pwd;
+      const pwdInput = document.getElementById('sp-item-password');
+      if (pwd && pwdInput) {
+        pwdInput.value = pwd;
+        pwdInput.type = 'text';
+        panelState.isPasswordVisible = true;
+        showToast(t('form.pwd_history_restored'));
+        saveFormDraftFromDOM();
+      }
+    });
+  });
 
   // 3. URL Input & Favicon auto-resolution
   const urlInput = document.getElementById('sp-item-url');

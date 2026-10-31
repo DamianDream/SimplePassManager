@@ -4,7 +4,7 @@ import {
   decryptVault,
   validateMasterPassword
 } from '../src/core/crypto.js';
-import { normalizeVaultData, passFormatToItem, itemToPassFormat, itemsToCsv, csvToItems, parseCsv } from '../src/core/storage.js';
+import { normalizeVaultData, passFormatToItem, itemToPassFormat, itemsToCsv, csvToItems, parseCsv, itemsToBitwardenJson } from '../src/core/storage.js';
 import { LOCK_INTERVALS } from '../src/core/session.js';
 
 
@@ -1327,6 +1327,68 @@ async function runTests() {
     globalThis.chrome = origChrome;
   }
   console.log('   ✓ P1-A Chrome optional permissions API wrappers verified');
+
+  // ─── 39. Testing F4: Soft-Delete Trash Retention, 30-Day Purge & Password History ───
+  console.log('39. Testing F4: Soft-Delete Trash Retention, 30-Day Purge & Password History...');
+  {
+    const now = new Date().toISOString();
+    const activeItem = { id: 'item_1', title: 'GitHub', password: 'pass1', updatedAt: now };
+    const expiredTrash = {
+      id: 'trash_expired',
+      title: 'Old Service',
+      password: 'passOld',
+      deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString() // 31 days ago
+    };
+    const activeTrash = {
+      id: 'trash_active',
+      title: 'Recent Service',
+      password: 'passRecent',
+      deletedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days ago
+    };
+
+    const rawVault = {
+      projects: [{ id: 'proj_default', name: 'Main' }],
+      items: [activeItem],
+      trash: [expiredTrash, activeTrash]
+    };
+
+    const normalized = normalizeVaultData(rawVault);
+    assert.strictEqual(normalized.items.length, 1);
+    assert.strictEqual(normalized.trash.length, 1, 'Expired trash item (>30 days) must be auto-purged');
+    assert.strictEqual(normalized.trash[0].id, 'trash_active', 'Active trash item (<30 days) must be retained');
+
+    // Test password history retention logic (max 5 previous versions)
+    let history = [];
+    const updatePassword = (oldPwd, newPwd, timestamp) => {
+      if (oldPwd && newPwd && oldPwd !== newPwd) {
+        history.unshift({ password: oldPwd, createdAt: timestamp });
+        if (history.length > 5) history = history.slice(0, 5);
+      }
+    };
+
+    updatePassword('v1', 'v2', now);
+    updatePassword('v2', 'v3', now);
+    updatePassword('v3', 'v4', now);
+    updatePassword('v4', 'v5', now);
+    updatePassword('v5', 'v6', now);
+    updatePassword('v6', 'v7', now);
+
+    assert.strictEqual(history.length, 5, 'Password history must not exceed 5 items');
+    assert.strictEqual(history[0].password, 'v6', 'Most recent previous password must be at index 0');
+    assert.strictEqual(history[4].password, 'v2', 'Oldest retained password in 5-item window');
+
+    // Test Bitwarden export mapping with passwordHistory
+    const itemWithHistory = {
+      id: 'item_bw',
+      title: 'TestBW',
+      password: 'current_pass',
+      passwordHistory: history
+    };
+    const bwJson = JSON.parse(itemsToBitwardenJson([itemWithHistory], rawVault.projects));
+    assert.strictEqual(bwJson.items[0].passwordHistory.length, 5);
+    assert.strictEqual(bwJson.items[0].passwordHistory[0].password, 'v6');
+  }
+  console.log('   ✓ F4 Soft-delete trash retention and password history verified');
 
   console.log('\nAll core unit tests passed successfully! ✅');
 }

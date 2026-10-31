@@ -344,6 +344,7 @@ export async function handleUnlock(password, { onReRenderAuth, syncCachedFavicon
       keySlots,
       projects: normalized.projects,
       items: normalized.items,
+      trash: normalized.trash || [],
       activeProjectId: initialProjectId,
       sessionExpiresAt: session.expiresAt
     });
@@ -578,6 +579,7 @@ export async function handleRestoreWithRecovery(phrase, newPassword, confirmPass
       keySlots,
       projects: normalized.projects,
       items: normalized.items,
+      trash: normalized.trash || [],
       activeProjectId: normalized.projects[0].id,
       sessionExpiresAt: session.expiresAt
     });

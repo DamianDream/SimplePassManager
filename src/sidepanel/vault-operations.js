@@ -27,7 +27,8 @@ async function doPersistVaultChanges() {
     version: isV3 ? 3 : 2,
     updatedAt: new Date().toISOString(),
     projects: state.projects,
-    items: state.items
+    items: state.items,
+    trash: state.trash || []
   };
   const encrypted = await encryptVaultWithMek(vaultData, state.rawMek, state.keySlots);
   await saveStoredVault(encrypted);
@@ -57,6 +58,23 @@ export async function saveItem(itemData, { renderApp } = {}) {
   const existingIdx = state.items.findIndex(i => i.id === itemData.id);
   let updatedItems = [...state.items];
 
+  let passwordHistory = [];
+  if (existingIdx >= 0) {
+    const oldItem = state.items[existingIdx];
+    passwordHistory = Array.isArray(oldItem.passwordHistory) ? [...oldItem.passwordHistory] : [];
+    if (oldItem.password && itemData.password && oldItem.password !== itemData.password) {
+      passwordHistory.unshift({
+        password: oldItem.password,
+        createdAt: oldItem.updatedAt || new Date().toISOString()
+      });
+      if (passwordHistory.length > 5) {
+        passwordHistory = passwordHistory.slice(0, 5);
+      }
+    }
+  } else if (Array.isArray(itemData.passwordHistory)) {
+    passwordHistory = itemData.passwordHistory;
+  }
+
   const domain = extractCleanDomain(itemData.url);
   const domainNoPort = domain ? domain.split(':')[0] : '';
   let favicon = itemData.favicon || '';
@@ -71,6 +89,7 @@ export async function saveItem(itemData, { renderApp } = {}) {
 
   let itemToSave = {
     ...itemData,
+    passwordHistory,
     domain: domain || itemData.domain || '',
     favicon: favicon || (existingIdx >= 0 ? state.items[existingIdx].favicon : '') || '',
     projectId,
@@ -130,12 +149,25 @@ export async function saveItem(itemData, { renderApp } = {}) {
 }
 
 export async function deleteItem(id, { renderApp } = {}) {
-  if (!confirm(t('toasts.delete_confirm'))) return;
   const item = state.items.find(i => i.id === id);
-  const proj = item ? state.projects.find(p => p.id === item.projectId) : null;
+  if (!item) return;
+  const proj = state.projects.find(p => p.id === item.projectId);
 
+  // Soft-delete to state.trash with deletedAt
+  const trashItem = {
+    ...item,
+    deletedAt: new Date().toISOString()
+  };
+  const updatedTrash = [trashItem, ...(state.trash || [])];
   const updatedItems = state.items.filter(i => i.id !== id);
-  updateState({ items: updatedItems, activeTab: 'vault', selectedItem: null, isEditing: false });
+
+  updateState({
+    items: updatedItems,
+    trash: updatedTrash,
+    activeTab: 'vault',
+    selectedItem: null,
+    isEditing: false
+  });
   await persistVaultChanges();
   if (renderApp) renderApp();
 
@@ -145,11 +177,47 @@ export async function deleteItem(id, { renderApp } = {}) {
       showToast(t('toasts.pass_deleted_sync'));
     } catch (err) {
       console.warn('PASS CLI delete error:', err);
-      showToast(t('toasts.pass_deleted'));
+      showToast(t('trash.deleted_toast') || t('toasts.item_deleted'));
     }
   } else {
-    showToast(t('toasts.pass_deleted'));
+    showToast(t('trash.deleted_toast') || t('toasts.item_deleted'));
   }
+}
+
+export async function restoreTrashItem(id, { renderApp } = {}) {
+  const item = (state.trash || []).find(i => i.id === id);
+  if (!item) return;
+
+  const { deletedAt, ...restoredItem } = item;
+  restoredItem.updatedAt = new Date().toISOString();
+
+  const updatedTrash = (state.trash || []).filter(i => i.id !== id);
+  const updatedItems = [restoredItem, ...state.items];
+
+  updateState({
+    items: updatedItems,
+    trash: updatedTrash
+  });
+  await persistVaultChanges();
+  showToast(t('trash.restored_toast') || 'Restored from trash');
+  if (renderApp) renderApp();
+}
+
+export async function permanentDeleteTrashItem(id, { renderApp } = {}) {
+  if (!confirm(t('trash.delete_perm_confirm') || t('toasts.delete_confirm'))) return;
+  const updatedTrash = (state.trash || []).filter(i => i.id !== id);
+  updateState({ trash: updatedTrash });
+  await persistVaultChanges();
+  showToast(t('trash.perm_deleted_toast') || 'Item permanently deleted');
+  if (renderApp) renderApp();
+}
+
+export async function emptyTrash({ renderApp } = {}) {
+  if (!confirm(t('trash.empty_confirm') || 'Empty trash?')) return;
+  updateState({ trash: [] });
+  await persistVaultChanges();
+  showToast(t('trash.emptied_toast') || 'Trash emptied');
+  if (renderApp) renderApp();
 }
 
 export function downloadItemAsCsv(item, { renderApp } = {}) {

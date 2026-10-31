@@ -430,6 +430,7 @@ async function init() {
             keySlots,
             projects: normalized.projects,
             items: normalized.items,
+            trash: normalized.trash || [],
             activeProjectId: initialProjectId,
             sessionExpiresAt: session.expiresAt
           });

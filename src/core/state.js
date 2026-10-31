@@ -14,6 +14,7 @@ export const state = {
   projects: [],
   activeProjectId: null,
   items: [],
+  trash: [],
   categories: ['All', 'Work', 'Personal'],
   categoryColors: { Work: 'blue', Personal: 'green' },
   activeCategory: 'All',

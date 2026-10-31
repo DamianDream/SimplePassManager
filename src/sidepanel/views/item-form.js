@@ -183,6 +183,38 @@ export function renderItemFormView() {
             </button>
           </div>
           <div class="sp-field-error" id="sp-item-password-error"></div>
+          ${
+            !isNew && item.passwordHistory && item.passwordHistory.length > 0
+              ? `
+            <div class="sp-pwd-history-wrap" style="margin-top:6px;">
+              <button type="button" class="sp-btn-link" id="sp-toggle-pwd-history" style="font-size:11px; display:inline-flex; align-items:center; gap:4px; color:var(--primary); background:none; border:none; padding:2px 0; cursor:pointer;">
+                ${icons.iChevronDown}
+                <span>${t('form.password_history')} (${item.passwordHistory.length})</span>
+              </button>
+              <div id="sp-pwd-history-list" style="display:none; margin-top:6px; flex-direction:column; gap:4px;">
+                ${item.passwordHistory
+                  .map(
+                    ph => `
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:5px 8px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-size:11px;">
+                    <span style="color:var(--text-dim); font-size:10px;">${new Date(ph.createdAt || ph.lastUsed || Date.now()).toLocaleDateString()}</span>
+                    <span style="font-family:monospace; color:var(--text-dim); font-size:11px;">••••••••</span>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <button type="button" class="sp-btn-icon" data-action="copy-history-pwd" data-pwd="${escapeHtml(ph.password)}" style="width:22px; height:22px; padding:3px;" title="${t('vault.copy_password')}">
+                        ${icons.iCopy}
+                      </button>
+                      <button type="button" class="sp-btn-secondary" data-action="restore-history-pwd" data-pwd="${escapeHtml(ph.password)}" style="font-size:10px; padding:2px 6px;">
+                        ${t('form.restore_pwd_btn')}
+                      </button>
+                    </div>
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            </div>
+          `
+              : ''
+          }
         </div>
 
         <div class="sp-form-group">

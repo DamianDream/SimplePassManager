@@ -7,6 +7,7 @@ import { t, getLanguage, LANGUAGE_OPTIONS } from '../../core/i18n.js';
 import * as icons from '../../icons/icons.js';
 import { panelState } from '../panel-state.js';
 import { escapeHtml } from '../render-utils.js';
+import { renderTrashSectionContentHtml } from './settings-trash.js';
 import {
   CATEGORY_COLORS,
   DEFAULT_CATEGORY_COLORS,
@@ -664,6 +665,15 @@ export function renderSettingsView() {
       icon: icons.iDownload,
       content: backupHtml,
       keywords: 'бэкап экспорт импорт json csv pass txt export backup plaintext'
+    },
+    {
+      id: 'trash',
+      title: t('trash.title'),
+      desc: t('trash.desc'),
+      icon: icons.iTrash,
+      badge: (state.trash && state.trash.length) ? state.trash.length : undefined,
+      content: renderTrashSectionContentHtml(),
+      keywords: 'корзина trash deleted удаленные восстановить purge'
     },
     {
       id: 'about',

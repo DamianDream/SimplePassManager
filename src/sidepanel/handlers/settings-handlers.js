@@ -11,7 +11,13 @@ import {
   getActiveProjectItems
 } from '../../core/state.js';
 import { getItemTags } from '../../core/categories.js';
-import { persistVaultChanges, handleSyncPassProject } from '../vault-operations.js';
+import {
+  persistVaultChanges,
+  handleSyncPassProject,
+  restoreTrashItem,
+  permanentDeleteTrashItem,
+  emptyTrash
+} from '../vault-operations.js';
 import { showToast, applyTheme, renderPasswordStrengthBar } from '../render-utils.js';
 import { t, setLanguage, SUPPORTED_LANGUAGES } from '../../core/i18n.js';
 import {
@@ -544,6 +550,34 @@ export function attachSettingsHandlers({ renderApp, updateActiveTabDomain }) {
       if (activeProj) {
         handleSyncPassProject(activeProj.id);
       }
+    });
+  }
+
+  // Trash actions (F4)
+  document.querySelectorAll('[data-action="restore-trash-item"]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (id) {
+        await restoreTrashItem(id, { renderApp });
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete-perm-trash-item"]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (id) {
+        await permanentDeleteTrashItem(id, { renderApp });
+      }
+    });
+  });
+
+  const btnEmptyTrash = document.getElementById('sp-btn-empty-trash');
+  if (btnEmptyTrash) {
+    btnEmptyTrash.addEventListener('click', async () => {
+      await emptyTrash({ renderApp });
     });
   }
 }

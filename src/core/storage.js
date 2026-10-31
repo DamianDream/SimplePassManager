@@ -472,12 +472,22 @@ export function normalizeVaultData(data, initialProjectName = 'main') {
     return item;
   });
 
+  // F4: Trash retention - keep items for 30 days, purge expired
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  let trash = Array.isArray(data.trash) ? data.trash : [];
+  trash = trash.filter(item => {
+    const deletedTime = item.deletedAt ? new Date(item.deletedAt).getTime() : 0;
+    return deletedTime && (nowMs - deletedTime) < THIRTY_DAYS_MS;
+  });
+
   return {
-    version: 2,
+    version: data.version || 2,
     createdAt: data.createdAt || now,
     updatedAt: now,
     projects,
-    items
+    items,
+    trash
   };
 }
 
@@ -863,7 +873,12 @@ export function itemsToBitwardenJson(items = []) {
         username: item.username || '',
         password: item.password || ''
       },
-      passwordHistory: [],
+      passwordHistory: Array.isArray(item.passwordHistory)
+        ? item.passwordHistory.map(ph => ({
+            lastUsedDate: ph.createdAt || ph.lastUsed || now,
+            password: ph.password
+          }))
+        : [],
       creationDate: item.createdAt || now,
       revisionDate: item.updatedAt || now
     };
