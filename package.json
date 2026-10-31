@@ -9,7 +9,7 @@
     "build": "vite build",
     "test": "node tests/check-i18n.mjs && node tests/test-core.mjs",
     "prepack": "npm run test && node scripts/sync-version.js",
-    "pack": "npm run build && (cd dist && zip -rq ../simplepass-chrome.zip .)"
+    "pack": "npm run build && (cd dist && zip -rq ../simplepass-chrome.zip .) && cp simplepass-chrome.zip landing/simplepass-chrome.zip"
   },
   "keywords": [
     "password-manager",
