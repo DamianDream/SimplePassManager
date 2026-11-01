@@ -4,23 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SimplePass Manager: локальный менеджер паролей для Chrome</title>
-  <meta name="description" content="Безопасный локальный менеджер паролей для Google Chrome. Шифрование AES-256-GCM, мастер-ключ, интеграция с UNIX pass, без облака и телеметрии.">
+  <meta name="description" content="Безопасный локальный менеджер паролей для Google Chrome в стиле Cyberpunk. Шифрование AES-256-GCM, мастер-ключ, интеграция с UNIX pass, без облака и телеметрии.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght,CRSV,SHRP@300..700,0,0..100&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="stylesheet" href="./landing.css">
 </head>
 <body>
 
-  <!-- Navigation -->
+  <!-- Cyber Navigation Bar -->
   <header class="site-nav">
     <div class="container site-nav__inner">
       <a href="#" class="site-nav__brand">
         <span class="site-nav__logo-mark" aria-hidden="true">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
           </svg>
         </span>
         <span class="site-nav__brand-text">SimplePass</span>
@@ -29,286 +31,307 @@
 
       <nav aria-label="Основная навигация">
         <ul class="site-nav__menu">
-          <li><a href="#features" class="site-nav__link">Возможности</a></li>
-          <li><a href="#install" class="site-nav__link">Установка</a></li>
-          <li><a href="#security" class="site-nav__link">Безопасность</a></li>
-          <li><a href="#specs" class="site-nav__link">Спецификации</a></li>
+          <li><a href="#features" class="site-nav__link"><span class="nav-idx">01/</span>Возможности</a></li>
+          <li><a href="#architecture" class="site-nav__link"><span class="nav-idx">02/</span>Архитектура</a></li>
+          <li><a href="#install" class="site-nav__link"><span class="nav-idx">03/</span>Установка</a></li>
+          <li><a href="#specs" class="site-nav__link"><span class="nav-idx">04/</span>Спецификации</a></li>
         </ul>
       </nav>
 
       <div class="site-nav__action">
         <a href="./simplepass-chrome.zip" class="btn btn--nav" download="simplepass-chrome.zip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
           <span>Скачать ZIP</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
         </a>
       </div>
     </div>
   </header>
 
   <main>
-    <!-- Hero Section -->
+    <!-- Cyberpunk Hero Section with PCB Traces -->
     <section class="hero">
       <div class="container hero__grid">
         <div class="hero__lead-col">
-          <h1 class="hero__title">Менеджер паролей без облака и слежки</h1>
-          <p class="hero__sentence">Храните учетные данные в локальном зашифрованном хранилище с мастер-ключом на вашем устройстве. Никаких внешних серверов, трекеров и подписок.</p>
+          <div class="hero__coord-bar">
+            <span class="cyber-tag cyber-tag--active">Автономный сейф</span>
+            <span class="hero__coord-text">Шифрование AES (256 бит) / Manifest V3</span>
+          </div>
+
+          <h1 class="hero__title">Криптографический сейф без облака и слежки</h1>
+          <p class="hero__sentence">Аппаратный уровень изоляции в вашем браузере. Локальное аутентифицированное шифрование с мастер-ключом на вашем устройстве, нулевая сетевая активность и совместимость со стандартом UNIX pass.</p>
 
           <div class="hero__actions">
             <a href="./simplepass-chrome.zip" class="btn btn--primary" download="simplepass-chrome.zip">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
               <span>Скачать SimplePass v0.6.0</span>
-            </a>
-            <a href="#install" class="btn btn--outline">Инструкция по установке</a>
-          </div>
-
-          <div class="hero__file-info">
-            <span class="hero__tag-dot" aria-hidden="true"></span>
-            <span>Готовый архив для Google Chrome (188 КБ) (Manifest V3)</span>
-          </div>
-        </div>
-
-        <!-- Live Realistic Panel Preview -->
-        <div class="vault-preview">
-          <div class="vault-preview__topbar">
-            <span class="vault-preview__label">Боковая панель Chrome: хранилище</span>
-            <span class="vault-preview__status-dot" aria-hidden="true"></span>
-          </div>
-
-          <div class="vault-preview__panel">
-            <div class="vault-preview__search">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
               </svg>
-              <span>Поиск по паролям…</span>
+            </a>
+            <a href="#install" class="btn btn--outline">
+              <span>Инструкция по установке</span>
+            </a>
+          </div>
+
+          <div class="hero__telemetry">
+            <div class="telemetry-item">
+              <span class="telemetry-item__val">0 байт</span>
+              <span class="telemetry-item__lbl">Сетевой трафик</span>
+            </div>
+            <div class="telemetry-sep" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-item__val">600K</span>
+              <span class="telemetry-item__lbl">Раундов хеширования</span>
+            </div>
+            <div class="telemetry-sep" aria-hidden="true"></div>
+            <div class="telemetry-item">
+              <span class="telemetry-item__val">184 КБ</span>
+              <span class="telemetry-item__lbl">Размер сборки</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cyber Cryptographic Enclave Terminal (PCB Frame) -->
+        <div class="enclave-wrap">
+          <div class="enclave-card">
+            <div class="enclave-header">
+              <div class="enclave-status">
+                <span class="cyber-pulse" aria-hidden="true"></span>
+                <span class="enclave-title">Хранилище активно</span>
+              </div>
+              <span class="enclave-chip-id">Модуль Chrome MV3</span>
             </div>
 
-            <div class="vault-preview__pills">
-              <span class="vault-preview__pill vault-preview__pill--active">Все (7)</span>
-              <span class="vault-preview__pill">Work (3)</span>
-              <span class="vault-preview__pill">Personal (4)</span>
+            <!-- PCB Decorative Circuit Trace Header -->
+            <div class="pcb-trace-strip" aria-hidden="true">
+              <svg width="100%" height="24" viewBox="0 0 360 24" fill="none" preserveAspectRatio="none">
+                <path d="M0 12H90L102 24H180L192 12H360" stroke="var(--color-rule-2)" stroke-width="1.5"/>
+                <circle cx="90" cy="12" r="3" fill="var(--color-accent)"/>
+                <circle cx="180" cy="24" r="3" fill="var(--color-accent)"/>
+                <circle cx="270" cy="12" r="3" fill="var(--color-accent)"/>
+              </svg>
             </div>
 
-            <!-- Matched Domain Card -->
-            <div class="vault-preview__card vault-preview__card--matched">
-              <div class="vault-preview__card-meta">
-                <span class="vault-preview__card-title">github.com</span>
-                <span class="vault-preview__card-sub">developer@team.internal</span>
+            <div class="enclave-body">
+              <div class="enclave-search">
+                <span class="enclave-prompt">$</span>
+                <span class="enclave-placeholder">поиск по зашифрованным записям…</span>
               </div>
-              <div class="vault-preview__card-tools">
-                <span class="vault-preview__tool-btn" title="Заполнить">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                  </svg>
-                </span>
-                <span class="vault-preview__tool-btn" title="Копировать пароль">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </span>
+
+              <div class="enclave-filter-row">
+                <span class="enclave-pill enclave-pill--active">Все (7)</span>
+                <span class="enclave-pill">Work (3)</span>
+                <span class="enclave-pill">System (4)</span>
+              </div>
+
+              <!-- Live Domain Matched Card -->
+              <div class="enclave-item enclave-item--matched">
+                <div class="enclave-item__meta">
+                  <div class="enclave-item__domain-row">
+                    <span class="enclave-item__name">github.com</span>
+                    <span class="cyber-match-badge">Активный сайт</span>
+                  </div>
+                  <span class="enclave-item__login">developer@team.internal</span>
+                </div>
+                <div class="enclave-item__tools">
+                  <span class="enclave-btn" title="Заполнить">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                  </span>
+                  <span class="enclave-btn" title="Копировать">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                      <rect x="9" y="9" width="13" height="13"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Vault Enclave Item -->
+              <div class="enclave-item">
+                <div class="enclave-item__meta">
+                  <span class="enclave-item__name">AWS Console</span>
+                  <span class="enclave-item__login">admin-infrastructure</span>
+                </div>
+                <div class="enclave-item__tools">
+                  <span class="enclave-btn" title="Копировать">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                      <rect x="9" y="9" width="13" height="13"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Vault Enclave Item -->
+              <div class="enclave-item">
+                <div class="enclave-item__meta">
+                  <span class="enclave-item__name">Hetzner Cloud</span>
+                  <span class="enclave-item__login">ops@production.net</span>
+                </div>
+                <div class="enclave-item__tools">
+                  <span class="enclave-btn" title="Копировать">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                      <rect x="9" y="9" width="13" height="13"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </span>
+                </div>
               </div>
             </div>
 
-            <!-- Normal Vault Card -->
-            <div class="vault-preview__card">
-              <div class="vault-preview__card-meta">
-                <span class="vault-preview__card-title">AWS Console</span>
-                <span class="vault-preview__card-sub">admin-infrastructure</span>
-              </div>
-              <div class="vault-preview__card-tools">
-                <span class="vault-preview__tool-btn" title="Копировать пароль">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </span>
-              </div>
-            </div>
-
-            <!-- Normal Vault Card -->
-            <div class="vault-preview__card">
-              <div class="vault-preview__card-meta">
-                <span class="vault-preview__card-title">Hetzner Cloud</span>
-                <span class="vault-preview__card-sub">ops@production.net</span>
-              </div>
-              <div class="vault-preview__card-tools">
-                <span class="vault-preview__tool-btn" title="Копировать пароль">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </span>
-              </div>
+            <div class="enclave-footer">
+              <span>Хранилище: зашифровано</span>
+              <span class="enclave-footer__cipher">AES (256 бит)</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Browser Compatibility Strip -->
-    <section class="trust-strip">
-      <div class="container trust-strip__inner">
-        <span class="trust-strip__item">Google Chrome</span>
-        <span class="trust-strip__item">Brave</span>
-        <span class="trust-strip__item">Microsoft Edge</span>
-        <span class="trust-strip__item">Vivaldi</span>
-        <span class="trust-strip__item">Arc</span>
-        <span class="trust-strip__item">Chromium 116+</span>
-      </div>
-    </section>
-
-    <!-- Features / Bento Grid Section -->
+    <!-- Technical Hardware Grid Section (Direct Match to Cyber Reference) -->
     <section class="section" id="features">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__badge">Возможности</h2>
-          <p class="section__sub">Локальный зашифрованный сейф без внешних серверов, аналитики и передачи ключей третьим лицам.</p>
+          <h2 class="section__title"><span class="section__num">01.</span> Криптографические модули</h2>
+          <p class="section__sub">Три независимых контура защиты паролей без единой точки отказа и передачи ключей третьим лицам.</p>
         </div>
 
-        <div class="bento-grid">
-          <!-- Bento Card 1: Light with lime badge -->
-          <div class="bento-card bento-card--light">
-            <div class="bento-card__content">
-              <div class="bento-card__badge-wrap">
-                <h3 class="bento-card__badge">Локальное шифрование</h3>
-              </div>
-              <p class="bento-card__desc">Стойкое 256-битное шифрование и 600 000 раундов хеширования ключа. Мастер-ключ расшифровывает базу только в локальной памяти браузера.</p>
-              <a href="#security" class="bento-card__link">
-                <span class="bento-card__link-circle" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                    <polyline points="7 7 17 7 17 17"></polyline>
-                  </svg>
-                </span>
-                <span class="bento-card__link-text">Архитектура ключей</span>
-              </a>
+        <div class="cyber-cards-grid">
+          <!-- Cyber Card 01: High-Contrast Acid Lime Banner Card -->
+          <div class="cyber-card cyber-card--lime">
+            <div class="cyber-card__top">
+              <span class="cyber-card__num">01</span>
+              <span class="cyber-card__arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
             </div>
-            <div class="bento-card__graphic" aria-hidden="true">
-              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
-                <rect x="20" y="35" width="80" height="65" rx="16" stroke="var(--color-ink)" stroke-width="2" fill="var(--color-paper)"/>
-                <circle cx="60" cy="62" r="8" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="2"/>
-                <line x1="60" y1="70" x2="60" y2="82" stroke="var(--color-ink)" stroke-width="2" stroke-linecap="round"/>
-                <path d="M38 35V25C38 14 48 6 60 6C72 6 82 14 82 25V35" stroke="var(--color-ink)" stroke-width="2" stroke-linecap="round"/>
-              </svg>
+            <h3 class="cyber-card__heading">Локальное шифрование</h3>
+            <p class="cyber-card__desc">Стойкое 256-битное шифрование и 600 000 раундов хеширования ключа. Мастер-ключ дешифрует базу исключительно в оперативной памяти браузера.</p>
+            <div class="cyber-card__bot">
+              <span class="cyber-chip-tag">Слот шифрования: SHA-256</span>
             </div>
           </div>
 
-          <!-- Bento Card 2: Dark card with white badge -->
-          <div class="bento-card bento-card--dark">
-            <div class="bento-card__content">
-              <div class="bento-card__badge-wrap">
-                <h3 class="bento-card__badge bento-card__badge--white">Аудит безопасности</h3>
-              </div>
-              <p class="bento-card__desc">Мгновенный аудит паролей прямо в интерфейсе: выявление повторяющихся, слабых и коротких комбинаций без обращения к внешним серверам.</p>
-              <a href="#install" class="bento-card__link bento-card__link--light">
-                <span class="bento-card__link-circle" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                    <polyline points="7 7 17 7 17 17"></polyline>
-                  </svg>
-                </span>
-                <span class="bento-card__link-text">Проверка базы</span>
-              </a>
+          <!-- Cyber Card 02: Void Black Modular Card with PCB Trace Accents -->
+          <div class="cyber-card cyber-card--dark">
+            <div class="cyber-card__top">
+              <span class="cyber-card__num">02</span>
+              <span class="cyber-card__arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
             </div>
-            <div class="bento-card__graphic" aria-hidden="true">
-              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
-                <path d="M60 12L96 28V60C96 82 78 102 60 108C42 102 24 82 24 60V28L60 12Z" stroke="var(--color-paper)" stroke-width="2" fill="oklch(28% 0.015 260)"/>
-                <polyline points="45 58 55 68 75 48" stroke="var(--color-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+            <h3 class="cyber-card__heading">Аудит безопасности</h3>
+            <p class="cyber-card__desc">Встроенный локальный аудит: мгновенное выявление повторяющихся, слабых и скомпрометированных паролей без отправки контрольных сумм во внешнюю сеть.</p>
+            <div class="cyber-card__bot">
+              <span class="cyber-chip-tag">Модуль проверки: локальный</span>
             </div>
           </div>
 
-          <!-- Bento Card 3: Dark card with white badge -->
-          <div class="bento-card bento-card--dark">
-            <div class="bento-card__content">
-              <div class="bento-card__badge-wrap">
-                <h3 class="bento-card__badge bento-card__badge--white">Интеграция с UNIX pass</h3>
-              </div>
-              <p class="bento-card__desc">Прямая синхронизация со стандартной консольной утилитой pass и системным GPG через локальный мост нативного обмена сообщениями.</p>
-              <a href="#specs" class="bento-card__link bento-card__link--light">
-                <span class="bento-card__link-circle" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                    <polyline points="7 7 17 7 17 17"></polyline>
-                  </svg>
-                </span>
-                <span class="bento-card__link-text">Подробнее о мосте</span>
-              </a>
+          <!-- Cyber Card 03: Void Black Modular Card with PCB Trace Accents -->
+          <div class="cyber-card cyber-card--dark">
+            <div class="cyber-card__top">
+              <span class="cyber-card__num">03</span>
+              <span class="cyber-card__arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true">
+                  <line x1="7" y1="17" x2="17" y2="7"></line>
+                  <polyline points="7 7 17 7 17 17"></polyline>
+                </svg>
+              </span>
             </div>
-            <div class="bento-card__graphic" aria-hidden="true">
-              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
-                <rect x="20" y="24" width="80" height="72" rx="14" stroke="var(--color-paper)" stroke-width="2" fill="oklch(28% 0.015 260)"/>
-                <polyline points="36 50 48 60 36 70" stroke="var(--color-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <line x1="56" y1="70" x2="74" y2="70" stroke="var(--color-paper)" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>
-          </div>
-
-          <!-- Bento Card 4: Light with lime badge -->
-          <div class="bento-card bento-card--light">
-            <div class="bento-card__content">
-              <div class="bento-card__badge-wrap">
-                <h3 class="bento-card__badge">Zero-cloud архитектура</h3>
-              </div>
-              <p class="bento-card__desc">Никаких запросов во внешнюю сеть и трекинга. Все зашифрованные записи хранятся исключительно в изолированном хранилище вашего браузера.</p>
-              <a href="#security" class="bento-card__link">
-                <span class="bento-card__link-circle" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="7" y1="17" x2="17" y2="7"></line>
-                    <polyline points="7 7 17 7 17 17"></polyline>
-                  </svg>
-                </span>
-                <span class="bento-card__link-text">Политика изоляции</span>
-              </a>
-            </div>
-            <div class="bento-card__graphic" aria-hidden="true">
-              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
-                <circle cx="60" cy="60" r="38" stroke="var(--color-ink)" stroke-width="2" fill="var(--color-accent-soft)"/>
-                <path d="M42 60L54 72L78 46" stroke="var(--color-ink)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="86" cy="34" r="6" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="2"/>
-              </svg>
+            <h3 class="cyber-card__heading">Мост с UNIX pass</h3>
+            <p class="cyber-card__desc">Прямая синхронизация со стандартной консольной утилитой pass и локальным ключом GPG через защищённый системный мост нативного обмена сообщениями.</p>
+            <div class="cyber-card__bot">
+              <span class="cyber-chip-tag">Системный мост: pass CLI</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Call to Action Banner -->
-    <section class="section-cta">
+    <!-- Circuit Architecture & Microchip PCB Section -->
+    <section class="section" id="architecture">
       <div class="container">
-        <div class="cta-banner">
-          <div class="cta-banner__content">
-            <h2 class="cta-banner__title">Начните безопасно управлять паролями</h2>
-            <p class="cta-banner__text">Скачайте архив SimplePass для Chrome и установите локальный менеджер за одну минуту без учетных записей и абонентской платы.</p>
-            <div class="cta-banner__action">
-              <a href="./simplepass-chrome.zip" class="btn btn--primary" download="simplepass-chrome.zip">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <span>Скачать SimplePass v0.6.0</span>
-              </a>
+        <div class="section__head">
+          <h2 class="section__title"><span class="section__num">02.</span> Архитектура криптографической памяти</h2>
+          <p class="section__sub">Четыре контура криптографической защиты данных на уровне локального окружения.</p>
+        </div>
+
+        <div class="pcb-schematic-grid">
+          <!-- PCB Unit 01 -->
+          <div class="pcb-node">
+            <div class="pcb-node__pin-row" aria-hidden="true">
+              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
             </div>
+            <span class="pcb-node__id">Контур 01</span>
+            <h3 class="pcb-node__title">Двойной конверт ключей</h3>
+            <p class="pcb-node__desc">Архитектура с независимым случайным 256-битным мастер-ключом шифрования и отдельным слотом для 12-словной резервной фразы.</p>
           </div>
 
-          <div class="cta-banner__graphic" aria-hidden="true">
-            <svg width="160" height="160" viewBox="0 0 160 160" fill="none" class="cta-graphic-svg">
-              <circle cx="80" cy="80" r="44" fill="var(--color-paper-dark)"/>
-              <circle cx="68" cy="74" r="4" fill="var(--color-paper)"/>
-              <circle cx="92" cy="74" r="4" fill="var(--color-paper)"/>
-              <ellipse cx="80" cy="80" rx="68" ry="24" stroke="var(--color-ink)" stroke-width="2"/>
-              <polygon points="120,40 126,52 138,54 129,63 131,75 120,69 109,75 111,63 102,54 114,52" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="1.5"/>
-            </svg>
+          <!-- PCB Unit 02 -->
+          <div class="pcb-node">
+            <div class="pcb-node__pin-row" aria-hidden="true">
+              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            </div>
+            <span class="pcb-node__id">Контур 02</span>
+            <h3 class="pcb-node__title">Полная изоляция сети</h3>
+            <p class="pcb-node__desc">Полное отсутствие сетевых запросов. Все криптографические операции выполняются локально на уровне WebCrypto в изолированном контексте браузера.</p>
+          </div>
+
+          <!-- PCB Unit 03 -->
+          <div class="pcb-node">
+            <div class="pcb-node__pin-row" aria-hidden="true">
+              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            </div>
+            <span class="pcb-node__id">Контур 03</span>
+            <h3 class="pcb-node__title">Защита от подмены слотов</h3>
+            <p class="pcb-node__desc">Дополнительная криптографическая привязка Authenticated Data для защиты зашифрованных блоков базы от подмены или перестановки записей.</p>
+          </div>
+
+          <!-- PCB Unit 04 -->
+          <div class="pcb-node">
+            <div class="pcb-node__pin-row" aria-hidden="true">
+              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            </div>
+            <span class="pcb-node__id">Контур 04</span>
+            <h3 class="pcb-node__title">Очистка по таймеру</h3>
+            <p class="pcb-node__desc">Мгновенный сброс сессионных ключей из памяти при блокировке экрана, переходе компьютера в спящий режим или истечении таймера бездействия.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- High-Contrast Cyber Metrics Strip -->
+    <section class="cyber-metrics-strip">
+      <div class="container">
+        <div class="cyber-metrics-box">
+          <div class="cyber-metrics-strip__inner">
+            <div class="metric-block">
+              <span class="metric-block__val">256 бит</span>
+              <span class="metric-block__label">Аутентифицированный шифр</span>
+            </div>
+            <div class="metric-block">
+              <span class="metric-block__val">600K</span>
+              <span class="metric-block__label">Раундов хеширования</span>
+            </div>
+            <div class="metric-block">
+              <span class="metric-block__val">0 байт</span>
+              <span class="metric-block__label">Сетевых пакетов в облако</span>
+            </div>
+            <div class="metric-block">
+              <span class="metric-block__val">100%</span>
+              <span class="metric-block__label">Автономное хранилище</span>
+            </div>
           </div>
         </div>
       </div>
@@ -318,107 +341,47 @@
     <section class="section" id="install">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__badge">Установка</h2>
-          <p class="section__sub">Три простых шага для запуска расширения в браузере за 60 секунд.</p>
+          <h2 class="section__title"><span class="section__num">03.</span> Протокол установки</h2>
+          <p class="section__sub">Быстрое развёртывание расширения в любом современном Chromium-браузере за 60 секунд.</p>
         </div>
 
         <div class="steps-grid">
           <div class="step-card">
-            <div class="step-card__top">
-              <span class="step-card__index">01</span>
+            <div class="step-card__header">
+              <span class="step-card__tag">Шаг 01</span>
+              <span class="step-card__num">01</span>
             </div>
             <h3 class="step-card__title">Скачайте и распакуйте ZIP-архив</h3>
-            <p class="step-card__desc">Скачайте актуальный файл <span class="code-badge">simplepass-chrome.zip</span> по ссылке выше и распакуйте его содержимое в постоянную локальную папку на диске.</p>
+            <p class="step-card__desc">Скачайте актуальный дистрибутив <span class="code-badge">simplepass-chrome.zip</span> и распакуйте его содержимое в постоянную локальную папку на диске.</p>
           </div>
 
           <div class="step-card">
-            <div class="step-card__top">
-              <span class="step-card__index">02</span>
+            <div class="step-card__header">
+              <span class="step-card__tag">Шаг 02</span>
+              <span class="step-card__num">02</span>
             </div>
             <h3 class="step-card__title">Откройте меню расширений Chrome</h3>
-            <p class="step-card__desc">Перейдите по адресу <span class="code-badge">chrome://extensions</span> в адресной строке и включите переключатель «Режим разработчика» в верхнем правом углу.</p>
+            <p class="step-card__desc">Перейдите по адресу <span class="code-badge">chrome://extensions</span> в адресной строке и активируйте переключатель «Режим разработчика» в верхнем правом углу.</p>
           </div>
 
           <div class="step-card">
-            <div class="step-card__top">
-              <span class="step-card__index">03</span>
+            <div class="step-card__header">
+              <span class="step-card__tag">Шаг 03</span>
+              <span class="step-card__num">03</span>
             </div>
             <h3 class="step-card__title">Загрузите распакованное расширение</h3>
-            <p class="step-card__desc">Нажмите кнопку «Загрузить распакованное расширение» и выберите распакованную папку. SimplePass мгновенно появится в панели браузера.</p>
+            <p class="step-card__desc">Нажмите кнопку «Загрузить распакованное расширение» и укажите распакованную папку. SimplePass мгновенно появится в нативной боковой панели.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Security & Architecture Section -->
-    <section class="section" id="security">
-      <div class="container">
-        <div class="section__head">
-          <h2 class="section__badge">Безопасность</h2>
-          <p class="section__sub">Криптографическая архитектура без компромиссов. Полная изоляция от внешних серверов.</p>
-        </div>
-
-        <div class="security-grid">
-          <div class="sec-card">
-            <div class="sec-card__meta">
-              <span class="sec-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
-              </span>
-            </div>
-            <h3 class="sec-card__title">AES-256-GCM и PBKDF2 (600 000 раундов)</h3>
-            <p class="sec-card__desc">Мастер-ключ шифрования защищен многократным хешированием с солью и аутентифицированным шифрованием. Дополнительная защита слотов от подмены данных.</p>
-          </div>
-
-          <div class="sec-card">
-            <div class="sec-card__meta">
-              <span class="sec-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                </svg>
-              </span>
-            </div>
-            <h3 class="sec-card__title">Нулевая утечка и автономность</h3>
-            <p class="sec-card__desc">Расширение не отправляет сетевых запросов на внешние серверы. Все зашифрованные данные остаются исключительно на вашем компьютере.</p>
-          </div>
-
-          <div class="sec-card">
-            <div class="sec-card__meta">
-              <span class="sec-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="4 17 10 11 4 5"></polyline>
-                  <line x1="12" y1="19" x2="20" y2="19"></line>
-                </svg>
-              </span>
-            </div>
-            <h3 class="sec-card__title">Интеграция со стандартным UNIX pass</h3>
-            <p class="sec-card__desc">Двусторонняя синхронизация со стандартной утилитой pass и локальным хранилищем через нативный мост взаимодействия в операционной системе.</p>
-          </div>
-
-          <div class="sec-card">
-            <div class="sec-card__meta">
-              <span class="sec-card__icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
-              </span>
-            </div>
-            <h3 class="sec-card__title">Локальный аудит надежности паролей</h3>
-            <p class="sec-card__desc">Мгновенное выявление повторяющихся и слабых паролей прямо в браузере без обращения к внешним базам данных утечек.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Specifications Table Section -->
+    <!-- Technical Specifications Table -->
     <section class="section" id="specs">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__badge">Спецификации</h2>
-          <p class="section__sub">Характеристики сборки и поддерживаемые стандарты безопасности.</p>
+          <h2 class="section__title"><span class="section__num">04.</span> Технические спецификации</h2>
+          <p class="section__sub">Архитектура безопасности, криптографические параметры и поддерживаемые стандарты.</p>
         </div>
 
         <div class="spec-table-wrap">
@@ -427,7 +390,7 @@
               <tr>
                 <th scope="col">Параметр</th>
                 <th scope="col">Значение</th>
-                <th scope="col">Примечание</th>
+                <th scope="col">Спецификация</th>
               </tr>
             </thead>
             <tbody>
@@ -468,19 +431,22 @@
     </section>
   </main>
 
-  <!-- Footer -->
+  <!-- Cyberpunk Footer -->
   <footer class="site-footer">
     <div class="container">
       <div class="site-footer__grid">
         <div class="site-footer__brand">
-          <span class="site-footer__brand-title">SimplePass Manager</span>
-          <p class="site-footer__brand-desc">Открытый локальный менеджер паролей. Никакой телеметрии, внешних серверов или облачных баз данных.</p>
+          <div class="site-footer__brand-head">
+            <span class="site-footer__brand-dot" aria-hidden="true"></span>
+            <span class="site-footer__brand-title">SimplePass Manager</span>
+          </div>
+          <p class="site-footer__brand-desc">Открытый локальный менеджер паролей в стиле Cyberpunk. Никакой телеметрии, внешних серверов или сторонних облачных баз данных.</p>
         </div>
 
         <div class="site-footer__col">
           <span class="site-footer__heading">Загрузка</span>
           <ul class="site-footer__list">
-            <li><a href="./simplepass-chrome.zip" class="site-footer__link" download="simplepass-chrome.zip">Скачать архив (188 КБ)</a></li>
+            <li><a href="./simplepass-chrome.zip" class="site-footer__link" download="simplepass-chrome.zip">Скачать архив (184 КБ)</a></li>
             <li><a href="#install" class="site-footer__link">Инструкция по установке</a></li>
           </ul>
         </div>
@@ -488,7 +454,7 @@
         <div class="site-footer__col">
           <span class="site-footer__heading">Исходный код</span>
           <ul class="site-footer__list">
-            <li><a href="../README.md" class="site-footer__link">Документация проекта</a></li>
+            <li><a href="https://github.com/DamianDream/SimplePassManager" class="site-footer__link" target="_blank" rel="noopener noreferrer">GitHub репозиторий</a></li>
             <li><a href="../PRIVACY.md" class="site-footer__link">Политика приватности</a></li>
             <li><a href="../LICENSE" class="site-footer__link">Лицензия MIT</a></li>
           </ul>
@@ -504,7 +470,7 @@
         <a href="https://batalshikov.com" target="_blank" rel="noopener noreferrer" class="footer-author-pill">
           <span class="footer-author-pill__label">РАЗРАБОТКА И КОНЦЕПТ</span>
           <span class="footer-author-pill__name">batalshikov.com</span>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="footer-author-pill__arrow">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" aria-hidden="true" class="footer-author-pill__arrow">
             <line x1="7" y1="17" x2="17" y2="7"></line>
             <polyline points="7 7 17 7 17 17"></polyline>
           </svg>
