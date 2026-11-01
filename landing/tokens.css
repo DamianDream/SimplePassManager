@@ -17,6 +17,13 @@
   --color-paper-card: oklch(15% 0.014 145);
   --color-pcb-substrate: oklch(11% 0.01 145);
   --color-pcb-trace: oklch(26% 0.025 140);
+  --color-trace-bus: oklch(35% 0.03 140);
+  --color-chip-body: oklch(17% 0.016 145);
+  --color-chip-pin: oklch(45% 0.04 140);
+  --color-chip-pin-hi: oklch(91% 0.24 125);
+  --scrim-pcb: oklch(13% 0.012 145 / 0.85);
+  --scrim-pcb-deep: oklch(12% 0.01 145 / 0.94);
+  --glow-hero: oklch(91% 0.24 125 / 0.07);
   --glow-subtle: oklch(91% 0.24 125 / 0.04);
   --color-accent-dark-text: oklch(20% 0.04 140);
 

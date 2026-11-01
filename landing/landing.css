@@ -1,6 +1,6 @@
 /* Hallmark · shape: Narrative Workflow · genre: atmospheric · theme: terminal · redesign: full
  * paper: oklch(13% 0.012 145) · accent: oklch(91% 0.24 125) · display: Space Grotesk · body: Space Grotesk · hero: Settled · nav: edge-aligned · footer: technical anchor
- * axes: dark/geometric-tech/electric-lime · posture: high-contrast-cyber · contrast: pass · fold: pass · v3.1.0 */
+ * axes: dark/geometric-tech/electric-lime · posture: high-contrast-cyber · contrast: pass · fold: pass · v3.2.0 */
 /* Hallmark · pre-emit critique: P9 H9 E9 S9 R9 V9 · weakest: none, tactile high-contrast cyberpunk aesthetic with PCB microchip traces */
 @import url("./tokens.css");
 @import url("./base.css");
@@ -29,11 +29,12 @@ body {
   background-color: var(--color-paper);
   color: var(--color-ink);
   background-image: 
-    radial-gradient(circle at 50% 0%, var(--glow-subtle) 0%, transparent 60%),
-    linear-gradient(var(--color-rule) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-rule) 1px, transparent 1px);
-  background-size: 100% 100%, 64px 64px, 64px 64px;
-  background-position: 0 0, -1px -1px, -1px -1px;
+    radial-gradient(circle at 50% 12%, var(--glow-hero) 0%, transparent 60%),
+    linear-gradient(180deg, var(--scrim-pcb) 0%, var(--scrim-pcb-deep) 100%),
+    url("./pcb-circuit.jpg");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: 100% 800px, 100% 100%, 512px auto;
+  background-attachment: scroll, scroll, fixed;
 }
 
 /* ─── NAVIGATION ───────────────────────────────── */
@@ -285,6 +286,62 @@ body {
   background: var(--color-rule);
 }
 
+/* ─── HARDWARE IC PIN ACCENTS ──────────────────── */
+.hw-chip-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3xs);
+  margin-bottom: -1px;
+}
+
+.hw-chip-pins {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.hw-chip-pins span {
+  width: 10px;
+  height: 6px;
+  background: var(--color-chip-pin);
+  border: var(--rule-hair) solid var(--color-rule-2);
+  border-radius: 1px 1px 0 0;
+}
+
+.hw-chip-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  background: var(--color-paper-card);
+  border: var(--rule-hair) solid var(--color-rule-2);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-badge);
+}
+
+.hw-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+.hw-chip-label {
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.hw-chip-bottom {
+  display: flex;
+  justify-content: center;
+  margin-top: -1px;
+}
+
+.hw-chip-bottom .hw-chip-pins span {
+  border-radius: 0 0 1px 1px;
+}
+
 /* ─── CRYPTOGRAPHIC ENCLAVE TERMINAL (PCB FRAME) ─ */
 .enclave-wrap {
   position: relative;
@@ -471,6 +528,14 @@ body {
   font-weight: 600;
 }
 
+/* ─── PCB BUS CONNECTING STRIP ─────────────────── */
+.circuit-bus-divider {
+  width: 100%;
+  line-height: 0;
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper);
+}
+
 /* ─── SECTION STYLING (CYBERPUNK ARCHITECTURE) ─── */
 .section {
   padding-top: var(--section-gap);
@@ -626,7 +691,7 @@ body {
   display: inline-block;
 }
 
-/* ─── PCB SCHEMATIC GRID (MATCHING REFERENCE 2) ── */
+/* ─── PCB SCHEMATIC GRID (SILICON CHIP NODES) ──── */
 .pcb-schematic-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -634,7 +699,7 @@ body {
 }
 
 .pcb-node {
-  background: var(--color-pcb-substrate);
+  background: var(--color-chip-body);
   border: var(--rule-hair) solid var(--color-rule-2);
   border-radius: var(--radius-card);
   padding: var(--space-lg);
@@ -644,23 +709,49 @@ body {
   position: relative;
 }
 
-.pcb-node__pin-row {
+.ic-pins-row {
   display: flex;
-  gap: var(--space-2xs);
-  margin-bottom: var(--space-2xs);
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: calc(-1 * (var(--space-lg) + var(--space-2xs)));
+  margin-bottom: var(--space-xs);
 }
 
-.pcb-pin {
+.ic-pins-row--bottom {
+  margin-top: var(--space-md);
+  margin-bottom: calc(-1 * (var(--space-lg) + var(--space-2xs)));
+}
+
+.ic-pin {
   width: 8px;
-  height: 4px;
-  background: var(--color-rule-2);
+  height: 5px;
+  background: var(--color-chip-pin);
+  border: var(--rule-hair) solid var(--color-rule-2);
   border-radius: 1px;
 }
 
+.pcb-node:hover .ic-pin {
+  background: var(--color-chip-pin-hi);
+}
+
+.pcb-node__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.ic-keyway {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-rule-2);
+}
+
 .pcb-node__id {
+  font-family: inherit;
   font-size: var(--text-xs);
   color: var(--color-accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .pcb-node__title {

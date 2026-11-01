@@ -96,22 +96,34 @@
 
         <!-- Cyber Cryptographic Enclave Terminal (PCB Frame) -->
         <div class="enclave-wrap">
+          <!-- Hardware IC Chip Header Accent -->
+          <div class="hw-chip-top" aria-hidden="true">
+            <div class="hw-chip-pins">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="hw-chip-badge">
+              <span class="hw-chip-dot"></span>
+              <span class="hw-chip-label">Контур Chrome MV3 // аппаратный анклав</span>
+            </div>
+          </div>
+
           <div class="enclave-card">
             <div class="enclave-header">
               <div class="enclave-status">
                 <span class="cyber-pulse" aria-hidden="true"></span>
                 <span class="enclave-title">Хранилище активно</span>
               </div>
-              <span class="enclave-chip-id">Модуль Chrome MV3</span>
+              <span class="enclave-chip-id">Слот памяти: локальный</span>
             </div>
 
             <!-- PCB Decorative Circuit Trace Header -->
             <div class="pcb-trace-strip" aria-hidden="true">
-              <svg width="100%" height="24" viewBox="0 0 360 24" fill="none" preserveAspectRatio="none">
-                <path d="M0 12H90L102 24H180L192 12H360" stroke="var(--color-rule-2)" stroke-width="1.5"/>
-                <circle cx="90" cy="12" r="3" fill="var(--color-accent)"/>
-                <circle cx="180" cy="24" r="3" fill="var(--color-accent)"/>
-                <circle cx="270" cy="12" r="3" fill="var(--color-accent)"/>
+              <svg width="100%" height="28" viewBox="0 0 360 28" fill="none" preserveAspectRatio="none">
+                <path d="M0 14H80L94 26H170L184 14H360" stroke="var(--color-rule-2)" stroke-width="1.5"/>
+                <path d="M0 6H120L132 18H240L252 6H360" stroke="var(--color-rule)" stroke-width="1"/>
+                <circle cx="80" cy="14" r="3" fill="var(--color-accent)"/>
+                <circle cx="170" cy="26" r="3" fill="var(--color-accent)"/>
+                <circle cx="280" cy="14" r="3" fill="var(--color-accent)"/>
               </svg>
             </div>
 
@@ -189,9 +201,26 @@
               <span class="enclave-footer__cipher">AES (256 бит)</span>
             </div>
           </div>
+
+          <!-- Bottom Microchip Pinout Accent -->
+          <div class="hw-chip-bottom" aria-hidden="true">
+            <div class="hw-chip-pins">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
+
+    <!-- PCB Connecting Circuit Bus Strip -->
+    <div class="circuit-bus-divider" aria-hidden="true">
+      <svg width="100%" height="24" viewBox="0 0 1200 24" fill="none" preserveAspectRatio="none">
+        <path d="M0 12 H300 L320 20 H600 L620 4 H900 L920 12 H1200" stroke="var(--color-rule-2)" stroke-width="1.5"/>
+        <circle cx="300" cy="12" r="3" fill="var(--color-accent)"/>
+        <circle cx="600" cy="20" r="3" fill="var(--color-accent)"/>
+        <circle cx="900" cy="4" r="3" fill="var(--color-accent)"/>
+      </svg>
+    </div>
 
     <!-- Technical Hardware Grid Section (Direct Match to Cyber Reference) -->
     <section class="section" id="features">
@@ -268,44 +297,68 @@
         </div>
 
         <div class="pcb-schematic-grid">
-          <!-- PCB Unit 01 -->
+          <!-- PCB Unit 01 (Styled as Physical Silicon Microchip IC) -->
           <div class="pcb-node">
-            <div class="pcb-node__pin-row" aria-hidden="true">
-              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            <div class="ic-pins-row" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
             </div>
-            <span class="pcb-node__id">Контур 01</span>
+            <div class="pcb-node__head">
+              <span class="ic-keyway" aria-hidden="true"></span>
+              <span class="pcb-node__id">Контур 01 // защитный конверт</span>
+            </div>
             <h3 class="pcb-node__title">Двойной конверт ключей</h3>
             <p class="pcb-node__desc">Архитектура с независимым случайным 256-битным мастер-ключом шифрования и отдельным слотом для 12-словной резервной фразы.</p>
+            <div class="ic-pins-row ic-pins-row--bottom" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
+            </div>
           </div>
 
-          <!-- PCB Unit 02 -->
+          <!-- PCB Unit 02 (Styled as Physical Silicon Microchip IC) -->
           <div class="pcb-node">
-            <div class="pcb-node__pin-row" aria-hidden="true">
-              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            <div class="ic-pins-row" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
             </div>
-            <span class="pcb-node__id">Контур 02</span>
+            <div class="pcb-node__head">
+              <span class="ic-keyway" aria-hidden="true"></span>
+              <span class="pcb-node__id">Контур 02 // изоляция хранилища</span>
+            </div>
             <h3 class="pcb-node__title">Полная изоляция сети</h3>
             <p class="pcb-node__desc">Полное отсутствие сетевых запросов. Все криптографические операции выполняются локально на уровне WebCrypto в изолированном контексте браузера.</p>
+            <div class="ic-pins-row ic-pins-row--bottom" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
+            </div>
           </div>
 
-          <!-- PCB Unit 03 -->
+          <!-- PCB Unit 03 (Styled as Physical Silicon Microchip IC) -->
           <div class="pcb-node">
-            <div class="pcb-node__pin-row" aria-hidden="true">
-              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            <div class="ic-pins-row" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
             </div>
-            <span class="pcb-node__id">Контур 03</span>
+            <div class="pcb-node__head">
+              <span class="ic-keyway" aria-hidden="true"></span>
+              <span class="pcb-node__id">Контур 03 // верификация подписи</span>
+            </div>
             <h3 class="pcb-node__title">Защита от подмены слотов</h3>
             <p class="pcb-node__desc">Дополнительная криптографическая привязка Authenticated Data для защиты зашифрованных блоков базы от подмены или перестановки записей.</p>
+            <div class="ic-pins-row ic-pins-row--bottom" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
+            </div>
           </div>
 
-          <!-- PCB Unit 04 -->
+          <!-- PCB Unit 04 (Styled as Physical Silicon Microchip IC) -->
           <div class="pcb-node">
-            <div class="pcb-node__pin-row" aria-hidden="true">
-              <span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span><span class="pcb-pin"></span>
+            <div class="ic-pins-row" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
             </div>
-            <span class="pcb-node__id">Контур 04</span>
+            <div class="pcb-node__head">
+              <span class="ic-keyway" aria-hidden="true"></span>
+              <span class="pcb-node__id">Контур 04 // сброс сессионной памяти</span>
+            </div>
             <h3 class="pcb-node__title">Очистка по таймеру</h3>
             <p class="pcb-node__desc">Мгновенный сброс сессионных ключей из памяти при блокировке экрана, переходе компьютера в спящий режим или истечении таймера бездействия.</p>
+            <div class="ic-pins-row ic-pins-row--bottom" aria-hidden="true">
+              <span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span><span class="ic-pin"></span>
+            </div>
           </div>
         </div>
       </div>
