@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.zip
+!landing/simplepass-chrome.zip
 .DS_Store
 *.local
 .env
