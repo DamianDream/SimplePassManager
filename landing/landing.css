@@ -32,8 +32,9 @@ body {
     radial-gradient(circle at 50% 12%, var(--glow-hero) 0%, transparent 60%),
     linear-gradient(180deg, var(--scrim-pcb) 0%, var(--scrim-pcb-deep) 100%),
     url("./pcb-circuit.jpg");
-  background-repeat: no-repeat, no-repeat, repeat;
-  background-size: 100% 800px, 100% 100%, 512px auto;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-position: center top, center top, center top;
+  background-size: 100% 800px, 100% 100%, cover;
   background-attachment: scroll, scroll, fixed;
 }
 
