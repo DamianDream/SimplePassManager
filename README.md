@@ -1,10 +1,13 @@
 # 🛡️ SimplePass Manager
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-simplepass--manager.pages.dev-brightgreen.svg)](https://simplepass-manager.pages.dev)
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-success.svg)](src/manifest.json)
 [![Encryption](https://img.shields.io/badge/Encryption-AES--256--GCM-cyan.svg)](src/core/crypto.js)
 
 **SimplePass Manager** — современный, быстрый и безопасный Open-Source менеджер паролей для Google Chrome, Chromium, Brave, Arc и Edge. Работает прямо в нативной боковой панели браузера (Chrome Side Panel), обеспечивает военный уровень шифрования данных (**AES-256-GCM**) и предоставляет удобный интерфейс с автозаполнением, генератором паролей и поддержкой классического формата UNIX `pass`.
+
+🌐 **Официальный сайт и загрузка:** [https://simplepass-manager.pages.dev](https://simplepass-manager.pages.dev)
 
 ---
 
