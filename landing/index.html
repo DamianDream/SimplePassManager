@@ -7,7 +7,7 @@
   <meta name="description" content="Безопасный локальный менеджер паролей для Google Chrome. Шифрование AES-256-GCM, мастер-ключ, интеграция с UNIX pass, без облака и телеметрии.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght,CRSV,SHRP@200..600,0,0..100&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght,CRSV,SHRP@300..700,0,0..100&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="stylesheet" href="./landing.css">
 </head>
@@ -18,26 +18,27 @@
     <div class="container site-nav__inner">
       <a href="#" class="site-nav__brand">
         <span class="site-nav__logo-mark" aria-hidden="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
         </span>
-        <span>SimplePass</span>
+        <span class="site-nav__brand-text">SimplePass</span>
         <span class="site-nav__badge">v0.6.0</span>
       </a>
 
       <nav aria-label="Основная навигация">
         <ul class="site-nav__menu">
-          <li><a href="#install" class="site-nav__link">Установка</a></li>
-          <li><a href="#security" class="site-nav__link">Архитектура</a></li>
           <li><a href="#features" class="site-nav__link">Возможности</a></li>
+          <li><a href="#install" class="site-nav__link">Установка</a></li>
+          <li><a href="#security" class="site-nav__link">Безопасность</a></li>
+          <li><a href="#specs" class="site-nav__link">Спецификации</a></li>
         </ul>
       </nav>
 
       <div class="site-nav__action">
-        <a href="./simplepass-chrome.zip" class="btn btn--sm" download="simplepass-chrome.zip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <a href="./simplepass-chrome.zip" class="btn btn--nav" download="simplepass-chrome.zip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -54,18 +55,18 @@
       <div class="container hero__grid">
         <div class="hero__lead-col">
           <h1 class="hero__title">Менеджер паролей без облака и слежки</h1>
-          <p class="hero__sentence">Храните учетные данные в локальном зашифрованном хранилище с мастер-ключом на вашем устройстве.</p>
+          <p class="hero__sentence">Храните учетные данные в локальном зашифрованном хранилище с мастер-ключом на вашем устройстве. Никаких внешних серверов, трекеров и подписок.</p>
 
           <div class="hero__actions">
-            <a href="./simplepass-chrome.zip" class="btn" download="simplepass-chrome.zip">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <a href="./simplepass-chrome.zip" class="btn btn--primary" download="simplepass-chrome.zip">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
               <span>Скачать SimplePass v0.6.0</span>
             </a>
-            <a href="#install" class="btn btn--line">Инструкция по установке</a>
+            <a href="#install" class="btn btn--outline">Инструкция по установке</a>
           </div>
 
           <div class="hero__file-info">
@@ -77,8 +78,8 @@
         <!-- Live Realistic Panel Preview -->
         <div class="vault-preview">
           <div class="vault-preview__topbar">
-            <span class="vault-preview__label">Боковая панель Chrome: режим хранилища</span>
-            <div style="width: 32px;"></div>
+            <span class="vault-preview__label">Боковая панель Chrome: хранилище</span>
+            <span class="vault-preview__status-dot" aria-hidden="true"></span>
           </div>
 
           <div class="vault-preview__panel">
@@ -153,29 +154,195 @@
       </div>
     </section>
 
+    <!-- Browser Compatibility Strip -->
+    <section class="trust-strip">
+      <div class="container trust-strip__inner">
+        <span class="trust-strip__item">Google Chrome</span>
+        <span class="trust-strip__item">Brave</span>
+        <span class="trust-strip__item">Microsoft Edge</span>
+        <span class="trust-strip__item">Vivaldi</span>
+        <span class="trust-strip__item">Arc</span>
+        <span class="trust-strip__item">Chromium 116+</span>
+      </div>
+    </section>
+
+    <!-- Features / Bento Grid Section -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section__head">
+          <h2 class="section__badge">Возможности</h2>
+          <p class="section__sub">Локальный зашифрованный сейф без внешних серверов, аналитики и передачи ключей третьим лицам.</p>
+        </div>
+
+        <div class="bento-grid">
+          <!-- Bento Card 1: Light with lime badge -->
+          <div class="bento-card bento-card--light">
+            <div class="bento-card__content">
+              <div class="bento-card__badge-wrap">
+                <h3 class="bento-card__badge">Локальное шифрование</h3>
+              </div>
+              <p class="bento-card__desc">Стойкое 256-битное шифрование и 600 000 раундов хеширования ключа. Мастер-ключ расшифровывает базу только в локальной памяти браузера.</p>
+              <a href="#security" class="bento-card__link">
+                <span class="bento-card__link-circle" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </span>
+                <span class="bento-card__link-text">Архитектура ключей</span>
+              </a>
+            </div>
+            <div class="bento-card__graphic" aria-hidden="true">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
+                <rect x="20" y="35" width="80" height="65" rx="16" stroke="var(--color-ink)" stroke-width="2" fill="var(--color-paper)"/>
+                <circle cx="60" cy="62" r="8" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="2"/>
+                <line x1="60" y1="70" x2="60" y2="82" stroke="var(--color-ink)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M38 35V25C38 14 48 6 60 6C72 6 82 14 82 25V35" stroke="var(--color-ink)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Bento Card 2: Dark card with white badge -->
+          <div class="bento-card bento-card--dark">
+            <div class="bento-card__content">
+              <div class="bento-card__badge-wrap">
+                <h3 class="bento-card__badge bento-card__badge--white">Аудит безопасности</h3>
+              </div>
+              <p class="bento-card__desc">Мгновенный аудит паролей прямо в интерфейсе: выявление повторяющихся, слабых и коротких комбинаций без обращения к внешним серверам.</p>
+              <a href="#install" class="bento-card__link bento-card__link--light">
+                <span class="bento-card__link-circle" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </span>
+                <span class="bento-card__link-text">Проверка базы</span>
+              </a>
+            </div>
+            <div class="bento-card__graphic" aria-hidden="true">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
+                <path d="M60 12L96 28V60C96 82 78 102 60 108C42 102 24 82 24 60V28L60 12Z" stroke="var(--color-paper)" stroke-width="2" fill="oklch(28% 0.015 260)"/>
+                <polyline points="45 58 55 68 75 48" stroke="var(--color-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Bento Card 3: Dark card with white badge -->
+          <div class="bento-card bento-card--dark">
+            <div class="bento-card__content">
+              <div class="bento-card__badge-wrap">
+                <h3 class="bento-card__badge bento-card__badge--white">Интеграция с UNIX pass</h3>
+              </div>
+              <p class="bento-card__desc">Прямая синхронизация со стандартной консольной утилитой pass и системным GPG через локальный мост нативного обмена сообщениями.</p>
+              <a href="#specs" class="bento-card__link bento-card__link--light">
+                <span class="bento-card__link-circle" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </span>
+                <span class="bento-card__link-text">Подробнее о мосте</span>
+              </a>
+            </div>
+            <div class="bento-card__graphic" aria-hidden="true">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
+                <rect x="20" y="24" width="80" height="72" rx="14" stroke="var(--color-paper)" stroke-width="2" fill="oklch(28% 0.015 260)"/>
+                <polyline points="36 50 48 60 36 70" stroke="var(--color-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="56" y1="70" x2="74" y2="70" stroke="var(--color-paper)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Bento Card 4: Light with lime badge -->
+          <div class="bento-card bento-card--light">
+            <div class="bento-card__content">
+              <div class="bento-card__badge-wrap">
+                <h3 class="bento-card__badge">Zero-cloud архитектура</h3>
+              </div>
+              <p class="bento-card__desc">Никаких запросов во внешнюю сеть и трекинга. Все зашифрованные записи хранятся исключительно в изолированном хранилище вашего браузера.</p>
+              <a href="#security" class="bento-card__link">
+                <span class="bento-card__link-circle" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </span>
+                <span class="bento-card__link-text">Политика изоляции</span>
+              </a>
+            </div>
+            <div class="bento-card__graphic" aria-hidden="true">
+              <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="bento-graphic-svg">
+                <circle cx="60" cy="60" r="38" stroke="var(--color-ink)" stroke-width="2" fill="var(--color-accent-soft)"/>
+                <path d="M42 60L54 72L78 46" stroke="var(--color-ink)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="86" cy="34" r="6" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <section class="section-cta">
+      <div class="container">
+        <div class="cta-banner">
+          <div class="cta-banner__content">
+            <h2 class="cta-banner__title">Начните безопасно управлять паролями</h2>
+            <p class="cta-banner__text">Скачайте архив SimplePass для Chrome и установите локальный менеджер за одну минуту без учетных записей и абонентской платы.</p>
+            <div class="cta-banner__action">
+              <a href="./simplepass-chrome.zip" class="btn btn--primary" download="simplepass-chrome.zip">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Скачать SimplePass v0.6.0</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="cta-banner__graphic" aria-hidden="true">
+            <svg width="160" height="160" viewBox="0 0 160 160" fill="none" class="cta-graphic-svg">
+              <circle cx="80" cy="80" r="44" fill="var(--color-paper-dark)"/>
+              <circle cx="68" cy="74" r="4" fill="var(--color-paper)"/>
+              <circle cx="92" cy="74" r="4" fill="var(--color-paper)"/>
+              <ellipse cx="80" cy="80" rx="68" ry="24" stroke="var(--color-ink)" stroke-width="2"/>
+              <polygon points="120,40 126,52 138,54 129,63 131,75 120,69 109,75 111,63 102,54 114,52" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="1.5"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Installation Steps Section -->
     <section class="section" id="install">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__title">Установка расширения за 60 секунд</h2>
-          <p class="section__sub">Расширение устанавливается в любой современный браузер на базе Chromium (Google Chrome, Brave, Edge, Vivaldi, Arc).</p>
+          <h2 class="section__badge">Установка</h2>
+          <p class="section__sub">Три простых шага для запуска расширения в браузере за 60 секунд.</p>
         </div>
 
         <div class="steps-grid">
           <div class="step-card">
-            <span class="step-card__index">Шаг 01</span>
+            <div class="step-card__top">
+              <span class="step-card__index">01</span>
+            </div>
             <h3 class="step-card__title">Скачайте и распакуйте ZIP-архив</h3>
             <p class="step-card__desc">Скачайте актуальный файл <span class="code-badge">simplepass-chrome.zip</span> по ссылке выше и распакуйте его содержимое в постоянную локальную папку на диске.</p>
           </div>
 
           <div class="step-card">
-            <span class="step-card__index">Шаг 02</span>
+            <div class="step-card__top">
+              <span class="step-card__index">02</span>
+            </div>
             <h3 class="step-card__title">Откройте меню расширений Chrome</h3>
             <p class="step-card__desc">Перейдите по адресу <span class="code-badge">chrome://extensions</span> в адресной строке и включите переключатель «Режим разработчика» в верхнем правом углу.</p>
           </div>
 
           <div class="step-card">
-            <span class="step-card__index">Шаг 03</span>
+            <div class="step-card__top">
+              <span class="step-card__index">03</span>
+            </div>
             <h3 class="step-card__title">Загрузите распакованное расширение</h3>
             <p class="step-card__desc">Нажмите кнопку «Загрузить распакованное расширение» и выберите распакованную папку. SimplePass мгновенно появится в панели браузера.</p>
           </div>
@@ -187,59 +354,59 @@
     <section class="section" id="security">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__title">Криптографическая архитектура</h2>
-          <p class="section__sub">Никаких компромиссов в безопасности. Полная изоляция от внешних серверов и zero-cloud модель хранения данных.</p>
+          <h2 class="section__badge">Безопасность</h2>
+          <p class="section__sub">Криптографическая архитектура без компромиссов. Полная изоляция от внешних серверов.</p>
         </div>
 
         <div class="security-grid">
           <div class="sec-card">
             <div class="sec-card__meta">
               <span class="sec-card__icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                 </svg>
               </span>
             </div>
             <h3 class="sec-card__title">AES-256-GCM и PBKDF2 (600 000 раундов)</h3>
-            <p class="sec-card__desc">Мастер-ключ шифрования надежно защищен многократным хешированием с солью и аутентифицированным шифрованием. Дополнительная защита слотов от подмены данных.</p>
+            <p class="sec-card__desc">Мастер-ключ шифрования защищен многократным хешированием с солью и аутентифицированным шифрованием. Дополнительная защита слотов от подмены данных.</p>
           </div>
 
           <div class="sec-card">
             <div class="sec-card__meta">
               <span class="sec-card__icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
                 </svg>
               </span>
             </div>
-            <h3 class="sec-card__title">Нулевая утечка и полная автономность</h3>
+            <h3 class="sec-card__title">Нулевая утечка и автономность</h3>
             <p class="sec-card__desc">Расширение не отправляет сетевых запросов на внешние серверы. Все зашифрованные данные остаются исключительно на вашем компьютере.</p>
           </div>
 
           <div class="sec-card">
             <div class="sec-card__meta">
               <span class="sec-card__icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="4 17 10 11 4 5"></polyline>
                   <line x1="12" y1="19" x2="20" y2="19"></line>
                 </svg>
               </span>
             </div>
             <h3 class="sec-card__title">Интеграция со стандартным UNIX pass</h3>
-            <p class="sec-card__desc">Двусторонняя синхронизация со стандартной утилитой pass и локальным хранилищем через нативный мост взаимодействия в системе.</p>
+            <p class="sec-card__desc">Двусторонняя синхронизация со стандартной утилитой pass и локальным хранилищем через нативный мост взаимодействия в операционной системе.</p>
           </div>
 
           <div class="sec-card">
             <div class="sec-card__meta">
               <span class="sec-card__icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                   <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
               </span>
             </div>
-            <h3 class="sec-card__title">Локальный аудит безопасности паролей</h3>
+            <h3 class="sec-card__title">Локальный аудит надежности паролей</h3>
             <p class="sec-card__desc">Мгновенное выявление повторяющихся и слабых паролей прямо в браузере без обращения к внешним базам данных утечек.</p>
           </div>
         </div>
@@ -247,10 +414,10 @@
     </section>
 
     <!-- Specifications Table Section -->
-    <section class="section" id="features">
+    <section class="section" id="specs">
       <div class="container">
         <div class="section__head">
-          <h2 class="section__title">Технические спецификации</h2>
+          <h2 class="section__badge">Спецификации</h2>
           <p class="section__sub">Характеристики сборки и поддерживаемые стандарты безопасности.</p>
         </div>
 
@@ -282,7 +449,7 @@
               <tr>
                 <td class="spec-value">Буфер обмена</td>
                 <td>Автоочистка через chrome.alarms</td>
-                <td>Надежная очистка через offscreen-контекст</td>
+                <td>Очистка через offscreen-контекст</td>
               </tr>
               <tr>
                 <td class="spec-value">Совместимость импорта</td>
@@ -329,8 +496,19 @@
       </div>
 
       <div class="site-footer__bottom">
-        <span>SimplePass Manager v0.6.0 (открытый исходный код)</span>
-        <span>Локальное шифрование на стороне клиента</span>
+        <div class="site-footer__copy">
+          <span>SimplePass Manager v0.6.0 (открытый исходный код)</span>
+        </div>
+
+        <!-- Author Concept & Development Button (batalshikov.com) -->
+        <a href="https://batalshikov.com" target="_blank" rel="noopener noreferrer" class="footer-author-pill">
+          <span class="footer-author-pill__label">РАЗРАБОТКА И КОНЦЕПТ</span>
+          <span class="footer-author-pill__name">batalshikov.com</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="footer-author-pill__arrow">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
       </div>
     </div>
   </footer>
