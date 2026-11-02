@@ -31,9 +31,9 @@
       </a>
 
       <nav class="nav-menu" aria-label="Основное меню">
-        <a href="#architecture" class="nav-link">Архитектура</a>
         <a href="#features" class="nav-link">Возможности</a>
         <a href="#tech" class="nav-link">О технологии</a>
+        <a href="#install" class="nav-link">Установка</a>
         <a href="#metrics" class="nav-link">Метрики</a>
         <a href="https://github.com/DamianDream/SimplePassManager" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub ↗</a>
       </nav>
@@ -313,19 +313,70 @@
           </p>
 
           <div class="showcase-black__actions">
-            <button type="button" class="btn-lime-solid" id="techDownloadBtn">
-              Установить расширение
+            <a href="#install" class="btn-lime-solid">
+              Инструкция по установке
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8H13M13 8L8.5 3.5M13 8L8.5 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-            </button>
+            </a>
           </div>
         </div>
 
       </div>
     </section>
 
-    <!-- ─── 05. METRICS FULL-WIDTH LIME BANNER ────── -->
+    <!-- ─── 05. INSTALLATION PROTOCOL (3 BENTO STEPS) ─── -->
+    <section class="install-bento" id="install">
+      <div class="install-bento__inner">
+        <div class="install-bento__head">
+          <h2 class="install-bento__title">Протокол установки</h2>
+          <p class="install-bento__lead">Развёртывание расширения в любом Chromium-браузере за 60 секунд.</p>
+        </div>
+
+        <div class="install-bento__grid">
+          <!-- Step 1 -->
+          <div class="install-card">
+            <div class="install-card__head">
+              <span class="install-card__step">Шаг 01</span>
+              <span class="install-card__num">01</span>
+            </div>
+            <h3 class="install-card__title">Скачайте и распакуйте архив</h3>
+            <p class="install-card__desc">
+              Загрузите актуальный архив расширения и извлеките папку с файлами в постоянный каталог на вашем диске.
+            </p>
+            <a href="./simplepass-chrome.zip" download class="btn-install-download">
+              Скачать ZIP (188 КБ)
+            </a>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="install-card">
+            <div class="install-card__head">
+              <span class="install-card__step">Шаг 02</span>
+              <span class="install-card__num">02</span>
+            </div>
+            <h3 class="install-card__title">Откройте меню расширений</h3>
+            <p class="install-card__desc">
+              Перейдите по адресу <code>chrome://extensions</code> и активируйте переключатель «Режим разработчика» в верхнем правом углу.
+            </p>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="install-card">
+            <div class="install-card__head">
+              <span class="install-card__step">Шаг 03</span>
+              <span class="install-card__num">03</span>
+            </div>
+            <h3 class="install-card__title">Загрузите папку</h3>
+            <p class="install-card__desc">
+              Нажмите кнопку «Загрузить распакованное расширение» и выберите извлеченную папку. SimplePass готов к работе.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── 06. METRICS FULL-WIDTH LIME BANNER ────── -->
     <section class="metrics-banner" id="metrics">
       <div class="metrics-banner__inner">
         
@@ -418,6 +469,7 @@
       <nav class="footer-links" aria-label="Ссылки подвала">
         <a href="#features" class="footer-link">Возможности</a>
         <a href="#tech" class="footer-link">Архитектура</a>
+        <a href="#install" class="footer-link">Установка</a>
         <a href="#metrics" class="footer-link">Стандарты</a>
         <a href="https://github.com/DamianDream/SimplePassManager" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub ↗</a>
       </nav>

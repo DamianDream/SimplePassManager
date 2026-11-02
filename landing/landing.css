@@ -736,7 +736,141 @@ button:disabled, a[aria-disabled="true"] {
   outline: var(--rule-hair) solid var(--color-focus);
 }
 
-/* ─── 05. METRICS FULL-WIDTH LIME BANNER ───────── */
+/* ─── 05. INSTALLATION PROTOCOL ────────────────── */
+.install-bento {
+  max-width: var(--container);
+  margin: var(--space-3xs) auto 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.install-bento__inner {
+  background-color: var(--color-paper-card);
+  color: var(--color-ink);
+  border: var(--rule-hair) solid var(--color-rule);
+  padding: var(--space-xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.install-bento__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.install-bento__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.install-bento__lead {
+  font-size: var(--text-md);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.install-bento__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+
+@media (min-width: 860px) {
+  .install-bento__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.install-card {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  border: var(--rule-hair) solid var(--color-rule-2);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+
+.install-card:hover {
+  background-color: var(--color-paper-2);
+}
+
+.install-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.install-card__step {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.install-card__num {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.install-card__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.install-card__desc {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.install-card__desc code {
+  font-family: var(--font-mono);
+  background-color: var(--color-paper-2);
+  color: var(--color-accent);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: var(--rule-hair) solid var(--color-rule);
+}
+
+.btn-install-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  text-decoration: none;
+  width: fit-content;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+
+.btn-install-download:hover,
+.btn-install-download:focus-visible {
+  background-color: var(--color-accent-hi);
+  outline: var(--rule-hair) solid var(--color-focus);
+}
+
+/* ─── 06. METRICS FULL-WIDTH LIME BANNER ───────── */
 .metrics-banner {
   max-width: var(--container);
   margin: var(--space-3xs) auto 0 auto;
