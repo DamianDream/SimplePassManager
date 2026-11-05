@@ -1,5 +1,5 @@
 /* Hallmark · macrostructure: Bento · genre: atmospheric · theme: Cyberpunk · posture: Drenched · tone: bold · surface: dark · nav: N1 · footer: Ft1 · hero: Split */
-/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · weakest: S, bento color blocking directly matches HiCloud reference */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 · weakest: S, bento color blocking directly matches HiCloud reference in #BDFB00 */
 /* Hallmark · waive 23 · posture: Drenched declared · electric lime bento color blocks match reference posture */
 /* Hallmark · answered F4 · primary actions use lime and black fills, secondary controls use outlines */
 /* Hallmark · answered F6 · tabular numerals enabled on numeric metrics */
@@ -13,6 +13,9 @@ body.cyber-refactor {
   margin: 0;
   padding: 0;
   background-color: var(--color-paper);
+  background-image: radial-gradient(circle, var(--color-rule) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -21,7 +24,7 @@ body.cyber-refactor {
 
 /* ─── INTERACTION & ACCESSIBILITY STATES ──────── */
 button:active, a:active {
-  transform: translateY(1px);
+  transform: scale(0.98);
 }
 
 button:disabled, a[aria-disabled="true"] {
@@ -497,11 +500,13 @@ button:disabled, a[aria-disabled="true"] {
   flex-direction: column;
   justify-content: space-between;
   gap: var(--space-md);
-  transition: background-color var(--dur-short) var(--ease-out);
+  transition: transform var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
 }
 
 .feat-card:hover {
   background-color: var(--color-paper-card-hover);
+  border-color: var(--color-accent-border);
+  transform: translateY(-2px);
 }
 
 .feat-card__top {
@@ -796,11 +801,13 @@ button:disabled, a[aria-disabled="true"] {
   flex-direction: column;
   justify-content: space-between;
   gap: var(--space-sm);
-  transition: background-color var(--dur-short) var(--ease-out);
+  transition: transform var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
 }
 
 .install-card:hover {
   background-color: var(--color-paper-2);
+  border-color: var(--color-accent-border);
+  transform: translateY(-2px);
 }
 
 .install-card__head {
